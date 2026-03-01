@@ -30,7 +30,7 @@ jobs:
         run: npm test
 
       - name: Build macOS Artifacts
-        run: npm run package:mac
+        run: npm run package:mac -- --publish never
 
       - name: Upload macOS Artifacts
         uses: actions/upload-artifact@v4

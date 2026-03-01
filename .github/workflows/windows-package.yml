@@ -30,7 +30,7 @@ jobs:
         run: npm test
 
       - name: Build Windows Artifacts
-        run: npm run package:win
+        run: npm run package:win -- --publish never
 
       - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4
