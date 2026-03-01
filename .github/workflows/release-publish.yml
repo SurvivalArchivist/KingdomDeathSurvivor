@@ -113,6 +113,9 @@ jobs:
     needs: [build-macos, build-windows]
 
     steps:
+      - name: Checkout Release Notes
+        uses: actions/checkout@v4
+
       - name: Download macOS artifacts
         uses: actions/download-artifact@v4
         with:
@@ -124,9 +127,6 @@ jobs:
         with:
           name: windows-release
           path: release-artifacts/windows
-
-      - name: Checkout Release Notes
-        uses: actions/checkout@v4
 
       - name: Resolve release tag
         id: tag
