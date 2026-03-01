@@ -1,6 +1,7 @@
 # Model Handoff Log
 
 ## Current State Snapshot
+- Repository now includes `package.json` and `package-lock.json`, allowing GitHub Actions `setup-node` npm cache and `npm ci`-based package workflows to resolve dependencies correctly.
 - Project/package version is now `1.1.0`, and macOS release artifacts for this version were generated locally in `release/` (`dmg` + `zip`, arm64).
 - Header navigation now includes a persistent light/dark theme toggle (right-aligned) that stores preference in `localStorage` and applies app-wide complementary light-theme overrides while preserving the dark-fantasy dark mode as default.
 - Light-theme contrast polish now hardens readability for nav active/hover states, status pills, showdown stepper controls, and philosophy/paragraph fields that previously retained dark-surfaces with dark text.
@@ -40,6 +41,7 @@
 - Survivor saves now use optimistic concurrency (`revision`, `updatedAt`) and atomic file writes.
 
 ## Recent Changes
+- 2026-02-28: Restored missing npm manifests (`package.json`, `package-lock.json`) so CI packaging workflows can install dependencies (`setup-node` cache + `npm ci`) without lockfile errors; files: `package.json`, `package-lock.json`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Released `v1.1.0` metadata and produced macOS artifacts (`KDM Survivors Console-1.1.0-mac-arm64.dmg`, `KDM Survivors Console-1.1.0-mac-arm64.zip`) via `electron-builder`; files: `package.json`, `package-lock.json`, `release/*`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`, `npm run package:mac`.
 - 2026-02-28: Adjusted settlement sort click behavior so selecting a different sort column now starts in descending order (instead of ascending), matching the default-desc expectation; files: `src/renderer.js`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Refined Create Survivor knowledge row UX by grouping `Save Template` and `Remove` together in a dedicated actions strip, and adding visually distinctive card/separator styling for each knowledge entry (with light-theme parity overrides); files: `src/renderer.js`, `ui/components/styles.css`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
