@@ -2,12 +2,6 @@ name: Windows Package
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
   package-windows:
