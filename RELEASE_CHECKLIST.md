@@ -24,12 +24,18 @@ Use this checklist for every release (for example `1.1.0`, `1.2.0`).
 - Confirm CI is green
 - Merge PR
 
-## 6) Build artifacts in GitHub Actions
-- Run workflow: `macOS Package`
-- Run workflow: `Windows Package`
-- Download artifacts from each run
+## 6) Trigger fully automated public release
+- Create and push a release tag:
+- `git checkout main`
+- `git pull`
+- `git tag v<version>` (example: `git tag v1.2.0`)
+- `git push origin v<version>`
+- Workflow `Release Publish` will automatically:
+- Build macOS + Windows artifacts
+- Create/update a GitHub Release for that tag
+- Attach artifacts to the Release page
 
 ## 7) Artifact sanity check
 - Mac: verify `.dmg` and `.zip` exist
-- Windows: verify installer/portable outputs exist
+- Windows: verify `.exe` outputs exist
 - Launch each build once to confirm app starts

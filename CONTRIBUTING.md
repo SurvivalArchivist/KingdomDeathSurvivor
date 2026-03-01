@@ -29,4 +29,6 @@
 ## Build Artifacts
 - macOS local: `npm run package:mac`
 - Windows local (on Windows): `npm run package:win`
-- Cross-platform preferred: GitHub Actions workflows (`macOS Package`, `Windows Package`).
+- Cross-platform preferred:
+- Build-only workflows: `macOS Package`, `Windows Package`
+- Fully automated public release: push a tag `v<version>` to trigger `Release Publish`.

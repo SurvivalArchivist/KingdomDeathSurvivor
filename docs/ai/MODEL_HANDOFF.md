@@ -1,6 +1,7 @@
 # Model Handoff Log
 
 ## Current State Snapshot
+- Fully automated public release publishing is now configured: pushing a `v*` git tag triggers cross-platform build (macOS + Windows) and automatic GitHub Release creation with artifacts attached.
 - Repository process guardrails are now in place for safer day-to-day development: `npm run verify`, `npm run preflight`, commit/release checklists, PR template, and a dedicated CI validation workflow for `main`/PRs.
 - Repository now includes `package.json` and `package-lock.json`, allowing GitHub Actions `setup-node` npm cache and `npm ci`-based package workflows to resolve dependencies correctly.
 - CI packaging workflows now disable auto-publish (`--publish never`) for macOS/Windows artifact jobs, avoiding `GH_TOKEN` failures when only build artifacts are needed.
@@ -43,6 +44,7 @@
 - Survivor saves now use optimistic concurrency (`revision`, `updatedAt`) and atomic file writes.
 
 ## Recent Changes
+- 2026-02-28: Added fully automated tag-based publishing workflow (`.github/workflows/release-publish.yml`): on `v*` tags it builds macOS + Windows artifacts, then creates/updates the GitHub Release and uploads artifacts automatically via `softprops/action-gh-release`; updated release/contributor docs with tag push flow; files: `.github/workflows/release-publish.yml`, `RELEASE_CHECKLIST.md`, `CONTRIBUTING.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Added repo-level safe workflow tooling and docs: new `verify`/`preflight` scripts (`scripts/verify.sh`, `scripts/preflight.sh`) wired in `package.json`, plus `CONTRIBUTING.md`, `RELEASE_CHECKLIST.md`, `.github/PULL_REQUEST_TEMPLATE.md`, and `.github/workflows/validate.yml` so code/test gates and commit hygiene are consistently enforced; files: `package.json`, `scripts/verify.sh`, `scripts/preflight.sh`, `CONTRIBUTING.md`, `RELEASE_CHECKLIST.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/workflows/validate.yml`; verification: `npm run verify`.
 - 2026-02-28: Fixed GitHub Actions packaging failure caused by electron-builder auto-publish in CI by appending `--publish never` to macOS/Windows package commands in workflows (no PAT required for artifact-only builds); files: `.github/workflows/macos-package.yml`, `.github/workflows/windows-package.yml`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Restored missing npm manifests (`package.json`, `package-lock.json`) so CI packaging workflows can install dependencies (`setup-node` cache + `npm ci`) without lockfile errors; files: `package.json`, `package-lock.json`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
