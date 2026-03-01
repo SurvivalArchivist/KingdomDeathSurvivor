@@ -5,6 +5,8 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
+    "verify": "bash scripts/verify.sh",
+    "preflight": "bash scripts/preflight.sh",
     "package": "electron-builder",
     "package:mac": "electron-builder --mac dmg zip",
     "package:win": "electron-builder --win nsis portable",
