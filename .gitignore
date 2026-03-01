@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+release/
+dist/
+
+# Local/user scratch
+user/

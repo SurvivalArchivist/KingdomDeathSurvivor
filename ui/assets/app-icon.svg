@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Lantern icon">
+  <rect width="256" height="256" rx="28" fill="#000000"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M128 42v24" stroke-width="12"/>
+    <path d="M90 78h76" stroke-width="10"/>
+    <path d="M98 88h60l16 28v52l-18 30h-56l-18-30v-52z" stroke-width="10"/>
+    <path d="M108 118h40v48h-40z" stroke-width="9"/>
+    <path d="M108 118l20-20 20 20" stroke-width="8"/>
+    <path d="M96 206h64" stroke-width="10"/>
+  </g>
+</svg>

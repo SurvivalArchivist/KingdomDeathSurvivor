@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KDM Survivors</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="bg-orb bg-orb-one"></div>
+  <div class="bg-orb bg-orb-two"></div>
+  <main class="app-shell">
+    <header class="hero">
+      <p class="eyebrow">Kingdom Death Companion</p>
+      <h1>KDM Survivors Console</h1>
+      <p class="subtitle">Manage survivors with schema-validated JSON records.</p>
+      <nav class="top-nav" aria-label="Primary">
+        <button id="navDataSources" type="button" class="btn btn-ghost">Settings</button>
+        <button id="navCreate" type="button" class="btn btn-ghost">Create Survivor</button>
+        <button id="navShowdown" type="button" class="btn btn-ghost">Showdown View</button>
+        <button id="navSettlement" type="button" class="btn btn-ghost">Settlement View</button>
+        <button id="navBulkUpdates" type="button" class="btn btn-ghost">Bulk Updates</button>
+        <button id="navTechnical" type="button" class="btn btn-ghost">Technical View</button>
+        <button id="themeToggle" type="button" class="btn btn-ghost nav-theme-toggle" aria-pressed="false">Light Mode</button>
+      </nav>
+      <p id="globalDepartedIndicator" class="global-departed-indicator hidden">Showdown In Progress: DEPARTED</p>
+    </header>
+
+    <section id="dataSourcesView" class="data-sources-view panel">
+      <div class="panel-header">
+        <h2>Settings</h2>
+      </div>
+      <p class="muted">Select folders for each category. The app will never create folders automatically.</p>
+      <div class="settings-row">
+        <label class="ve-check">
+          Fast Mode
+          <input id="settingsFastMode" type="checkbox" />
+        </label>
+        <label>
+          Auto Refresh
+          <input id="settlementAutoRefreshEnabled" type="checkbox" checked />
+        </label>
+        <label>
+          Refresh Interval
+          <select id="settlementAutoRefreshInterval">
+            <option value="5">5s</option>
+            <option value="10">10s</option>
+            <option value="20" selected>20s</option>
+            <option value="30">30s</option>
+          </select>
+        </label>
+        <p class="muted">When enabled, settlement refresh interval is capped to a faster cadence.</p>
+      </div>
+      <div class="data-sources-grid">
+        <div class="data-source-row">
+          <span>Survivors</span>
+          <button id="selectSourceSurvivors" class="btn btn-primary" type="button">Select Folder</button>
+          <p id="sourcePathSurvivors" class="folder-path">Not set</p>
+        </div>
+        <div class="data-source-row">
+          <span>Fighting Arts</span>
+          <button id="selectSourceFightingArts" class="btn btn-secondary" type="button">Select Folder</button>
+          <p id="sourcePathFightingArts" class="folder-path">Not set</p>
+        </div>
+        <div class="data-source-row">
+          <span>Secret Fighting Arts</span>
+          <button id="selectSourceSecretFightingArts" class="btn btn-secondary" type="button">Select Folder</button>
+          <p id="sourcePathSecretFightingArts" class="folder-path">Not set</p>
+        </div>
+        <div class="data-source-row">
+          <span>Knowledges</span>
+          <button id="selectSourceKnowledges" class="btn btn-secondary" type="button">Select Folder</button>
+          <p id="sourcePathKnowledges" class="folder-path">Not set</p>
+        </div>
+        <div class="data-source-row">
+          <span>Tenet Knowledges</span>
+          <button id="selectSourceTenetKnowledges" class="btn btn-secondary" type="button">Select Folder</button>
+          <p id="sourcePathTenetKnowledges" class="folder-path">Not set</p>
+        </div>
+        <div class="data-source-row">
+          <span>Neuroses</span>
+          <button id="selectSourceNeuroses" class="btn btn-secondary" type="button">Select Folder</button>
+          <p id="sourcePathNeuroses" class="folder-path">Not set</p>
+        </div>
+        <div class="data-source-row">
+          <span>Disorders</span>
+          <button id="selectSourceDisorders" class="btn btn-secondary" type="button">Select Folder</button>
+          <p id="sourcePathDisorders" class="folder-path">Not set</p>
+        </div>
+      </div>
+      <p id="status" class="status-chip" role="status" aria-live="polite">Select a survivors folder to begin</p>
+    </section>
+
+    <section class="workspace">
+      <article class="panel panel-list">
+        <div class="panel-header">
+          <h2>People</h2>
+          <button id="refreshPeople" class="btn btn-ghost">Refresh</button>
+        </div>
+        <p id="peopleCount" class="muted">0 people loaded</p>
+        <select id="peopleList" size="12" aria-label="People list"></select>
+        <div class="button-row">
+          <button id="loadPerson" class="btn btn-secondary">Load Selected</button>
+          <button id="deletePerson" class="btn btn-danger">Delete Selected</button>
+        </div>
+        <section class="showdown-picker">
+          <div class="panel-header panel-header-tight">
+            <h3>Showdown Setup</h3>
+          </div>
+          <label for="showdownSelectA">Survivor A</label>
+          <select id="showdownSelectA" aria-label="Showdown Survivor A"></select>
+          <label for="showdownSelectB">Survivor B</label>
+          <select id="showdownSelectB" aria-label="Showdown Survivor B"></select>
+          <button id="openShowdown" class="btn btn-primary">Open Showdown View</button>
+          <p id="showdownHint" class="muted">Pick two different saved survivors.</p>
+        </section>
+
+        <section class="markdown-library">
+          <div class="panel-header panel-header-tight">
+            <h3>Markdown Library</h3>
+            <button id="refreshMarkdown" class="btn btn-ghost">Reload Library</button>
+          </div>
+          <label for="markdownCollection">Collection</label>
+          <select id="markdownCollection" aria-label="Markdown collection"></select>
+          <label for="markdownSearch">Search</label>
+          <input id="markdownSearch" type="search" placeholder="Filter markdown files..." />
+          <div id="markdownList" class="markdown-list" aria-live="polite"></div>
+        </section>
+      </article>
+
+      <article class="panel panel-editor">
+        <div class="panel-header">
+          <h2>Person JSON</h2>
+          <button id="savePerson" class="btn btn-primary">Validate + Save Person</button>
+        </div>
+        <div class="template-row">
+          <label for="newPersonName">Survivor Name</label>
+          <input id="newPersonName" type="text" value="New Survivor" />
+          <button id="newPersonTemplate" class="btn btn-secondary">Create Survivor</button>
+        </div>
+
+        <section id="visualEditor" class="visual-editor">
+          <div class="panel-header panel-header-tight">
+            <h3>Visual Editor</h3>
+            <button id="loadJsonToVisual" class="btn btn-ghost">Load JSON -> Visual</button>
+          </div>
+
+          <div class="ve-grid">
+            <label>Name <input id="veName" type="text" /></label>
+            <label>Gender
+              <select id="veGender">
+                <option value="M">M</option>
+                <option value="F">F</option>
+              </select>
+            </label>
+            <label>Ponder <span id="vePonderIndicator" class="status-pill status-pill-neutral">Not Ready</span></label>
+            <label class="ve-check">Alive <input id="veIsAlive" type="checkbox" /></label>
+            <label class="ve-check">Lifetime Reroll <input id="veLifetimeReroll" type="checkbox" /></label>
+            <label>Courage Ability
+              <select id="veMatchmaker">
+                <option value="none">None</option>
+                <option value="stalwart">Stalwart</option>
+                <option value="prepared">Prepared</option>
+                <option value="matchmaker">Matchmaker</option>
+              </select>
+            </label>
+            <label>Understanding Ability
+              <select id="veTinker">
+                <option value="none">None</option>
+                <option value="analyze">Analyze</option>
+                <option value="explore">Explorer</option>
+                <option value="tinker">Tinker</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="structured-groups">
+            <section class="structured-group">
+              <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-vitals"></use></svg>Age / Survival / Insanity</span></h4>
+              <div class="structured-grid structured-grid-vitals">
+                <div class="stepper"><span>Age</span><button type="button" data-step-target="veAge" data-step-delta="-1">-</button><input id="veAge" type="number" /><button type="button" data-step-target="veAge" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Lumi</span><button type="button" data-step-target="veLumi" data-step-delta="-1">-</button><input id="veLumi" type="number" /><button type="button" data-step-target="veLumi" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Survival</span><button type="button" data-step-target="veSurvivalPts" data-step-delta="-1">-</button><input id="veSurvivalPts" type="number" /><button type="button" data-step-target="veSurvivalPts" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Insanity</span><button type="button" data-step-target="veInsanityPts" data-step-delta="-1">-</button><input id="veInsanityPts" type="number" /><button type="button" data-step-target="veInsanityPts" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>S. Pressure</span><button type="button" data-step-target="veSystemicPressurePts" data-step-delta="-1">-</button><input id="veSystemicPressurePts" type="number" /><button type="button" data-step-target="veSystemicPressurePts" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Torment</span><button type="button" data-step-target="veTormentPts" data-step-delta="-1">-</button><input id="veTormentPts" type="number" /><button type="button" data-step-target="veTormentPts" data-step-delta="1">+</button></div>
+              </div>
+            </section>
+            <section class="structured-group">
+              <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-mind"></use></svg>Philosophy</span></h4>
+              <div class="structured-grid structured-grid-philosophy">
+                <label>Core Philosophy <input id="vePhilosophy" type="text" placeholder="Philosophy name" /></label>
+                <label>Neurosis <textarea id="vePhilosophyNeurosis" rows="2" placeholder="Philosophy neurosis"></textarea></label>
+                <div class="stepper"><span>Philosophy Rank</span><button type="button" data-step-target="vePhilosophyRank" data-step-delta="-1">-</button><input id="vePhilosophyRank" type="number" /><button type="button" data-step-target="vePhilosophyRank" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Next Ponder Age</span><button type="button" data-step-target="veNextPhilosophyAgeThreshold" data-step-delta="-1">-</button><input id="veNextPhilosophyAgeThreshold" type="number" min="0" max="16" step="1" /><button type="button" data-step-target="veNextPhilosophyAgeThreshold" data-step-delta="1">+</button></div>
+              </div>
+            </section>
+            <section class="structured-group">
+              <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-mind"></use></svg>Courage / Understanding</span></h4>
+              <div class="structured-grid structured-grid-mind">
+                <div class="stepper"><span>Courage</span><button type="button" data-step-target="veCourage" data-step-delta="-1">-</button><input id="veCourage" type="number" /><button type="button" data-step-target="veCourage" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Understanding</span><button type="button" data-step-target="veUnderstanding" data-step-delta="-1">-</button><input id="veUnderstanding" type="number" /><button type="button" data-step-target="veUnderstanding" data-step-delta="1">+</button></div>
+              </div>
+            </section>
+            <section class="structured-group">
+              <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-stats"></use></svg>Stats</span></h4>
+              <div class="structured-grid structured-grid-combat">
+                <div class="stepper"><span>Movement</span><button type="button" data-step-target="veMovement" data-step-delta="-1">-</button><input id="veMovement" type="number" /><button type="button" data-step-target="veMovement" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Speed</span><button type="button" data-step-target="veSpeed" data-step-delta="-1">-</button><input id="veSpeed" type="number" /><button type="button" data-step-target="veSpeed" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Accuracy</span><button type="button" data-step-target="veAccuracy" data-step-delta="-1">-</button><input id="veAccuracy" type="number" /><button type="button" data-step-target="veAccuracy" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Strength</span><button type="button" data-step-target="veStrength" data-step-delta="-1">-</button><input id="veStrength" type="number" /><button type="button" data-step-target="veStrength" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Luck</span><button type="button" data-step-target="veLuck" data-step-delta="-1">-</button><input id="veLuck" type="number" /><button type="button" data-step-target="veLuck" data-step-delta="1">+</button></div>
+                <div class="stepper"><span>Evasion</span><button type="button" data-step-target="veEvasion" data-step-delta="-1">-</button><input id="veEvasion" type="number" /><button type="button" data-step-target="veEvasion" data-step-delta="1">+</button></div>
+              </div>
+            </section>
+            <section class="structured-group">
+              <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-stats"></use></svg>Weapon Proficiency</span></h4>
+              <div class="structured-grid structured-grid-mind">
+                <label>Type <input id="veWeaponProficiencyType" type="text" placeholder="e.g. Sword" /></label>
+                <div class="stepper"><span>Level</span><button type="button" data-step-target="veWeaponProficiencyLevel" data-step-delta="-1">-</button><input id="veWeaponProficiencyLevel" type="number" /><button type="button" data-step-target="veWeaponProficiencyLevel" data-step-delta="1">+</button></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="ve-list">
+            <div class="panel-header panel-header-tight">
+              <h4>Age</h4>
+            </div>
+            <div class="age-track">
+              <button id="veAgeMinus" type="button" class="btn btn-secondary">-</button>
+              <div id="veAgeBoxes" class="age-boxes" aria-label="Age boxes"></div>
+              <button id="veAgePlus" type="button" class="btn btn-secondary">+</button>
+              <span id="veAgeValue" class="age-value">0</span>
+            </div>
+            <input id="veAgeMirror" type="number" class="sr-only-input" />
+          </div>
+
+          <div class="ve-list">
+            <div class="panel-header panel-header-tight">
+              <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-shield"></use></svg>Armor Tracker (Visual Only)</span></h4>
+            </div>
+            <div class="ve-grid ve-numbers">
+              <div class="stepper"><span class="icon-label"><svg aria-hidden="true"><use href="#icon-head"></use></svg>Head</span><button type="button" data-armor-target="armorHead" data-armor-delta="-1">-</button><input id="armorHead" type="number" value="0" /><button type="button" data-armor-target="armorHead" data-armor-delta="1">+</button></div>
+              <div class="stepper"><span class="icon-label"><svg aria-hidden="true"><use href="#icon-body"></use></svg>Body</span><button type="button" data-armor-target="armorBody" data-armor-delta="-1">-</button><input id="armorBody" type="number" value="0" /><button type="button" data-armor-target="armorBody" data-armor-delta="1">+</button></div>
+              <div class="stepper"><span class="icon-label"><svg aria-hidden="true"><use href="#icon-arms"></use></svg>Arms</span><button type="button" data-armor-target="armorArms" data-armor-delta="-1">-</button><input id="armorArms" type="number" value="0" /><button type="button" data-armor-target="armorArms" data-armor-delta="1">+</button></div>
+              <div class="stepper"><span class="icon-label"><svg aria-hidden="true"><use href="#icon-waist"></use></svg>Waist</span><button type="button" data-armor-target="armorWaist" data-armor-delta="-1">-</button><input id="armorWaist" type="number" value="0" /><button type="button" data-armor-target="armorWaist" data-armor-delta="1">+</button></div>
+              <div class="stepper"><span class="icon-label"><svg aria-hidden="true"><use href="#icon-legs"></use></svg>Legs</span><button type="button" data-armor-target="armorLegs" data-armor-delta="-1">-</button><input id="armorLegs" type="number" value="0" /><button type="button" data-armor-target="armorLegs" data-armor-delta="1">+</button></div>
+            </div>
+          </div>
+
+          <div class="ve-list">
+            <div class="panel-header panel-header-tight">
+              <h4>Fighting Arts</h4>
+              <button id="addFightingArt" class="btn btn-secondary" type="button">+ Add</button>
+            </div>
+            <div id="veFightingArts"></div>
+          </div>
+
+          <div class="ve-list">
+            <div class="panel-header panel-header-tight">
+              <h4>Secret Fighting Arts</h4>
+              <button id="addSecretFightingArt" class="btn btn-secondary" type="button">+ Add</button>
+            </div>
+            <div id="veSecretFightingArts"></div>
+          </div>
+
+          <div class="ve-list">
+            <div class="panel-header panel-header-tight">
+              <h4>Disorders</h4>
+              <button id="addDisorder" class="btn btn-secondary" type="button">+ Add</button>
+            </div>
+            <div id="veDisorders"></div>
+          </div>
+
+          <div class="ve-list">
+            <div class="panel-header panel-header-tight">
+              <h4>Tenet Knowledge</h4>
+              <button id="addTenetKnowledge" class="btn btn-secondary" type="button">+ Add</button>
+            </div>
+            <div id="veTenetKnowledge"></div>
+          </div>
+
+          <div class="ve-list">
+            <div class="panel-header panel-header-tight">
+              <h4>Knowledge</h4>
+              <button id="addKnowledge" class="btn btn-secondary" type="button">+ Add</button>
+            </div>
+            <div id="veKnowledge"></div>
+          </div>
+        </section>
+
+        <textarea id="personJson" spellcheck="false" aria-label="Person JSON editor"></textarea>
+
+        <section class="validation-panel" aria-live="polite">
+          <h3>Validation Errors</h3>
+          <ul id="validationErrors"></ul>
+        </section>
+      </article>
+    </section>
+
+    <section id="showdownView" class="showdown-view hidden">
+      <div class="showdown-session-bar panel">
+        <p id="showdownSessionState" class="muted">Session not departed</p>
+        <div class="button-row">
+          <button id="refreshShowdownSurvivors" type="button" class="btn btn-secondary">Refresh Survivors</button>
+          <button id="departShowdown" type="button" class="btn btn-primary">Depart</button>
+          <button id="showdownOver" type="button" class="btn btn-danger">Showdown Over</button>
+        </div>
+      </div>
+      <div class="showdown-grid">
+        <article id="showdownCardA" class="panel showdown-card"></article>
+        <article id="showdownCardB" class="panel showdown-card"></article>
+      </div>
+    </section>
+
+    <section id="settlementView" class="settlement-view hidden">
+      <article class="panel settlement-panel">
+        <h2>Settlement View <span id="settlementAliveCount" class="muted">(Alive: 0)</span></h2>
+        <div class="settlement-filters">
+          <label>
+            Name
+            <input id="settlementNameSearch" type="search" placeholder="Search by name..." />
+          </label>
+          <label>
+            Alive
+            <select data-bool-filter="isAlive">
+              <option value="all">All</option>
+              <option value="yes" selected>Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+          <label>
+            Lifetime Reroll
+            <select data-bool-filter="lifetimeReroll">
+              <option value="all">All</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+          <label>
+            Courage Ability
+            <select data-triad-filter="courageGroup">
+              <option value="any">Any</option>
+              <option value="none">None</option>
+              <option value="stalwart">Stalwart</option>
+              <option value="prepared">Prepared</option>
+              <option value="matchmaker">Matchmaker</option>
+            </select>
+          </label>
+          <label>
+            Understanding Ability
+            <select data-triad-filter="understandingGroup">
+              <option value="any">Any</option>
+              <option value="none">None</option>
+              <option value="analyze">Analyze</option>
+              <option value="explore">Explorer</option>
+              <option value="tinker">Tinker</option>
+            </select>
+          </label>
+          <label>
+            Can Ponder
+            <select data-bool-filter="canPonder">
+              <option value="all">All</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+          <button id="settlementClearFilters" type="button" class="btn btn-secondary">Clear Filters</button>
+        </div>
+        <div class="settlement-refresh-controls">
+          <button id="settlementRefreshNow" type="button" class="btn btn-secondary">Refresh Now</button>
+          <p id="settlementLastRefreshed" class="muted">Last refreshed: --</p>
+        </div>
+        <p id="settlementCount" class="muted">0 survivors shown</p>
+
+        <div class="settlement-table-wrap">
+          <table class="settlement-table">
+            <thead>
+              <tr>
+                <th><button type="button" class="settlement-sort" data-sort-key="name">Name</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="age">Age</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="lumi">Lumi</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="philosophy">Philosophy</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="philosophyRank">Philosophy Rank</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="canPonder">Ponder</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="movement">Movement</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="speed">Speed</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="accuracy">Accuracy</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="strength">Strength</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="luck">Luck</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="evasion">Evasion</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="courage">Courage</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="understanding">Understanding</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="weaponProficiency.type">Weapon Proficiency</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="weaponProficiency.level">Prof Rank</button></th>
+                <th>Showdown</th>
+              </tr>
+            </thead>
+            <tbody id="settlementTableBody"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section id="bulkUpdatesView" class="bulk-updates-view hidden">
+      <article class="panel bulk-updates-panel">
+        <h2>Bulk Updates</h2>
+        <p class="muted">Apply a stat modifier to all survivors at once. Use with care.</p>
+        <div class="settlement-bulk-actions">
+          <label>
+            Bulk field
+            <select id="settlementBulkField">
+              <option value="movement">Movement</option>
+              <option value="speed">Speed</option>
+              <option value="accuracy">Accuracy</option>
+              <option value="strength" selected>Strength</option>
+              <option value="luck">Luck</option>
+              <option value="evasion">Evasion</option>
+              <option value="courage">Courage</option>
+              <option value="understanding">Understanding</option>
+            </select>
+          </label>
+          <label>
+            Delta
+            <input id="settlementBulkDelta" type="number" step="1" value="1" />
+          </label>
+          <button id="settlementApplyBulk" type="button" class="btn btn-primary">Apply to All Survivors</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="createSurvivorView" class="create-survivor-view hidden">
+      <article class="panel create-survivor-panel create-showdown-card">
+        <h2 id="createSurvivorTitle" class="showdown-name">Create Survivor</h2>
+        <p id="createSurvivorHint" class="showdown-sub">Start from a default template, set starting values, and save to settlement.</p>
+
+        <div class="create-grid create-grid-showdown">
+          <label>Name <input id="createSurvivorName" type="text" placeholder="Survivor name" /></label>
+          <label>Gender
+            <select id="createSurvivorGender">
+              <option value="M">M</option>
+              <option value="F">F</option>
+            </select>
+          </label>
+          <label>Ponder <span id="createPonderIndicator" class="status-pill status-pill-neutral">Not Ready</span></label>
+          <label class="ve-check">Alive <input id="createSurvivorAlive" type="checkbox" checked /></label>
+          <label class="ve-check">Lifetime Reroll <input id="createSurvivorLifetimeReroll" type="checkbox" /></label>
+          <label>Courage Ability
+            <select id="createSurvivorMatchmaker">
+              <option value="none">None</option>
+              <option value="stalwart">Stalwart</option>
+              <option value="prepared">Prepared</option>
+              <option value="matchmaker">Matchmaker</option>
+            </select>
+          </label>
+          <label>Understanding Ability
+            <select id="createSurvivorTinker">
+              <option value="none">None</option>
+              <option value="analyze">Analyze</option>
+              <option value="explore">Explorer</option>
+              <option value="tinker">Tinker</option>
+            </select>
+          </label>
+        </div>
+
+        <section class="showdown-group">
+          <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-vitals"></use></svg>Age / Survival / Insanity</span></h4>
+          <div class="showdown-stats showdown-stats-vitals">
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Age</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorAge" data-create-step-delta="-1">-</button><input id="createSurvivorAge" type="number" /><button type="button" data-create-step-target="createSurvivorAge" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Lumi</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorLumi" data-create-step-delta="-1">-</button><input id="createSurvivorLumi" type="number" /><button type="button" data-create-step-target="createSurvivorLumi" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Survival</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorSurvivalPts" data-create-step-delta="-1">-</button><input id="createSurvivorSurvivalPts" type="number" /><button type="button" data-create-step-target="createSurvivorSurvivalPts" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Insanity</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorInsanityPts" data-create-step-delta="-1">-</button><input id="createSurvivorInsanityPts" type="number" /><button type="button" data-create-step-target="createSurvivorInsanityPts" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">S. Pressure</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorSystemicPressurePts" data-create-step-delta="-1">-</button><input id="createSurvivorSystemicPressurePts" type="number" /><button type="button" data-create-step-target="createSurvivorSystemicPressurePts" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Torment</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorTormentPts" data-create-step-delta="-1">-</button><input id="createSurvivorTormentPts" type="number" /><button type="button" data-create-step-target="createSurvivorTormentPts" data-create-step-delta="1">+</button></div></div>
+          </div>
+        </section>
+        <section class="showdown-group">
+          <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-mind"></use></svg>Philosophy</span></h4>
+          <div class="showdown-stats showdown-stats-philosophy create-philosophy-layout">
+            <label class="showdown-proficiency-type create-philosophy-core">Core Philosophy <input id="createSurvivorPhilosophy" type="text" placeholder="Optional" /></label>
+            <div class="showdown-stepper showdown-stepper-simple create-stepper-wide"><span class="showdown-stepper-label">Philosophy Rank</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createPhilosophyRank" data-create-step-delta="-1">-</button><input id="createPhilosophyRank" type="number" /><button type="button" data-create-step-target="createPhilosophyRank" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple create-stepper-wide"><span class="showdown-stepper-label">Next Ponder Age</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createNextPhilosophyAgeThreshold" data-create-step-delta="-1">-</button><input id="createNextPhilosophyAgeThreshold" type="number" min="0" max="16" step="1" /><button type="button" data-create-step-target="createNextPhilosophyAgeThreshold" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-proficiency-type create-philosophy-neurosis">
+              <span>Neurosis Template Name</span>
+              <input id="createNeurosisTemplateName" type="text" placeholder="Template name" />
+              <span>Neurosis</span>
+              <textarea id="createPhilosophyNeurosis" rows="2" placeholder="Philosophy neurosis"></textarea>
+              <div class="showdown-array-actions">
+                <button id="createNeurosisLoadTemplate" type="button" class="btn btn-secondary">Load Template</button>
+                <button id="createNeurosisSaveTemplate" type="button" class="btn btn-secondary">Save as Template</button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="showdown-group">
+          <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-mind"></use></svg>Courage / Understanding</span></h4>
+          <div class="showdown-stats showdown-stats-mind">
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Courage</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorCourage" data-create-step-delta="-1">-</button><input id="createSurvivorCourage" type="number" /><button type="button" data-create-step-target="createSurvivorCourage" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple create-stepper-wide"><span class="showdown-stepper-label">Understanding</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorUnderstanding" data-create-step-delta="-1">-</button><input id="createSurvivorUnderstanding" type="number" /><button type="button" data-create-step-target="createSurvivorUnderstanding" data-create-step-delta="1">+</button></div></div>
+          </div>
+        </section>
+        <section class="showdown-group">
+          <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-stats"></use></svg>Stats</span></h4>
+          <div class="showdown-stats showdown-stats-combat">
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Movement</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorMovement" data-create-step-delta="-1">-</button><input id="createSurvivorMovement" type="number" /><button type="button" data-create-step-target="createSurvivorMovement" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Speed</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorSpeed" data-create-step-delta="-1">-</button><input id="createSurvivorSpeed" type="number" /><button type="button" data-create-step-target="createSurvivorSpeed" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Accuracy</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorAccuracy" data-create-step-delta="-1">-</button><input id="createSurvivorAccuracy" type="number" /><button type="button" data-create-step-target="createSurvivorAccuracy" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Strength</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorStrength" data-create-step-delta="-1">-</button><input id="createSurvivorStrength" type="number" /><button type="button" data-create-step-target="createSurvivorStrength" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Luck</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorLuck" data-create-step-delta="-1">-</button><input id="createSurvivorLuck" type="number" /><button type="button" data-create-step-target="createSurvivorLuck" data-create-step-delta="1">+</button></div></div>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Evasion</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorEvasion" data-create-step-delta="-1">-</button><input id="createSurvivorEvasion" type="number" /><button type="button" data-create-step-target="createSurvivorEvasion" data-create-step-delta="1">+</button></div></div>
+          </div>
+        </section>
+        <section class="showdown-group">
+          <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-stats"></use></svg>Weapon Proficiency</span></h4>
+          <div class="showdown-stats showdown-stats-mind">
+            <label class="showdown-proficiency-type">Type <input id="createWeaponProficiencyType" type="text" placeholder="e.g. Sword" /></label>
+            <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Level</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createWeaponProficiencyLevel" data-create-step-delta="-1">-</button><input id="createWeaponProficiencyLevel" type="number" /><button type="button" data-create-step-target="createWeaponProficiencyLevel" data-create-step-delta="1">+</button></div></div>
+          </div>
+        </section>
+
+        <div class="ve-list">
+          <div class="panel-header panel-header-tight">
+            <h4>Tenet Knowledge</h4>
+            <button id="createAddTenetKnowledge" class="btn btn-secondary" type="button">+ Add</button>
+          </div>
+          <div id="createTenetKnowledge"></div>
+        </div>
+
+        <div class="ve-list">
+          <div class="panel-header panel-header-tight">
+            <h4>Knowledge</h4>
+            <button id="createAddKnowledge" class="btn btn-secondary" type="button">+ Add</button>
+          </div>
+          <div id="createKnowledge"></div>
+        </div>
+
+        <div class="ve-list">
+          <div class="panel-header panel-header-tight">
+            <h4>Disorders</h4>
+            <button id="createAddDisorder" class="btn btn-secondary" type="button">+ Add</button>
+          </div>
+          <div id="createDisorders"></div>
+        </div>
+
+        <div class="ve-list">
+          <div class="panel-header panel-header-tight">
+            <h4>Fighting Arts</h4>
+            <button id="createAddFightingArt" class="btn btn-secondary" type="button">+ Add</button>
+          </div>
+          <div id="createFightingArts"></div>
+        </div>
+
+        <div class="ve-list">
+          <div class="panel-header panel-header-tight">
+            <h4>Secret Fighting Arts</h4>
+            <button id="createAddSecretFightingArt" class="btn btn-secondary" type="button">+ Add</button>
+          </div>
+          <div id="createSecretFightingArts"></div>
+        </div>
+
+        <div class="ve-list">
+          <div class="panel-header panel-header-tight">
+            <h4>Abilities</h4>
+            <button id="createAddAbility" class="btn btn-secondary" type="button">+ Add New</button>
+          </div>
+          <div id="createAbilities"></div>
+        </div>
+
+        <div class="ve-list">
+          <div class="panel-header panel-header-tight">
+            <h4>Impairments</h4>
+            <button id="createAddImpairment" class="btn btn-secondary" type="button">+ Add New</button>
+          </div>
+          <div id="createImpairments"></div>
+        </div>
+
+        <div class="button-row">
+          <button id="resetCreateSurvivor" type="button" class="btn btn-secondary">Reset to Template</button>
+        </div>
+      </article>
+      <aside class="create-survivor-float">
+        <button id="createSurvivorBack" type="button" class="btn btn-secondary create-survivor-back">
+          Back
+        </button>
+        <button id="createSurvivorSubmit" type="button" class="btn btn-primary create-survivor-submit">
+          Create Survivor
+        </button>
+      </aside>
+    </section>
+  </main>
+
+  <aside id="markdownHover" class="hover-card hidden" aria-hidden="true">
+    <p id="hoverTitle" class="hover-title"></p>
+    <p id="hoverPreview" class="hover-preview"></p>
+  </aside>
+
+  <div id="markdownModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="closeMarkdownModal"></div>
+    <article class="modal-panel">
+      <header class="modal-header">
+        <h2 id="markdownModalTitle">Markdown</h2>
+        <button id="insertMarkdown" class="btn btn-primary">Insert into JSON</button>
+      </header>
+      <div id="markdownModalBody" class="markdown-body"></div>
+    </article>
+  </div>
+
+  <div id="addMarkdownModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="closeAddMarkdownModal"></div>
+    <article class="modal-panel">
+      <header class="modal-header">
+        <h2 id="addMarkdownTitle">Add from Library</h2>
+      </header>
+      <label for="addMarkdownCollection">Collection</label>
+      <select id="addMarkdownCollection" aria-label="Add markdown collection"></select>
+      <label for="addMarkdownSearch">Search</label>
+      <input id="addMarkdownSearch" type="search" placeholder="Filter options..." />
+      <div id="addMarkdownOptions" class="markdown-list"></div>
+    </article>
+  </div>
+
+  <div id="knowledgeTemplateModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="closeKnowledgeTemplateModal"></div>
+    <article class="modal-panel">
+      <header class="modal-header">
+        <h2 id="knowledgeTemplateTitle">Add from Template</h2>
+      </header>
+      <p id="knowledgeTemplateHint" class="muted">Choose a saved template or create from scratch.</p>
+      <label for="knowledgeTemplateSearch">Search</label>
+      <input id="knowledgeTemplateSearch" type="search" placeholder="Filter templates..." />
+      <label for="knowledgeTemplateSelect">Saved Templates</label>
+      <select id="knowledgeTemplateSelect" aria-label="Knowledge templates"></select>
+      <div class="button-row">
+        <button id="knowledgeTemplateUse" type="button" class="btn btn-secondary">Use Selected Template</button>
+        <button id="knowledgeTemplateScratch" type="button" class="btn btn-primary">Create From Scratch</button>
+      </div>
+    </article>
+  </div>
+
+  <svg class="icon-sprite" aria-hidden="true" focusable="false">
+    <symbol id="icon-vitals" viewBox="0 0 24 24"><path d="M12 3v18M6 7h12M6 17h12"/></symbol>
+    <symbol id="icon-bleeding" viewBox="0 0 24 24"><path d="M12 3C12 3 7 9 7 13a5 5 0 0 0 10 0c0-4-5-10-5-10z"/></symbol>
+    <symbol id="icon-mind" viewBox="0 0 24 24"><path d="M12 4c3.8 0 7 2.8 7 6.4 0 2.2-1.2 3.6-2.8 4.8-.8.6-1.2 1.2-1.2 2.3H9c0-1.1-.4-1.7-1.2-2.3C6.2 14 5 12.6 5 10.4 5 6.8 8.2 4 12 4z"/><path d="M9 20h6"/></symbol>
+    <symbol id="icon-stats" viewBox="0 0 24 24"><path d="M4 19h16M6 16V9M12 16V5M18 16v-7"/></symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.2-2.6 7.7-7 9-4.4-1.3-7-4.8-7-9V6l7-3z"/></symbol>
+    <symbol id="icon-head" viewBox="0 0 24 24"><path d="M6 11V7l6-3 6 3v4M8 11h8v8H8z"/></symbol>
+    <symbol id="icon-body" viewBox="0 0 24 24"><path d="M8 5h8l2 4-3 10H9L6 9l2-4z"/></symbol>
+    <symbol id="icon-arms" viewBox="0 0 24 24"><path d="M4 9l4 1 2 8H6L4 9zM20 9l-4 1-2 8h4l2-9zM10 9h4"/></symbol>
+    <symbol id="icon-waist" viewBox="0 0 24 24"><path d="M5 11h14v4H5zM9 9h6M9 17h6"/></symbol>
+    <symbol id="icon-legs" viewBox="0 0 24 24"><path d="M9 6h6l-1 6 2 7h-4l-1-5-1 5H6l2-7-1-6z"/></symbol>
+  </svg>
+
+  <script src="../../src/renderer.js"></script>
+</body>
+</html>

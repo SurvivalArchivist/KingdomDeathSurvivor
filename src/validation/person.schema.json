@@ -1,0 +1,421 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yourgame.local/schemas/person.schema.json",
+  "title": "Person",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "schemaVersion",
+    "gender",
+    "age",
+    "isAlive",
+    "ageRank",
+    "philosophyRank",
+    "nextPhilosophyAgeThreshold",
+    "philosophy",
+    "lumi",
+    "survivalPts",
+    "insanityPts",
+    "systemicPressurePts",
+    "tormentPts",
+    "movement",
+    "speed",
+    "accuracy",
+    "strength",
+    "luck",
+    "evasion",
+    "weaponProficiency",
+    "courage",
+    "understanding",
+    "abilities",
+    "impairments",
+    "fightingArts",
+    "secretFightingArts",
+    "disorders",
+    "tenetKnowledge",
+    "knowledge"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "updatedAt": {
+      "type": "string"
+    },
+    "gender": {
+      "type": "string",
+      "enum": [
+        "M",
+        "F"
+      ]
+    },
+    "age": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16,
+      "default": 0
+    },
+    "isAlive": {
+      "type": "boolean",
+      "default": true
+    },
+    "ageRank": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4
+    },
+    "philosophyRank": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4
+    },
+    "nextPhilosophyAgeThreshold": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16,
+      "default": 0
+    },
+    "philosophy": {
+      "type": "string"
+    },
+    "philosophyNeurosis": {
+      "type": "string",
+      "default": ""
+    },
+    "philosophyNeurosisName": {
+      "type": "string",
+      "default": ""
+    },
+    "philosophyTenet": {
+      "type": "string",
+      "default": ""
+    },
+    "lumi": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "survivalPts": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "insanityPts": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "systemicPressurePts": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "tormentPts": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    },
+    "movement": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 5
+    },
+    "speed": {
+      "type": "integer",
+      "default": 0
+    },
+    "accuracy": {
+      "type": "integer",
+      "default": 0
+    },
+    "strength": {
+      "type": "integer",
+      "default": 0
+    },
+    "luck": {
+      "type": "integer",
+      "default": 0
+    },
+    "evasion": {
+      "type": "integer",
+      "default": 0
+    },
+    "weaponProficiency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "level",
+        "isSpecialist",
+        "isMaster"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8,
+          "default": 0
+        },
+        "isSpecialist": {
+          "type": "boolean",
+          "default": false
+        },
+        "isMaster": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "courage": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9,
+      "default": 0
+    },
+    "understanding": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9,
+      "default": 0
+    },
+    "lifetimeReroll": {
+      "type": "boolean",
+      "default": false
+    },
+    "matchmaker": {
+      "type": "boolean",
+      "default": false
+    },
+    "tinker": {
+      "type": "boolean",
+      "default": false
+    },
+    "stalwart": {
+      "type": "boolean",
+      "default": false
+    },
+    "prepared": {
+      "type": "boolean",
+      "default": false
+    },
+    "analyze": {
+      "type": "boolean",
+      "default": false
+    },
+    "explore": {
+      "type": "boolean",
+      "default": false
+    },
+    "abilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "impairments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "partner": {
+      "type": "string"
+    },
+    "parent1": {
+      "type": "string"
+    },
+    "parent2": {
+      "type": "string"
+    },
+    "fightingArts": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "file"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "secretFightingArts": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "file"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "disorders": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "file"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "tenetKnowledge": {
+      "type": "array",
+      "maxItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "neurosis": {
+            "type": "string"
+          },
+          "tenet": {
+            "type": "string"
+          },
+          "observation": {
+            "type": "string"
+          },
+          "rules": {
+            "type": "string"
+          },
+          "observationRequirement": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "currentObservations": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "knowledgeLevel": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "nextKnowledgeMode": {
+            "type": "string",
+            "enum": [
+              "existingTemplate",
+              "noTemplate",
+              "maxLevel"
+            ],
+            "default": "noTemplate"
+          },
+          "nextKnowledgeTemplate": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          },
+          "observations": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          }
+        }
+      }
+    },
+    "knowledge": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "observation": {
+            "type": "string"
+          },
+          "rules": {
+            "type": "string"
+          },
+          "observationRequirement": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "currentObservations": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "knowledgeLevel": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "nextKnowledgeMode": {
+            "type": "string",
+            "enum": [
+              "existingTemplate",
+              "noTemplate",
+              "maxLevel"
+            ],
+            "default": "noTemplate"
+          },
+          "nextKnowledgeTemplate": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
