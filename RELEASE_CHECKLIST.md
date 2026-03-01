@@ -35,6 +35,10 @@ Use this checklist for every release (for example `1.1.0`, `1.2.0`).
 - Create/update a GitHub Release for that tag
 - Attach artifacts to the Release page
 
+Alternative (manual trigger):
+- GitHub -> Actions -> `Release Publish` -> `Run workflow`
+- Optional input `tag`: `v<version>` (recommended)
+
 ## 7) Artifact sanity check
 - Mac: verify `.dmg` and `.zip` exist
 - Windows: verify `.exe` outputs exist

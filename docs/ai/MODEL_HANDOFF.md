@@ -1,6 +1,7 @@
 # Model Handoff Log
 
 ## Current State Snapshot
+- Release workflow now supports both automatic tag publishing and manual runs with explicit `tag` input, and uses platform-appropriate retry logic for dependency install stability on both macOS and Windows release jobs.
 - Windows CI dependency installation now includes retry logic (`npm ci` up to 3 attempts with delay) in both build-only and release-publish workflows to mitigate transient Electron download socket failures on hosted runners.
 - Fully automated public release publishing is now configured: pushing a `v*` git tag triggers cross-platform build (macOS + Windows) and automatic GitHub Release creation with artifacts attached.
 - Repository process guardrails are now in place for safer day-to-day development: `npm run verify`, `npm run preflight`, commit/release checklists, PR template, and a dedicated CI validation workflow for `main`/PRs.
@@ -45,6 +46,7 @@
 - Survivor saves now use optimistic concurrency (`revision`, `updatedAt`) and atomic file writes.
 
 ## Recent Changes
+- 2026-02-28: Improved `Release Publish` workflow reliability/operability: fixed macOS retry step to bash (Windows remains PowerShell), added Windows retry wrapper in release workflow, and added manual `workflow_dispatch` tag input with explicit `tag_name`/release name resolution so manual runs can publish the intended version; updated release checklist accordingly; files: `.github/workflows/release-publish.yml`, `RELEASE_CHECKLIST.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Hardened Windows CI install stability by adding PowerShell retry wrappers around `npm ci` in `.github/workflows/windows-package.yml` and Windows job of `.github/workflows/release-publish.yml` (3 attempts, 15s backoff) to handle transient `socket hang up` Electron download failures; files: `.github/workflows/windows-package.yml`, `.github/workflows/release-publish.yml`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Added fully automated tag-based publishing workflow (`.github/workflows/release-publish.yml`): on `v*` tags it builds macOS + Windows artifacts, then creates/updates the GitHub Release and uploads artifacts automatically via `softprops/action-gh-release`; updated release/contributor docs with tag push flow; files: `.github/workflows/release-publish.yml`, `RELEASE_CHECKLIST.md`, `CONTRIBUTING.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Added repo-level safe workflow tooling and docs: new `verify`/`preflight` scripts (`scripts/verify.sh`, `scripts/preflight.sh`) wired in `package.json`, plus `CONTRIBUTING.md`, `RELEASE_CHECKLIST.md`, `.github/PULL_REQUEST_TEMPLATE.md`, and `.github/workflows/validate.yml` so code/test gates and commit hygiene are consistently enforced; files: `package.json`, `scripts/verify.sh`, `scripts/preflight.sh`, `CONTRIBUTING.md`, `RELEASE_CHECKLIST.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/workflows/validate.yml`; verification: `npm run verify`.
