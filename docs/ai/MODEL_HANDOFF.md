@@ -1,6 +1,7 @@
 # Model Handoff Log
 
 ## Current State Snapshot
+- Standalone `macOS Package` CI workflow now includes install retry protection for transient Electron download failures (`npm ci` with retries), matching hardened behavior in release/Windows flows.
 - Public-facing repository README is now present, describing product purpose/workflow and pointing users to the latest GitHub Release downloads for Windows and macOS.
 - Project/package version is now `1.1.1` for the next automated tagged release.
 - Release workflow now supports both automatic tag publishing and manual runs with explicit `tag` input, and uses platform-appropriate retry logic for dependency install stability on both macOS and Windows release jobs.
@@ -48,6 +49,7 @@
 - Survivor saves now use optimistic concurrency (`revision`, `updatedAt`) and atomic file writes.
 
 ## Recent Changes
+- 2026-02-28: Hardened `.github/workflows/macos-package.yml` by replacing plain `npm ci` with a 3-attempt retry wrapper (15s backoff) to mitigate transient `socket hang up` failures during Electron dependency download on macOS runners; files: `.github/workflows/macos-package.yml`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Added initial public `README.md` for GitHub visitors (product overview, usage model, development commands, and latest release download guidance for Windows/macOS) and bumped package version to `1.1.1`; files: `README.md`, `package.json`, `package-lock.json`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Improved `Release Publish` workflow reliability/operability: fixed macOS retry step to bash (Windows remains PowerShell), added Windows retry wrapper in release workflow, and added manual `workflow_dispatch` tag input with explicit `tag_name`/release name resolution so manual runs can publish the intended version; updated release checklist accordingly; files: `.github/workflows/release-publish.yml`, `RELEASE_CHECKLIST.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Hardened Windows CI install stability by adding PowerShell retry wrappers around `npm ci` in `.github/workflows/windows-package.yml` and Windows job of `.github/workflows/release-publish.yml` (3 attempts, 15s backoff) to handle transient `socket hang up` Electron download failures; files: `.github/workflows/windows-package.yml`, `.github/workflows/release-publish.yml`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
