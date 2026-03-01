@@ -1,6 +1,7 @@
 # Model Handoff Log
 
 ## Current State Snapshot
+- GitHub Releases now publish a consistent custom release body from `.github/release-notes.md`, including explicit macOS first-launch quarantine-removal guidance for unsigned app builds.
 - Standalone `macOS Package` CI workflow now includes install retry protection for transient Electron download failures (`npm ci` with retries), matching hardened behavior in release/Windows flows.
 - Public-facing repository README is now present, describing product purpose/workflow and pointing users to the latest GitHub Release downloads for Windows and macOS.
 - Project/package version is now `1.1.1` for the next automated tagged release.
@@ -49,6 +50,7 @@
 - Survivor saves now use optimistic concurrency (`revision`, `updatedAt`) and atomic file writes.
 
 ## Recent Changes
+- 2026-03-01: Added release-notes automation so published GitHub Releases include stable install guidance (including macOS quarantine-removal command) by introducing `.github/release-notes.md` and wiring `release-publish` to use `body_path`; also mirrored the same macOS note in README; files: `.github/release-notes.md`, `.github/workflows/release-publish.yml`, `README.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Hardened `.github/workflows/macos-package.yml` by replacing plain `npm ci` with a 3-attempt retry wrapper (15s backoff) to mitigate transient `socket hang up` failures during Electron dependency download on macOS runners; files: `.github/workflows/macos-package.yml`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Added initial public `README.md` for GitHub visitors (product overview, usage model, development commands, and latest release download guidance for Windows/macOS) and bumped package version to `1.1.1`; files: `README.md`, `package.json`, `package-lock.json`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-02-28: Improved `Release Publish` workflow reliability/operability: fixed macOS retry step to bash (Windows remains PowerShell), added Windows retry wrapper in release workflow, and added manual `workflow_dispatch` tag input with explicit `tag_name`/release name resolution so manual runs can publish the intended version; updated release checklist accordingly; files: `.github/workflows/release-publish.yml`, `RELEASE_CHECKLIST.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.

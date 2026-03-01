@@ -27,6 +27,10 @@ From that page, download:
 ## Notes
 - Unsigned builds may show SmartScreen/Gatekeeper warnings.
 - For safest updates, always use files from the latest GitHub Release page above.
+- If macOS says the app is damaged, clear quarantine and relaunch:
+```bash
+xattr -dr com.apple.quarantine "/Applications/KDM Survivors Console.app"
+```
 
 ## Development
 ### Install

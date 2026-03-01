@@ -125,6 +125,9 @@ jobs:
           name: windows-release
           path: release-artifacts/windows
 
+      - name: Checkout Release Notes
+        uses: actions/checkout@v4
+
       - name: Resolve release tag
         id: tag
         shell: bash
@@ -140,7 +143,7 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.value }}
           name: ${{ steps.tag.outputs.value }}
-          generate_release_notes: true
+          body_path: .github/release-notes.md
           files: |
             release-artifacts/macos/*
             release-artifacts/windows/*
