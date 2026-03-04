@@ -8,6 +8,7 @@ const KNOWLEDGE_TEMPLATE_TYPE_FOLDERS = {
 }
 const SOURCE_KEYS = [
   'survivors',
+  'defaultSurvivorTemplates',
   'fightingArts',
   'secretFightingArts',
   'knowledges',
@@ -15,6 +16,7 @@ const SOURCE_KEYS = [
   'neuroses',
   'disorders'
 ]
+const DEFAULT_CREATE_TEMPLATE_FILE_NAME = 'default-new-survivor.json'
 const MARKDOWN_SOURCE_LABELS = {
   fightingArts: 'Fighting Arts',
   secretFightingArts: 'Secret Fighting Arts',
@@ -341,6 +343,36 @@ function createPersonTemplate(name = 'New Survivor') {
   }
 }
 
+function saveDefaultCreateTemplate(basePath, template) {
+  if (typeof basePath !== 'string' || basePath.trim().length === 0) {
+    throw new Error('Default survivor template folder is not configured')
+  }
+  const folder = basePath.trim()
+  fs.mkdirSync(folder, { recursive: true })
+  const normalizedTemplate = applyPersonSchemaCompatibility(template)
+  if (!validatePerson(normalizedTemplate)) {
+    const errors = mapValidationErrors(validatePerson.errors || [])
+    throw new ValidationError(`Invalid person data: ${validationErrorSummary(errors)}`, errors)
+  }
+  const fullPath = path.join(folder, DEFAULT_CREATE_TEMPLATE_FILE_NAME)
+  atomicWriteJson(fullPath, normalizedTemplate)
+  return DEFAULT_CREATE_TEMPLATE_FILE_NAME
+}
+
+function loadDefaultCreateTemplate(basePath) {
+  if (typeof basePath !== 'string' || basePath.trim().length === 0) return null
+  const folder = basePath.trim()
+  const fullPath = path.join(folder, DEFAULT_CREATE_TEMPLATE_FILE_NAME)
+  if (!fs.existsSync(fullPath)) return null
+  const raw = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
+  const normalizedTemplate = applyPersonSchemaCompatibility(raw)
+  if (!validatePerson(normalizedTemplate)) {
+    const errors = mapValidationErrors(validatePerson.errors || [])
+    throw new ValidationError(`Invalid person data: ${validationErrorSummary(errors)}`, errors)
+  }
+  return normalizedTemplate
+}
+
 function listMarkdownCollections(dataSources) {
   const normalized = normalizeDataSources(dataSources || {})
   const categories = Object.keys(MARKDOWN_SOURCE_LABELS)
@@ -380,6 +412,25 @@ function makeMarkdownPreview(content) {
   return `${compact.slice(0, 157)}...`
 }
 
+function extractObsidianLinkLabel(inner) {
+  const raw = String(inner || '')
+  const pipeIndex = raw.indexOf('|')
+  if (pipeIndex >= 0) {
+    const alias = raw.slice(pipeIndex + 1).trim()
+    if (alias) return alias
+    return raw.slice(0, pipeIndex).trim()
+  }
+  return raw.trim()
+}
+
+function normalizeObsidianMarkdown(content) {
+  if (typeof content !== 'string') return ''
+  return content
+    .replace(/!\[\[([^\]]+)\]\]/g, (_match, inner) => extractObsidianLinkLabel(inner))
+    .replace(/\[\[([^\]]+)\]\]/g, (_match, inner) => extractObsidianLinkLabel(inner))
+    .replace(/(^|[\s(])#([A-Za-z0-9_/-]+)/g, '$1')
+}
+
 function touchMarkdownPreviewCache(cacheKey, record) {
   if (markdownPreviewCache.has(cacheKey)) markdownPreviewCache.delete(cacheKey)
   markdownPreviewCache.set(cacheKey, record)
@@ -402,7 +453,8 @@ function getMarkdownPreviewMetadata(fullPath, fileName) {
     }
   }
 
-  const content = fs.readFileSync(fullPath, 'utf8')
+  const rawContent = fs.readFileSync(fullPath, 'utf8')
+  const content = normalizeObsidianMarkdown(rawContent)
   const next = {
     mtimeMs: stat.mtimeMs,
     size: stat.size,
@@ -458,7 +510,7 @@ function loadMarkdownFile(dataPath, collectionId, fileName) {
     folder,
     fileName: normalizedFileName,
     title: markdownDisplayName(path.basename(normalizedFileName)),
-    markdown: fs.readFileSync(fullPath, 'utf8')
+    markdown: normalizeObsidianMarkdown(fs.readFileSync(fullPath, 'utf8'))
   }
 }
 
@@ -643,6 +695,8 @@ module.exports = {
   listPeople,
   deletePerson,
   createPersonTemplate,
+  saveDefaultCreateTemplate,
+  loadDefaultCreateTemplate,
   listMarkdownCollections,
   listMarkdownFiles,
   loadMarkdownFile,

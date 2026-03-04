@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>KDM Survivors</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles/base.css" />
+  <link rel="stylesheet" href="./styles/showdown.css" />
+  <link rel="stylesheet" href="./styles/theme-dark.css" />
+  <link rel="stylesheet" href="./styles/theme-light.css" />
 </head>
 <body>
   <div class="bg-orb bg-orb-one"></div>
@@ -56,6 +59,11 @@
           <span>Survivors</span>
           <button id="selectSourceSurvivors" class="btn btn-primary" type="button">Select Folder</button>
           <p id="sourcePathSurvivors" class="folder-path">Not set</p>
+        </div>
+        <div class="data-source-row">
+          <span>Default Survivor Templates</span>
+          <button id="selectSourceDefaultSurvivorTemplates" class="btn btn-secondary" type="button">Select Folder</button>
+          <p id="sourcePathDefaultSurvivorTemplates" class="folder-path">Not set</p>
         </div>
         <div class="data-source-row">
           <span>Fighting Arts</span>
@@ -322,6 +330,14 @@
             <input id="settlementNameSearch" type="search" placeholder="Search by name..." />
           </label>
           <label>
+            Traits
+            <input
+              id="settlementTraitSearch"
+              type="search"
+              placeholder="Search abilities, impairments, arts, disorders, knowledge..."
+            />
+          </label>
+          <label>
             Alive
             <select data-bool-filter="isAlive">
               <option value="all">All</option>
@@ -365,6 +381,11 @@
               <option value="no">No</option>
             </select>
           </label>
+          <fieldset class="settlement-column-toggles">
+            <legend>Columns</legend>
+            <label><input id="settlementToggleMovement" type="checkbox" /> Movement</label>
+            <label><input id="settlementToggleWeaponProficiency" type="checkbox" /> Weapon Proficiency + Prof Rank</label>
+          </fieldset>
           <button id="settlementClearFilters" type="button" class="btn btn-secondary">Clear Filters</button>
         </div>
         <div class="settlement-refresh-controls">
@@ -380,19 +401,21 @@
                 <th><button type="button" class="settlement-sort" data-sort-key="name">Name</button></th>
                 <th><button type="button" class="settlement-sort" data-sort-key="age">Age</button></th>
                 <th><button type="button" class="settlement-sort" data-sort-key="lumi">Lumi</button></th>
-                <th><button type="button" class="settlement-sort" data-sort-key="philosophy">Philosophy</button></th>
-                <th><button type="button" class="settlement-sort" data-sort-key="philosophyRank">Philosophy Rank</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="survivalPts">Surv</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="insanityPts">Ins</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="philosophy">Phil</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="philosophyRank">Phil Rank</button></th>
                 <th><button type="button" class="settlement-sort" data-sort-key="canPonder">Ponder</button></th>
-                <th><button type="button" class="settlement-sort" data-sort-key="movement">Movement</button></th>
+                <th data-settlement-col="movement"><button type="button" class="settlement-sort" data-sort-key="movement">Move</button></th>
                 <th><button type="button" class="settlement-sort" data-sort-key="speed">Speed</button></th>
-                <th><button type="button" class="settlement-sort" data-sort-key="accuracy">Accuracy</button></th>
-                <th><button type="button" class="settlement-sort" data-sort-key="strength">Strength</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="accuracy">Acc</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="strength">Str</button></th>
                 <th><button type="button" class="settlement-sort" data-sort-key="luck">Luck</button></th>
-                <th><button type="button" class="settlement-sort" data-sort-key="evasion">Evasion</button></th>
-                <th><button type="button" class="settlement-sort" data-sort-key="courage">Courage</button></th>
-                <th><button type="button" class="settlement-sort" data-sort-key="understanding">Understanding</button></th>
-                <th><button type="button" class="settlement-sort" data-sort-key="weaponProficiency.type">Weapon Proficiency</button></th>
-                <th><button type="button" class="settlement-sort" data-sort-key="weaponProficiency.level">Prof Rank</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="evasion">Eva</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="courage">Cour</button></th>
+                <th><button type="button" class="settlement-sort" data-sort-key="understanding">Und</button></th>
+                <th data-settlement-col="weaponProficiency"><button type="button" class="settlement-sort" data-sort-key="weaponProficiency.type">Weapon Prof</button></th>
+                <th data-settlement-col="profRank"><button type="button" class="settlement-sort" data-sort-key="weaponProficiency.level">Prof</button></th>
                 <th>Showdown</th>
               </tr>
             </thead>
@@ -584,6 +607,9 @@
         </button>
         <button id="createSurvivorSubmit" type="button" class="btn btn-primary create-survivor-submit">
           Create Survivor
+        </button>
+        <button id="createOpenDefaultTemplate" type="button" class="btn btn-secondary create-default-template-btn">
+          Edit Default Template
         </button>
       </aside>
     </section>

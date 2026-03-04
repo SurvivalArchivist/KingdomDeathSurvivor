@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const dataSourcesView = document.getElementById('dataSourcesView')
   const navDataSourcesButton = document.getElementById('navDataSources')
   const selectSourceSurvivors = document.getElementById('selectSourceSurvivors')
+  const selectSourceDefaultSurvivorTemplates = document.getElementById('selectSourceDefaultSurvivorTemplates')
   const selectSourceFightingArts = document.getElementById('selectSourceFightingArts')
   const selectSourceSecretFightingArts = document.getElementById('selectSourceSecretFightingArts')
   const selectSourceKnowledges = document.getElementById('selectSourceKnowledges')
@@ -14,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectSourceNeuroses = document.getElementById('selectSourceNeuroses')
   const selectSourceDisorders = document.getElementById('selectSourceDisorders')
   const sourcePathSurvivors = document.getElementById('sourcePathSurvivors')
+  const sourcePathDefaultSurvivorTemplates = document.getElementById('sourcePathDefaultSurvivorTemplates')
   const sourcePathFightingArts = document.getElementById('sourcePathFightingArts')
   const sourcePathSecretFightingArts = document.getElementById('sourcePathSecretFightingArts')
   const sourcePathKnowledges = document.getElementById('sourcePathKnowledges')
@@ -51,6 +53,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const navTechnicalButton = document.getElementById('navTechnical')
   const themeToggleButton = document.getElementById('themeToggle')
   const settlementNameSearch = document.getElementById('settlementNameSearch')
+  const settlementTraitSearch = document.getElementById('settlementTraitSearch')
+  const settlementToggleMovement = document.getElementById('settlementToggleMovement')
+  const settlementToggleWeaponProficiency = document.getElementById('settlementToggleWeaponProficiency')
   const settlementClearFiltersButton = document.getElementById('settlementClearFilters')
   const settlementAutoRefreshEnabled = document.getElementById('settlementAutoRefreshEnabled')
   const settlementAutoRefreshInterval = document.getElementById('settlementAutoRefreshInterval')
@@ -81,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const createSurvivorHint = document.getElementById('createSurvivorHint')
   const createSurvivorBack = document.getElementById('createSurvivorBack')
   const createSurvivorSubmit = document.getElementById('createSurvivorSubmit')
+  const createOpenDefaultTemplate = document.getElementById('createOpenDefaultTemplate')
   const resetCreateSurvivorButton = document.getElementById('resetCreateSurvivor')
   const createAddFightingArtButton = document.getElementById('createAddFightingArt')
   const createAddSecretFightingArtButton = document.getElementById('createAddSecretFightingArt')
@@ -170,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dataSourcesView,
     navDataSourcesButton,
     selectSourceSurvivors,
+    selectSourceDefaultSurvivorTemplates,
     selectSourceFightingArts,
     selectSourceSecretFightingArts,
     selectSourceKnowledges,
@@ -177,6 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectSourceNeuroses,
     selectSourceDisorders,
     sourcePathSurvivors,
+    sourcePathDefaultSurvivorTemplates,
     sourcePathFightingArts,
     sourcePathSecretFightingArts,
     sourcePathKnowledges,
@@ -213,6 +221,9 @@ document.addEventListener('DOMContentLoaded', () => {
     navTechnicalButton,
     themeToggleButton,
     settlementNameSearch,
+    settlementTraitSearch,
+    settlementToggleMovement,
+    settlementToggleWeaponProficiency,
     settlementClearFiltersButton,
     settlementAutoRefreshEnabled,
     settlementAutoRefreshInterval,
@@ -240,6 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createSurvivorHint,
     createSurvivorBack,
     createSurvivorSubmit,
+    createOpenDefaultTemplate,
     resetCreateSurvivorButton,
     createAddFightingArtButton,
     createAddSecretFightingArtButton,
@@ -377,6 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let skipVisualSync = false
   let inShowdownMode = false
   let currentPage = 'technical'
+  let createViewMode = 'create'
   let settlementRecords = []
   let settlementSort = { key: 'name', direction: 'desc' }
   let settlementAutoRefreshTimer = null
@@ -415,6 +428,15 @@ document.addEventListener('DOMContentLoaded', () => {
     'luck',
     'evasion'
   ]
+  const SHOWDOWN_PAGE_CONFIG = [
+    { key: 'armor', symbol: 'A', label: 'Armor' },
+    { key: 'stats', symbol: 'S', label: 'Stats' },
+    { key: 'knowledge', symbol: 'K', label: 'Tenet Knowledge / Neurosis / Knowledge' },
+    { key: 'arts', symbol: 'F', label: 'Fighting Arts / Secret Fighting Arts' },
+    { key: 'disorders', symbol: 'D', label: 'Disorders' },
+    { key: 'traits', symbol: 'AI', label: 'Abilities / Impairments' }
+  ]
+  const SHOWDOWN_DEFAULT_PAGE = SHOWDOWN_PAGE_CONFIG[0].key
   let showdownArmor = {
     A: {
       head: 0,
@@ -482,6 +504,10 @@ document.addEventListener('DOMContentLoaded', () => {
     A: null,
     B: null
   }
+  let showdownPageBySlot = {
+    A: SHOWDOWN_DEFAULT_PAGE,
+    B: SHOWDOWN_DEFAULT_PAGE
+  }
   const showdownMarkdownPreviewCache = new Map()
   const showdownMarkdownIndexCache = new Map()
   const showdownMarkdownPreviewPending = new Set()
@@ -524,6 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const DATA_SOURCE_KEYS = [
     'survivors',
+    'defaultSurvivorTemplates',
     'fightingArts',
     'secretFightingArts',
     'knowledges',
@@ -533,6 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ]
   const dataSourceButtons = {
     survivors: selectSourceSurvivors,
+    defaultSurvivorTemplates: selectSourceDefaultSurvivorTemplates,
     fightingArts: selectSourceFightingArts,
     secretFightingArts: selectSourceSecretFightingArts,
     knowledges: selectSourceKnowledges,
@@ -542,6 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const dataSourcePathDisplays = {
     survivors: sourcePathSurvivors,
+    defaultSurvivorTemplates: sourcePathDefaultSurvivorTemplates,
     fightingArts: sourcePathFightingArts,
     secretFightingArts: sourcePathSecretFightingArts,
     knowledges: sourcePathKnowledges,
@@ -550,6 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
     disorders: sourcePathDisorders
   }
   let dataSources = Object.fromEntries(DATA_SOURCE_KEYS.map(key => [key, '']))
+  let hasDefaultTemplateFolder = false
 
   function deepClone(value) {
     return JSON.parse(JSON.stringify(value))
@@ -618,6 +648,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return options
       .map(([value, label]) => `<option value="${value}"${currentValue === value ? ' selected' : ''}>${label}</option>`)
       .join('')
+  }
+
+  function normalizeShowdownPageKey(pageKey) {
+    const value = String(pageKey || '').trim()
+    return SHOWDOWN_PAGE_CONFIG.some(page => page.key === value) ? value : SHOWDOWN_DEFAULT_PAGE
   }
 
   function getValueByPath(target, path) {
@@ -754,6 +789,7 @@ document.addEventListener('DOMContentLoaded', () => {
       el.textContent = value || 'Not set'
     }
     hasDataFolder = Boolean(String(dataSources.survivors || '').trim())
+    hasDefaultTemplateFolder = Boolean(String(dataSources.defaultSurvivorTemplates || '').trim())
   }
 
   function getEffectiveSettlementRefreshMs() {
@@ -924,6 +960,9 @@ document.addEventListener('DOMContentLoaded', () => {
     addTenetKnowledgeButton.disabled = busy
     addKnowledgeButton.disabled = busy
     settlementNameSearch.disabled = !hasDataFolder || busy
+    settlementTraitSearch.disabled = !hasDataFolder || busy
+    settlementToggleMovement.disabled = !hasDataFolder || busy
+    settlementToggleWeaponProficiency.disabled = !hasDataFolder || busy
     settlementClearFiltersButton.disabled = !hasDataFolder || busy
     settingsFastMode.disabled = busy
     settlementAutoRefreshEnabled.disabled = !hasDataFolder || busy
@@ -954,7 +993,9 @@ document.addEventListener('DOMContentLoaded', () => {
     createSurvivorTinker.disabled = busy
     createWeaponProficiencyType.disabled = busy
     createSurvivorBack.disabled = busy
-    createSurvivorSubmit.disabled = !hasDataFolder || busy
+    createOpenDefaultTemplate.disabled = busy || createViewMode === 'defaultTemplate'
+    createSurvivorSubmit.disabled =
+      busy || (createViewMode === 'defaultTemplate' ? !hasDefaultTemplateFolder : !hasDataFolder)
     resetCreateSurvivorButton.disabled = busy
     createAddFightingArtButton.disabled = busy
     createAddSecretFightingArtButton.disabled = busy
@@ -1166,6 +1207,7 @@ document.addEventListener('DOMContentLoaded', () => {
       page === 'showdown' ||
       page === 'settlement' ||
       page === 'bulkUpdates' ||
+      page === 'defaultTemplate' ||
       page === 'create' ||
       page === 'dataSources'
         ? page
@@ -1179,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showdownView.classList.toggle('hidden', nextPage !== 'showdown')
     settlementView.classList.toggle('hidden', nextPage !== 'settlement')
     bulkUpdatesView.classList.toggle('hidden', nextPage !== 'bulkUpdates')
-    createSurvivorView.classList.toggle('hidden', nextPage !== 'create')
+    createSurvivorView.classList.toggle('hidden', nextPage !== 'create' && nextPage !== 'defaultTemplate')
 
     navDataSourcesButton.classList.toggle('is-active', nextPage === 'dataSources')
     navCreateButton.classList.toggle('is-active', nextPage === 'create')
@@ -1866,13 +1908,32 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function resetCreateSurvivorForm() {
-    const template = await window.api.createPersonTemplate('New Survivor')
+    const template = await loadDefaultCreateTemplateWithFallback()
     createTemplateDefaults = template
     createEditingFileName = null
+    applyCreateViewModeUi()
+    renderCreateSurvivorForm(template)
+  }
+
+  function applyCreateViewModeUi() {
+    if (createViewMode === 'defaultTemplate') {
+      createSurvivorTitle.textContent = 'Default New Survivor'
+      createSurvivorHint.textContent =
+        'Edit the default template used for new survivors, then save it for future sessions.'
+      createSurvivorSubmit.textContent = 'Save Default Template'
+      createOpenDefaultTemplate.textContent = 'Editing Default Template'
+      return
+    }
     createSurvivorTitle.textContent = 'Create Survivor'
     createSurvivorHint.textContent = 'Start from a default template, set starting values, and save to settlement.'
     createSurvivorSubmit.textContent = 'Create Survivor'
-    renderCreateSurvivorForm(template)
+    createOpenDefaultTemplate.textContent = 'Edit Default Template'
+  }
+
+  async function loadDefaultCreateTemplateWithFallback() {
+    const savedTemplate = await window.api.loadDefaultCreateTemplate()
+    if (savedTemplate) return savedTemplate
+    return window.api.createPersonTemplate('New Survivor')
   }
 
   function buildCreateSurvivorPayload() {
@@ -1916,6 +1977,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function openSurvivorInCreateView(fileName) {
     const person = await window.api.loadPerson(fileName)
+    createViewMode = 'edit'
     createEditingFileName = fileName
     createSurvivorTitle.textContent = 'View Survivor'
     createSurvivorHint.textContent = `Editing ${fileName}. Save to persist updates to settlement.`
@@ -1956,11 +2018,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function getHiddenSettlementColumns() {
+    const hidden = new Set()
+    if (!settlementToggleMovement.checked) hidden.add('movement')
+    if (!settlementToggleWeaponProficiency.checked) {
+      hidden.add('weaponProficiency')
+      hidden.add('profRank')
+    }
+    return hidden
+  }
+
+  function applySettlementColumnVisibility(hiddenColumns) {
+    for (const headerCell of document.querySelectorAll('.settlement-table thead th[data-settlement-col]')) {
+      const column = headerCell.dataset.settlementCol
+      headerCell.classList.toggle('settlement-col-hidden', Boolean(column && hiddenColumns.has(column)))
+    }
+  }
+
+  function getSearchableArrayEntryName(item) {
+    if (typeof item === 'string') return item
+    if (!item || typeof item !== 'object') return ''
+    return String(item.name || '').trim()
+  }
+
+  function getSettlementTraitSearchText(person) {
+    if (!person || typeof person !== 'object') return ''
+    const traitArrays = [
+      person.abilities,
+      person.impairments,
+      person.fightingArts,
+      person.secretFightingArts,
+      person.disorders,
+      person.tenetKnowledge,
+      person.knowledge
+    ]
+    return traitArrays
+      .flatMap(entry => (Array.isArray(entry) ? entry : []))
+      .map(getSearchableArrayEntryName)
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+  }
+
   function getFilteredAndSortedSettlementRows() {
     const nameQuery = settlementNameSearch.value.trim().toLowerCase()
+    const traitQuery = settlementTraitSearch.value.trim().toLowerCase()
     const filtered = settlementRecords.filter(record => {
       const person = record.person || {}
       if (nameQuery && !String(person.name || '').toLowerCase().includes(nameQuery)) return false
+      if (traitQuery && !getSettlementTraitSearchText(person).includes(traitQuery)) return false
 
       for (const filter of settlementBoolFilters) {
         const expected = filter.value
@@ -2011,6 +2117,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderSettlementTable() {
     renderSettlementSortHeaders()
+    const hiddenColumns = getHiddenSettlementColumns()
+    applySettlementColumnVisibility(hiddenColumns)
     settlementTableBody.innerHTML = ''
     const aliveCount = settlementRecords.filter(record => Boolean(record?.person?.isAlive)).length
     settlementAliveCount.textContent = `(Alive: ${aliveCount})`
@@ -2021,7 +2129,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rows.length === 0) {
       const row = document.createElement('tr')
       const cell = document.createElement('td')
-      cell.colSpan = 17
+      const visibleHeaderCount = document.querySelectorAll('.settlement-table thead th:not(.settlement-col-hidden)').length
+      cell.colSpan = Math.max(1, visibleHeaderCount)
       cell.textContent = 'No survivors match the current filters.'
       row.appendChild(cell)
       settlementTableBody.appendChild(row)
@@ -2035,29 +2144,35 @@ document.addEventListener('DOMContentLoaded', () => {
           ? person.weaponProficiency
           : { type: '', level: 0 }
       const values = [
-        person.name || '-',
-        String(coerceNumber(person.age, 0)),
-        String(coerceNumber(person.lumi, 0)),
-        person.philosophy || '-',
-        String(coerceNumber(person.philosophyRank, 0)),
-        canSurvivorPonder(person) ? 'Ready' : '-',
-        String(coerceNumber(person.movement, 0)),
-        String(coerceNumber(person.speed, 0)),
-        String(coerceNumber(person.accuracy, 0)),
-        String(coerceNumber(person.strength, 0)),
-        String(coerceNumber(person.luck, 0)),
-        String(coerceNumber(person.evasion, 0)),
-        String(coerceNumber(person.courage, 0)),
-        String(coerceNumber(person.understanding, 0)),
-        String(proficiency.type || '-'),
-        String(normalizeProficiencyLevel(proficiency.level, 0))
+        { value: person.name || '-', column: '' },
+        { value: String(coerceNumber(person.age, 0)), column: '' },
+        { value: String(coerceNumber(person.lumi, 0)), column: '' },
+        { value: String(coerceNumber(person.survivalPts, 0)), column: '' },
+        { value: String(coerceNumber(person.insanityPts, 0)), column: '' },
+        { value: person.philosophy || '-', column: '' },
+        { value: String(coerceNumber(person.philosophyRank, 0)), column: '' },
+        { value: canSurvivorPonder(person) ? 'Ready' : '-', column: '' },
+        { value: String(coerceNumber(person.movement, 0)), column: 'movement' },
+        { value: String(coerceNumber(person.speed, 0)), column: '' },
+        { value: String(coerceNumber(person.accuracy, 0)), column: '' },
+        { value: String(coerceNumber(person.strength, 0)), column: '' },
+        { value: String(coerceNumber(person.luck, 0)), column: '' },
+        { value: String(coerceNumber(person.evasion, 0)), column: '' },
+        { value: String(coerceNumber(person.courage, 0)), column: '' },
+        { value: String(coerceNumber(person.understanding, 0)), column: '' },
+        { value: String(proficiency.type || '-'), column: 'weaponProficiency' },
+        { value: String(normalizeProficiencyLevel(proficiency.level, 0)), column: 'profRank' }
       ]
 
       const row = document.createElement('tr')
       row.dataset.fileName = record.fileName
-      for (const value of values) {
+      for (const entry of values) {
         const cell = document.createElement('td')
-        cell.textContent = value
+        if (entry.column) {
+          cell.dataset.settlementCol = entry.column
+          cell.classList.toggle('settlement-col-hidden', hiddenColumns.has(entry.column))
+        }
+        cell.textContent = entry.value
         row.appendChild(cell)
       }
 
@@ -2274,9 +2389,37 @@ document.addEventListener('DOMContentLoaded', () => {
       ['systemicPressurePts', 'S. Pressure', 0, null, 'icon-vitals'],
       ['tormentPts', 'Torment', 0, null, 'icon-vitals']
     ]
-    const mindStats = [
-      ['courage', 'Courage', 0, 9, 'icon-mind'],
-      ['understanding', 'Understanding', 0, 9, 'icon-mind']
+    const mindHeaderStats = [
+      {
+        field: 'courage',
+        label: 'Courage',
+        min: 0,
+        max: 9,
+        icon: 'icon-mind',
+        group: 'courageGroup',
+        options: [
+          ['none', 'None'],
+          ['stalwart', 'Stalwart'],
+          ['prepared', 'Prepared'],
+          ['matchmaker', 'Matchmaker']
+        ],
+        selected: getSelectedMatchmakerGroup(p)
+      },
+      {
+        field: 'understanding',
+        label: 'Understanding',
+        min: 0,
+        max: 9,
+        icon: 'icon-mind',
+        group: 'understandingGroup',
+        options: [
+          ['none', 'None'],
+          ['analyze', 'Analyze'],
+          ['explore', 'Explorer'],
+          ['tinker', 'Tinker']
+        ],
+        selected: getSelectedTinkerGroup(p)
+      }
     ]
     const combatStats = [
       ['movement', 'Movement', 1, null, 'icon-stats'],
@@ -2288,6 +2431,13 @@ document.addEventListener('DOMContentLoaded', () => {
     ]
 
     syncShowdownTextDraftState(slot, p)
+    const activePage = normalizeShowdownPageKey(showdownPageBySlot[slot])
+    showdownPageBySlot[slot] = activePage
+    const pageDots = SHOWDOWN_PAGE_CONFIG.map(page => {
+      const isActive = page.key === activePage
+      return `<button type="button" class="showdown-page-dot${isActive ? ' is-active' : ''}" data-showdown-page-slot="${slot}" data-showdown-page="${page.key}" aria-label="${page.label}" title="${page.label}" aria-pressed="${isActive ? 'true' : 'false'}"><span>${page.symbol}</span></button>`
+    }).join('')
+    const proficiencyLevel = clamp(coerceInt(proficiency.level, 0), 0, 8)
 
     const renderBaseStepper = ([field, label, min, max, icon]) => {
       const base = coerceNumber(p[field], 0)
@@ -2354,118 +2504,122 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`
     }
 
+    const renderMindHeaderStepper = ({ field, label, min, max, icon, group, options, selected }) => {
+      const base = coerceNumber(p[field], 0)
+      return `
+      <div class="showdown-stepper showdown-stepper-simple showdown-stepper-header-mind-card">
+        <span class="showdown-stepper-label">${iconLabel(icon, label)}</span>
+        <div class="showdown-stepper-controls">
+          <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="-1" data-showdown-min="${
+            min ?? ''
+          }" data-showdown-max="${max ?? ''}">-</button>
+          <strong class="showdown-static-value">${base}</strong>
+          <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="1" data-showdown-min="${
+            min ?? ''
+          }" data-showdown-max="${max ?? ''}">+</button>
+        </div>
+        <select class="showdown-header-inline-select" data-showdown-group-slot="${slot}" data-showdown-group="${group}" aria-label="${label} ability">
+          ${buildShowdownGroupOptions(selected, options)}
+        </select>
+      </div>`
+    }
+
     container.innerHTML = `
-      <h3 class="showdown-name">${p.name || 'Unknown Survivor'}</h3>
-      <p class="showdown-sub">${fileName} • ${p.gender || 'Unknown'} • ${p.philosophy || 'No philosophy'}</p>
-      <div class="showdown-meta-row">
-        <label class="showdown-bool-toggle">
-          <input type="checkbox" data-showdown-bool-slot="${slot}" data-showdown-bool-field="isAlive" ${
-            p.isAlive ? 'checked' : ''
-          } />
-          <span>Alive</span>
-        </label>
+      <div class="showdown-frozen-header">
+        <div class="showdown-identity-bar">
+          <span class="showdown-identity-name">${p.name || 'Unknown Survivor'}</span>
+          <span class="showdown-identity-item">Sex: ${p.gender || 'Unknown'}</span>
+          <span class="showdown-identity-item showdown-identity-philosophy">Philosophy: ${p.philosophy || 'No philosophy'}</span>
+          <label class="showdown-bool-toggle showdown-bool-toggle-compact">
+            <input type="checkbox" data-showdown-bool-slot="${slot}" data-showdown-bool-field="isAlive" ${
+              p.isAlive ? 'checked' : ''
+            } />
+            <span>Alive</span>
+          </label>
+        </div>
+        <section class="showdown-group showdown-group-vitals">
+          <h4>${iconLabel('icon-vitals', 'Age / Survival / Insanity')}</h4>
+          <div class="showdown-stats showdown-stats-vitals">
+            ${vitalStats.map(renderBaseStepper).join('')}
+            <div class="showdown-stepper showdown-stepper-simple showdown-stepper-proficiency-type-card">
+              <span class="showdown-stepper-label">${iconLabel('icon-stats', 'Weapon Prof')}</span>
+              <input type="text" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="type" value="${String(
+                proficiency.type || ''
+              )}" placeholder="e.g. Sword" />
+            </div>
+          </div>
+          <div class="showdown-stats showdown-stats-vitals showdown-stats-vitals-bleeding">
+            <div class="showdown-stepper showdown-stepper-simple showdown-stepper-bleeding">
+              <span class="showdown-stepper-label">${iconLabel('icon-bleeding', 'Bleeding Tokens')}</span>
+              <div class="showdown-stepper-controls">
+                <button type="button" data-showdown-slot="${slot}" data-showdown-part="bleedingTokens" data-showdown-delta="-1">-</button>
+                <strong class="showdown-static-value">${Math.max(0, coerceNumber(armor.bleedingTokens, 0))}</strong>
+                <button type="button" data-showdown-slot="${slot}" data-showdown-part="bleedingTokens" data-showdown-delta="1">+</button>
+              </div>
+            </div>
+            <div class="showdown-stepper showdown-stepper-simple showdown-stepper-proficiency-level">
+              <span class="showdown-stepper-label">${iconLabel('icon-stats', 'Prof Rank')}</span>
+              <div class="showdown-stepper-controls">
+                <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="-1">-</button>
+                <strong class="showdown-static-value">${proficiencyLevel}</strong>
+                <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="1">+</button>
+              </div>
+            </div>
+          </div>
+          <div class="showdown-stats showdown-stats-mind showdown-stats-header-mind">${mindHeaderStats
+            .map(renderMindHeaderStepper)
+            .join('')}</div>
+        </section>
       </div>
-      <section class="showdown-group">
-        <h4>${iconLabel('icon-vitals', 'Age / Survival / Insanity')}</h4>
-        <div class="showdown-stats showdown-stats-vitals">${vitalStats.map(renderBaseStepper).join('')}</div>
-        <div class="showdown-stats showdown-stats-vitals">
-          <div class="showdown-stepper showdown-stepper-simple showdown-stepper-bleeding">
-            <span class="showdown-stepper-label">${iconLabel('icon-bleeding', 'Bleeding Tokens')}</span>
-            <div class="showdown-stepper-controls">
-              <button type="button" data-showdown-slot="${slot}" data-showdown-part="bleedingTokens" data-showdown-delta="-1">-</button>
-              <strong class="showdown-static-value">${Math.max(0, coerceNumber(armor.bleedingTokens, 0))}</strong>
-              <button type="button" data-showdown-slot="${slot}" data-showdown-part="bleedingTokens" data-showdown-delta="1">+</button>
-            </div>
+      <div class="showdown-page-nav" role="tablist" aria-label="Showdown survivor pages">${pageDots}</div>
+
+      <section class="showdown-page-panel" data-showdown-page-panel="armor"${activePage === 'armor' ? '' : ' hidden'}>
+        <section class="showdown-group">
+          <h4>${iconLabel('icon-shield', 'Armor')}</h4>
+          <div class="showdown-armor-grid">
+            ${[
+              ['head', 'Head', 'icon-head'],
+              ['body', 'Body', 'icon-body'],
+              ['arms', 'Arms', 'icon-arms'],
+              ['waist', 'Waist', 'icon-waist'],
+              ['legs', 'Legs', 'icon-legs']
+            ]
+              .map(([part, label, icon]) => {
+                const lightKey = `${part}Light`
+                const heavyKey = `${part}Heavy`
+                const checks =
+                  part === 'head'
+                    ? `<label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${heavyKey}" ${
+                        armor[heavyKey] ? 'checked' : ''
+                      } />Heavy</label>`
+                    : `<label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${lightKey}" ${
+                        armor[lightKey] ? 'checked' : ''
+                      } />Light</label><label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${heavyKey}" ${
+                        armor[heavyKey] ? 'checked' : ''
+                      } />Heavy</label>`
+                return `
+              <div class="showdown-armor-stepper">
+                <span>${iconLabel(icon, label)}</span>
+                <button type="button" data-showdown-slot="${slot}" data-showdown-part="${part}" data-showdown-delta="-1">-</button>
+                <strong class="showdown-static-value showdown-armor-value">${armor[part]}</strong>
+                <button type="button" data-showdown-slot="${slot}" data-showdown-part="${part}" data-showdown-delta="1">+</button>
+                <div class="showdown-armor-checks">${checks}</div>
+              </div>`
+              })
+              .join('')}
           </div>
-        </div>
+        </section>
       </section>
-      <section class="showdown-group">
-        <h4>${iconLabel('icon-shield', 'Armor')}</h4>
-        <div class="showdown-armor-grid">
-          ${[
-            ['head', 'Head', 'icon-head'],
-            ['body', 'Body', 'icon-body'],
-            ['arms', 'Arms', 'icon-arms'],
-            ['waist', 'Waist', 'icon-waist'],
-            ['legs', 'Legs', 'icon-legs']
-          ]
-            .map(([part, label, icon]) => {
-              const lightKey = `${part}Light`
-              const heavyKey = `${part}Heavy`
-              const checks =
-                part === 'head'
-                  ? `<label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${heavyKey}" ${
-                      armor[heavyKey] ? 'checked' : ''
-                    } />Heavy</label>`
-                  : `<label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${lightKey}" ${
-                      armor[lightKey] ? 'checked' : ''
-                    } />Light</label><label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${heavyKey}" ${
-                      armor[heavyKey] ? 'checked' : ''
-                    } />Heavy</label>`
-              return `
-            <div class="showdown-armor-stepper">
-              <span>${iconLabel(icon, label)}</span>
-              <button type="button" data-showdown-slot="${slot}" data-showdown-part="${part}" data-showdown-delta="-1">-</button>
-              <strong class="showdown-static-value showdown-armor-value">${armor[part]}</strong>
-              <button type="button" data-showdown-slot="${slot}" data-showdown-part="${part}" data-showdown-delta="1">+</button>
-              <div class="showdown-armor-checks">${checks}</div>
-            </div>`
-            })
-            .join('')}
-        </div>
+
+      <section class="showdown-page-panel" data-showdown-page-panel="stats"${activePage === 'stats' ? '' : ' hidden'}>
+        <section class="showdown-group">
+          <h4>${iconLabel('icon-stats', 'Stats')}</h4>
+          <div class="showdown-stats showdown-stats-combat">${combatStats.map(renderCombatStepper).join('')}</div>
+        </section>
       </section>
-      <section class="showdown-group">
-        <h4>${iconLabel('icon-stats', 'Stats')}</h4>
-        <div class="showdown-stats showdown-stats-combat">${combatStats.map(renderCombatStepper).join('')}</div>
-      </section>
-      <section class="showdown-group">
-        <h4>${iconLabel('icon-stats', 'Weapon Proficiency')}</h4>
-        <div class="showdown-stats showdown-stats-mind">
-          <div class="showdown-proficiency-type">
-            <span>Type</span>
-            <input type="text" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="type" value="${String(
-              proficiency.type || ''
-            )}" placeholder="e.g. Sword" />
-          </div>
-          <div class="showdown-stepper showdown-stepper-simple">
-            <span class="showdown-stepper-label">Level</span>
-            <div class="showdown-stepper-controls">
-              <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="-1">-</button>
-              <strong class="showdown-static-value">${clamp(coerceInt(proficiency.level, 0), 0, 8)}</strong>
-              <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="1">+</button>
-            </div>
-          </div>
-        </div>
-      </section>
-      <section class="showdown-group">
-        <h4>${iconLabel('icon-mind', 'Courage / Understanding')}</h4>
-        <div class="showdown-stats showdown-stats-mind">${mindStats.map(renderBaseStepper).join('')}</div>
-        <div class="showdown-stats showdown-stats-mind">
-          <label class="showdown-proficiency-type">
-            <span>Courage Ability</span>
-            <select data-showdown-group-slot="${slot}" data-showdown-group="courageGroup">
-              ${buildShowdownGroupOptions(getSelectedMatchmakerGroup(p), [
-                ['none', 'None'],
-                ['stalwart', 'Stalwart'],
-                ['prepared', 'Prepared'],
-                ['matchmaker', 'Matchmaker']
-              ])}
-            </select>
-          </label>
-          <label class="showdown-proficiency-type">
-            <span>Understanding Ability</span>
-            <select data-showdown-group-slot="${slot}" data-showdown-group="understandingGroup">
-              ${buildShowdownGroupOptions(getSelectedTinkerGroup(p), [
-                ['none', 'None'],
-                ['analyze', 'Analyze'],
-                ['explore', 'Explorer'],
-                ['tinker', 'Tinker']
-              ])}
-            </select>
-          </label>
-        </div>
-      </section>
-      <details class="showdown-toggle" data-showdown-section="fightingArts">
+
+      <section class="showdown-page-panel" data-showdown-page-panel="arts"${activePage === 'arts' ? '' : ' hidden'}>
+        <details class="showdown-toggle" data-showdown-section="fightingArts" open>
         <summary>Fighting Arts (${(p.fightingArts || []).length})</summary>
         <div class="showdown-array-actions">
           <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="fightingArts">+ Add</button>
@@ -2486,8 +2640,8 @@ document.addEventListener('DOMContentLoaded', () => {
           </li>`
           }
         )}
-      </details>
-      <details class="showdown-toggle" data-showdown-section="secretFightingArts">
+        </details>
+        <details class="showdown-toggle" data-showdown-section="secretFightingArts" open>
         <summary>Secret Fighting Arts (${(p.secretFightingArts || []).length})</summary>
         <div class="showdown-array-actions">
           <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="secretFightingArts">+ Add</button>
@@ -2508,8 +2662,11 @@ document.addEventListener('DOMContentLoaded', () => {
           </li>`
           }
         )}
-      </details>
-      <details class="showdown-toggle" data-showdown-section="abilities">
+        </details>
+      </section>
+
+      <section class="showdown-page-panel" data-showdown-page-panel="traits"${activePage === 'traits' ? '' : ' hidden'}>
+        <details class="showdown-toggle" data-showdown-section="abilities" open>
         <summary>Abilities (${(p.abilities || []).length})</summary>
         <div class="showdown-array-actions">
           <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="abilities">+ Add New</button>
@@ -2523,8 +2680,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="abilities" data-showdown-remove-index="${index}">Remove</button>
           </li>`
         )}
-      </details>
-      <details class="showdown-toggle" data-showdown-section="impairments">
+        </details>
+        <details class="showdown-toggle" data-showdown-section="impairments" open>
         <summary>Impairments (${(p.impairments || []).length})</summary>
         <div class="showdown-array-actions">
           <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="impairments">+ Add New</button>
@@ -2538,8 +2695,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="impairments" data-showdown-remove-index="${index}">Remove</button>
           </li>`
         )}
-      </details>
-      <details class="showdown-toggle" data-showdown-section="disorders">
+        </details>
+      </section>
+
+      <section class="showdown-page-panel" data-showdown-page-panel="disorders"${activePage === 'disorders' ? '' : ' hidden'}>
+        <details class="showdown-toggle" data-showdown-section="disorders" open>
         <summary>Disorders (${(p.disorders || []).length})</summary>
         <div class="showdown-array-actions">
           <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="disorders">+ Add</button>
@@ -2560,8 +2720,11 @@ document.addEventListener('DOMContentLoaded', () => {
           </li>`
           }
         )}
-      </details>
-      <details class="showdown-toggle" data-showdown-section="tenetKnowledge">
+        </details>
+      </section>
+
+      <section class="showdown-page-panel" data-showdown-page-panel="knowledge"${activePage === 'knowledge' ? '' : ' hidden'}>
+        <details class="showdown-toggle" data-showdown-section="tenetKnowledge" open>
         <summary>Tenet Knowledge and Neurosis (${(p.tenetKnowledge || []).length})</summary>
         <div class="showdown-array-actions">
           <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="tenetKnowledge">+ Add</button>
@@ -2621,8 +2784,8 @@ document.addEventListener('DOMContentLoaded', () => {
           </li>`
           }
         )}
-      </details>
-      <details class="showdown-toggle" data-showdown-section="knowledge">
+        </details>
+        <details class="showdown-toggle" data-showdown-section="knowledge" open>
         <summary>Knowledge (${(p.knowledge || []).length})</summary>
         <div class="showdown-array-actions">
           <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="knowledge">+ Add</button>
@@ -2670,7 +2833,8 @@ document.addEventListener('DOMContentLoaded', () => {
           </li>`
           }
         )}
-      </details>
+        </details>
+      </section>
     `
   }
 
@@ -2689,6 +2853,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const details of container.querySelectorAll('details[data-showdown-section]')) {
       const key = details.dataset.showdownSection
       if (!key) continue
+      if (!Object.prototype.hasOwnProperty.call(state, key)) continue
       details.open = Boolean(state[key])
     }
   }
@@ -2808,7 +2973,6 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(result?.message || 'Failed to save survivor while leaving showdown')
       }
     }
-    await refreshPeople()
   }
 
   function applyShowdownLockSelections() {
@@ -2828,6 +2992,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function resetShowdownSlotState(slot) {
     if (slot !== 'A' && slot !== 'B') return
+    showdownPageBySlot[slot] = SHOWDOWN_DEFAULT_PAGE
     showdownArmor[slot] = {
       head: 0,
       body: 0,
@@ -2874,6 +3039,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function resetShowdownSessionState(clearPeople = false, clearSelections = false) {
     showdownDeparted = false
     showdownLockedSlots = { A: '', B: '' }
+    showdownPageBySlot = { A: SHOWDOWN_DEFAULT_PAGE, B: SHOWDOWN_DEFAULT_PAGE }
     resetShowdownModifiers()
     showdownArmor = {
       A: {
@@ -2962,9 +3128,15 @@ document.addEventListener('DOMContentLoaded', () => {
       'Are you sure you want to return? This will save current showdown survivor stats to settlement.'
     )
     if (!confirmed) return
+    setStatus('Saving showdown survivors...', 'neutral')
     await saveShowdownSurvivors()
     resetShowdownSessionState(true, true)
     setPage('settlement')
+    try {
+      await refreshPeople({ silentStatus: true, updateRefreshTimestamp: true })
+    } catch {
+      // Showdown has already ended and saves completed; settlement auto-refresh will recover.
+    }
     setStatus('Showdown over. Survivor records saved.', 'success')
   }
 
@@ -4113,7 +4285,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setStatus('Select a survivors folder to begin', 'neutral')
       }
 
-      const template = await window.api.createPersonTemplate('New Survivor')
+      const template = await loadDefaultCreateTemplateWithFallback()
       createTemplateDefaults = deepClone(template)
       personJson.value = JSON.stringify(template, null, 2)
       renderVisualEditor(template)
@@ -4178,6 +4350,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   markdownSearch.addEventListener('input', renderMarkdownList)
   settlementNameSearch.addEventListener('input', renderSettlementTable)
+  settlementTraitSearch.addEventListener('input', renderSettlementTable)
+  settlementToggleMovement.addEventListener('change', renderSettlementTable)
+  settlementToggleWeaponProficiency.addEventListener('change', renderSettlementTable)
   settingsFastMode.addEventListener('change', () => {
     settlementFastMode = Boolean(settingsFastMode.checked)
     syncSettlementAutoRefresh()
@@ -4266,6 +4441,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
   settlementClearFiltersButton.addEventListener('click', () => {
     settlementNameSearch.value = ''
+    settlementTraitSearch.value = ''
     for (const filter of settlementBoolFilters) {
       filter.value = filter.dataset.boolFilter === 'isAlive' ? 'yes' : 'all'
     }
@@ -4350,21 +4526,38 @@ document.addEventListener('DOMContentLoaded', () => {
   navCreateButton.addEventListener('click', () => {
     if (currentPage === 'create') return
     runBusy(async () => {
+      createViewMode = 'create'
       if (inShowdownMode) {
         setStatus('Showdown session kept active while in Create Survivor view.', 'neutral')
       }
       if (!createTemplateDefaults) await resetCreateSurvivorForm()
       else {
         createEditingFileName = null
-        createSurvivorTitle.textContent = 'Create Survivor'
-        createSurvivorHint.textContent = 'Start from a default template, set starting values, and save to settlement.'
-        createSurvivorSubmit.textContent = 'Create Survivor'
+        applyCreateViewModeUi()
         renderCreateSurvivorForm(createTemplateDefaults)
       }
       setPage('create')
     }).catch(err => {
       setStatus(err.message || 'Failed to open create survivor view', 'error')
     })
+  })
+  const openDefaultTemplateEditor = () => {
+    if (currentPage === 'defaultTemplate') return Promise.resolve()
+    runBusy(async () => {
+      createViewMode = 'defaultTemplate'
+      createEditingFileName = null
+      const template = await loadDefaultCreateTemplateWithFallback()
+      createTemplateDefaults = deepClone(template)
+      applyCreateViewModeUi()
+      renderCreateSurvivorForm(template)
+      setPage('defaultTemplate')
+      setStatus('Editing default new survivor template', 'neutral')
+    }).catch(err => {
+      setStatus(err.message || 'Failed to open default template view', 'error')
+    })
+  }
+  createOpenDefaultTemplate.addEventListener('click', () => {
+    openDefaultTemplateEditor()
   })
   navSettlementButton.addEventListener('click', () => {
     if (currentPage === 'settlement') return
@@ -4411,6 +4604,17 @@ document.addEventListener('DOMContentLoaded', () => {
           ? rawTarget.parentElement
           : null
     if (!(target instanceof HTMLElement)) return
+
+    const pageButton = target.closest('button[data-showdown-page-slot][data-showdown-page]')
+    if (pageButton instanceof HTMLButtonElement) {
+      const slot = pageButton.dataset.showdownPageSlot
+      const page = pageButton.dataset.showdownPage
+      if ((slot === 'A' || slot === 'B') && page) {
+        showdownPageBySlot[slot] = normalizeShowdownPageKey(page)
+        renderShowdownSlot(slot)
+      }
+      return
+    }
 
     if (target.dataset.showdownAddSlot && target.dataset.showdownAddArray) {
       const slot = target.dataset.showdownAddSlot
@@ -4722,7 +4926,11 @@ document.addEventListener('DOMContentLoaded', () => {
   departShowdownButton.addEventListener('click', departShowdownSession)
   showdownOverButton.addEventListener('click', () => {
     runBusy(finalizeShowdownSession).catch(err => {
-      setStatus(err.message || 'Failed to close showdown session', 'error')
+      const message = err.message || 'Failed to close showdown session'
+      setStatus(message, 'error')
+      if (currentPage === 'showdown') {
+        window.alert(`Could not return from showdown:\n\n${message}`)
+      }
     })
   })
 
@@ -4997,19 +5205,45 @@ document.addEventListener('DOMContentLoaded', () => {
   resetCreateSurvivorButton.addEventListener('click', () => {
     runBusy(async () => {
       await resetCreateSurvivorForm()
-      setStatus('Create Survivor form reset to template defaults', 'neutral')
+      if (createViewMode === 'defaultTemplate') {
+        setStatus('Default new survivor template reset', 'neutral')
+      } else {
+        setStatus('Create Survivor form reset to template defaults', 'neutral')
+      }
     }).catch(err => {
       setStatus(err.message || 'Failed to reset create survivor form', 'error')
     })
   })
 
   createSurvivorBack.addEventListener('click', () => {
+    if (createViewMode === 'defaultTemplate') {
+      setPage('dataSources')
+      setStatus('Returned to settings view', 'neutral')
+      return
+    }
     setPage('settlement')
     setStatus('Returned to settlement view', 'neutral')
   })
 
   createSurvivorSubmit.addEventListener('click', () => {
     runBusy(async () => {
+      const person = buildCreateSurvivorPayload()
+      if (!person) {
+        setStatus('Survivor name is required', 'error')
+        return
+      }
+
+      if (createViewMode === 'defaultTemplate') {
+        if (!hasDefaultTemplateFolder) {
+          setStatus('Select a Default Survivor Templates folder before saving', 'error')
+          return
+        }
+        await window.api.saveDefaultCreateTemplate(person)
+        createTemplateDefaults = deepClone(person)
+        setStatus('Saved default template for new survivors', 'success')
+        return
+      }
+
       if (!hasDataFolder) {
         setStatus('Select a data folder before creating a survivor', 'error')
         return
@@ -5017,11 +5251,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const previousEditingFile = createEditingFileName
       const wasEditingExisting = Boolean(previousEditingFile)
-      const person = buildCreateSurvivorPayload()
-      if (!person) {
-        setStatus('Survivor name is required', 'error')
-        return
-      }
 
       const result = await window.api.savePerson(person)
       if (!result || result.ok === false) {
@@ -5180,6 +5409,20 @@ document.addEventListener('DOMContentLoaded', () => {
   knowledgeTemplateModal.addEventListener('click', event => {
     if (event.target === knowledgeTemplateModal) closeKnowledgeTemplatePickerModal()
   })
+  document.addEventListener(
+    'pointerdown',
+    event => {
+      const rawTarget = event.target
+      if (!(rawTarget instanceof Element)) return
+      const editable = rawTarget.closest('input, textarea, select, [contenteditable="true"]')
+      if (!(editable instanceof HTMLElement)) return
+      if ('disabled' in editable && editable.disabled) return
+      window.requestAnimationFrame(() => {
+        editable.focus()
+      })
+    },
+    true
+  )
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return
     if (inShowdownMode) {

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, nativeImage } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, nativeImage, Menu } = require('electron')
 const fs = require('fs')
 const path = require('path')
 const MarkdownIt = require('markdown-it')
@@ -24,6 +24,7 @@ function createWindow() {
     width: 1000,
     height: 700,
     icon: iconPath,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -31,6 +32,9 @@ function createWindow() {
     }
   })
 
+  if (process.platform === 'win32') {
+    mainWindow.setMenuBarVisibility(false)
+  }
   mainWindow.loadFile(path.join(__dirname, '..', 'ui', 'components', 'index.html'))
 }
 
@@ -38,6 +42,10 @@ function createWindow() {
    App Lifecycle
 --------------------------------*/
 app.whenReady().then(() => {
+  if (process.platform === 'win32') {
+    // Prevent Alt/menu mnemonic focus from stealing keyboard input from form fields.
+    Menu.setApplicationMenu(null)
+  }
   if (process.platform === 'darwin' && app.dock) {
     const dockIcon = nativeImage.createFromPath(getAppIconPath())
     if (!dockIcon.isEmpty()) app.dock.setIcon(dockIcon)
@@ -120,6 +128,23 @@ ipcMain.handle('delete-person', (_event, fileName) => {
 
 ipcMain.handle('create-person-template', (_event, name) => {
   return dataService.createPersonTemplate(name)
+})
+
+ipcMain.handle('save-default-create-template', (_event, template) => {
+  const dataSources = dataService.getSavedDataSources(app)
+  const templatePath = String(dataSources.defaultSurvivorTemplates || '').trim()
+  if (!templatePath) {
+    throw new Error('No Default Survivor Templates folder selected')
+  }
+  const fileName = dataService.saveDefaultCreateTemplate(templatePath, template)
+  return { ok: true, fileName }
+})
+
+ipcMain.handle('load-default-create-template', () => {
+  const dataSources = dataService.getSavedDataSources(app)
+  const templatePath = String(dataSources.defaultSurvivorTemplates || '').trim()
+  if (!templatePath) return null
+  return dataService.loadDefaultCreateTemplate(templatePath)
 })
 
 ipcMain.handle('list-markdown-collections', () => {

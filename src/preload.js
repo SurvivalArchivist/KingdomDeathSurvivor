@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('api', {
   savePerson: (person, options) => ipcRenderer.invoke('save-person', person, options),
   deletePerson: fileName => ipcRenderer.invoke('delete-person', fileName),
   createPersonTemplate: name => ipcRenderer.invoke('create-person-template', name),
+  saveDefaultCreateTemplate: template => ipcRenderer.invoke('save-default-create-template', template),
+  loadDefaultCreateTemplate: () => ipcRenderer.invoke('load-default-create-template'),
   listMarkdownCollections: () => ipcRenderer.invoke('list-markdown-collections'),
   listMarkdownFiles: collectionId => ipcRenderer.invoke('list-markdown-files', collectionId),
   loadMarkdownFile: (collectionId, fileName) =>
