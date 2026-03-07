@@ -11,6 +11,7 @@
     "package:mac": "electron-builder --mac dmg zip",
     "package:win": "electron-builder --win nsis portable",
     "package:linux": "electron-builder --linux AppImage deb rpm tar.gz flatpak",
+    "package:linux:release": "electron-builder --linux AppImage deb rpm tar.gz",
     "package:dir": "electron-builder --dir",
     "build:mac:local": "bash scripts/build-macos-local.sh",
     "test": "npm run test:unit && npm run test:integration && npm run test:main && npm run test:renderer",
@@ -44,6 +45,7 @@
         "dmg",
         "zip"
       ],
+      "icon": "ui/assets/app-icon.icns",
       "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     },
     "win": {
@@ -51,6 +53,7 @@
         "nsis",
         "portable"
       ],
+      "icon": "ui/assets/app-icon.ico",
       "artifactName": "${productName}-${version}-win-${arch}.${ext}"
     },
     "linux": {
@@ -62,6 +65,7 @@
         "flatpak"
       ],
       "category": "Utility",
+      "icon": "ui/assets/linux-icons",
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },
     "flatpak": {
