@@ -48,7 +48,9 @@ jobs:
           sudo flatpak install -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.electronjs.Electron2.BaseApp//24.08
 
       - name: Build Linux Artifacts
-        run: npm run package:linux -- --publish never
+        run: |
+          npm run package:linux:release -- --publish never
+          npx electron-builder --linux flatpak --publish never
 
       - name: Smoke Check Linux Artifacts
         shell: bash
