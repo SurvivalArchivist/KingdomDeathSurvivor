@@ -1,0 +1,72 @@
+name: Linux Package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  package-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Dependencies (with retry)
+        shell: bash
+        run: |
+          max_attempts=3
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "npm ci attempt ${attempt}/${max_attempts}"
+            if npm ci; then
+              exit 0
+            fi
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "npm ci failed after ${max_attempts} attempts"
+              exit 1
+            fi
+            echo "npm ci failed (transient network likely). Retrying in 15s..."
+            sleep 15
+          done
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Install Linux Packaging Tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm flatpak flatpak-builder
+
+      - name: Build Linux Artifacts
+        run: npm run package:linux -- --publish never
+
+      - name: Smoke Check Linux Artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          checks=(
+            "release/*.AppImage"
+            "release/*.deb"
+            "release/*.rpm"
+            "release/*.tar.gz"
+            "release/*.flatpak"
+          )
+          for pattern in "${checks[@]}"; do
+            if ! compgen -G "$pattern" > /dev/null; then
+              echo "Missing expected artifact: $pattern"
+              exit 1
+            fi
+          done
+          echo "Linux artifact smoke check passed."
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: release/**
+          if-no-files-found: error

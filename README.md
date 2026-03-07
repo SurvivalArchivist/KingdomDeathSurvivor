@@ -17,16 +17,21 @@ KDM Survivors Console helps you manage survivor records across the full play loo
 - Provides dedicated views for technical editing, settlement management, create/edit survivor, and showdown
 
 ## Download The Latest Release
-- Latest release page (Windows + macOS artifacts):
+- Latest release page (Windows + macOS + Linux artifacts):
 - https://github.com/SurvivalArchivist/KingdomDeathSurvivor/releases/latest
 
 From that page, download:
 - **Windows**: `.exe` artifact(s)
 - **macOS**: `.dmg` or `.zip` artifact(s)
+- **Linux**: `.flatpak` (recommended for distro-agnostic install/update), or `.AppImage` / `.deb` / `.rpm`
 
 ## Notes
 - Unsigned builds may show SmartScreen/Gatekeeper warnings.
 - For safest updates, always use files from the latest GitHub Release page above.
+- Linux AppImage note: mark executable before first launch:
+```bash
+chmod +x "KDM Survivors Console-<version>-linux-x64.AppImage"
+```
 - If macOS says the app is damaged, clear quarantine and relaunch:
 ```bash
 xattr -dr com.apple.quarantine "/Applications/KDM Survivors Console.app"
@@ -52,6 +57,7 @@ npm run verify
 ```bash
 npm run package:mac
 npm run package:win
+npm run package:linux
 ```
 
 ### Automated Publishing
