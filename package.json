@@ -21,7 +21,7 @@
     "test:renderer": "node --test test/renderer.smoke.test.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "KDM Survivors Console Maintainers <maintainers@kdm-survivors.local>",
   "license": "ISC",
   "type": "commonjs",
   "build": {
@@ -65,6 +65,7 @@
         "flatpak"
       ],
       "category": "Utility",
+      "maintainer": "KDM Survivors Console Maintainers <maintainers@kdm-survivors.local>",
       "icon": "ui/assets/linux-icons",
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },
