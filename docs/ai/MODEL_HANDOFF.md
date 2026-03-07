@@ -5,14 +5,14 @@
 - Release publish workflow now checks out repo content before artifact downloads in the publish job, preventing downloaded `.dmg`/`.zip`/`.exe` artifacts from being removed before `action-gh-release` uploads them.
 - GitHub Releases now publish a consistent custom release body from `.github/release-notes.md`, including explicit macOS first-launch quarantine-removal guidance for unsigned app builds.
 - Standalone `macOS Package` CI workflow now includes install retry protection for transient Electron download failures (`npm ci` with retries), matching hardened behavior in release/Windows flows.
-- Public-facing repository README is now present, describing product purpose/workflow and pointing users to the latest GitHub Release downloads for Windows and macOS.
+- Public-facing repository README is now present, describing product purpose/workflow and pointing users to the latest GitHub Release downloads for Windows, macOS, and Linux.
 - Project/package version is now `1.1.1` for the next automated tagged release.
 - Release workflow now supports both automatic tag publishing and manual runs with explicit `tag` input, and uses platform-appropriate retry logic for dependency install stability on both macOS and Windows release jobs.
 - Windows CI dependency installation now includes retry logic (`npm ci` up to 3 attempts with delay) in both build-only and release-publish workflows to mitigate transient Electron download socket failures on hosted runners.
-- Fully automated public release publishing is now configured: pushing a `v*` git tag triggers cross-platform build (macOS + Windows) and automatic GitHub Release creation with artifacts attached.
+- Fully automated public release publishing is now configured: pushing a `v*` git tag triggers cross-platform build (macOS + Windows + Linux, including Flatpak) and automatic GitHub Release creation with artifacts attached.
 - Repository process guardrails are now in place for safer day-to-day development: `npm run verify`, `npm run preflight`, commit/release checklists, PR template, and a dedicated CI validation workflow for `main`/PRs.
 - Repository now includes `package.json` and `package-lock.json`, allowing GitHub Actions `setup-node` npm cache and `npm ci`-based package workflows to resolve dependencies correctly.
-- CI packaging workflows now disable auto-publish (`--publish never`) for macOS/Windows artifact jobs, avoiding `GH_TOKEN` failures when only build artifacts are needed.
+- CI packaging workflows now disable auto-publish (`--publish never`) for macOS/Windows/Linux artifact jobs, avoiding `GH_TOKEN` failures when only build artifacts are needed.
 - Project/package version is now `1.1.0`, and macOS release artifacts for this version were generated locally in `release/` (`dmg` + `zip`, arm64).
 - Header navigation now includes a persistent light/dark theme toggle (right-aligned) that stores preference in `localStorage` and applies app-wide complementary light-theme overrides while preserving the dark-fantasy dark mode as default.
 - Light-theme contrast polish now hardens readability for nav active/hover states, status pills, showdown stepper controls, and philosophy/paragraph fields that previously retained dark-surfaces with dark text.
@@ -48,10 +48,12 @@
 - Knowledge progression fields and upgrade behavior are implemented.
 - Knowledge template library is persisted and searchable in picker modal.
 - Rename while editing existing survivor removes old record to prevent duplicates.
-- Packaging scripts/config are defined via `electron-builder` in `package.json` for macOS and Windows targets.
+- Packaging scripts/config are defined via `electron-builder` in `package.json` for macOS, Windows, and Linux targets (including Flatpak).
 - Survivor saves now use optimistic concurrency (`revision`, `updatedAt`) and atomic file writes.
 
 ## Recent Changes
+- 2026-03-07: Added Linux Flatpak packaging support (`flatpak` target/config + Linux package script update), installed Flatpak tooling in Linux CI, and introduced explicit post-build Linux artifact smoke checks (asserting `.flatpak`, `.AppImage`, `.deb`, `.rpm`, `.tar.gz`) before artifact upload/publish; files: `package.json`, `.github/workflows/linux-package.yml`, `.github/workflows/release-publish.yml`, `README.md`, `.github/release-notes.md`, `RELEASE_CHECKLIST.md`, `docs/ai/PROJECT_CONTEXT.md`, `docs/ai/MODEL_HANDOFF.md`; verification: `npm run verify`.
+- 2026-03-07: Expanded packaging/release coverage to Linux by adding `package:linux` + Linux electron-builder targets (`AppImage`, `deb`, `rpm`, `tar.gz`), introducing a manual `Linux Package` workflow, extending `Release Publish` to build/download/publish Linux artifacts, and updating README/release docs/checklists for Linux install guidance; files: `package.json`, `.github/workflows/linux-package.yml`, `.github/workflows/release-publish.yml`, `README.md`, `.github/release-notes.md`, `RELEASE_CHECKLIST.md`, `docs/ai/PROJECT_CONTEXT.md`, `docs/ai/MODEL_HANDOFF.md`; verification: `npm run verify`.
 - 2026-03-01: Removed automatic packaging from day-to-day CI by changing `.github/workflows/macos-package.yml` and `.github/workflows/windows-package.yml` triggers to `workflow_dispatch` only; this avoids duplicate builds on `main`/PR while keeping packaging available manually and via `release-publish`; files: `.github/workflows/macos-package.yml`, `.github/workflows/windows-package.yml`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-03-01: Fixed `release-publish` artifact upload regression by moving `actions/checkout` to the start of the `publish-release` job (before `download-artifact`), so release binaries are preserved and attached instead of publishing source archives only; files: `.github/workflows/release-publish.yml`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-03-01: Added release-notes automation so published GitHub Releases include stable install guidance (including macOS quarantine-removal command) by introducing `.github/release-notes.md` and wiring `release-publish` to use `body_path`; also mirrored the same macOS note in README; files: `.github/release-notes.md`, `.github/workflows/release-publish.yml`, `README.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
@@ -130,6 +132,7 @@
 - Renderer state complexity is high; future refactor could split large sections into modules.
 - UI behavior has many coupled rules; consider adding renderer-level tests for key flows.
 - Add explicit regression test for "rename existing survivor does not duplicate" at integration level.
+- Linux artifacts are currently unsigned/not store-distributed; consider adding signing/notarization strategy per target distro channel if stricter trust requirements emerge.
 
 ## Next Suggested Priorities
 1. Add integration tests for key renderer workflows (rename/edit, showdown depart/over, knowledge upgrade).

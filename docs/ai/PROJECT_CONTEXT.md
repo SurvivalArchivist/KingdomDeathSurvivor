@@ -86,3 +86,11 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Standard verification:
   - `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`
   - `npm test`
+
+## Packaging & Release
+- Electron Builder packaging targets now include:
+  - macOS: `dmg`, `zip`
+  - Windows: `nsis`, `portable`
+  - Linux: `flatpak`, `AppImage`, `deb`, `rpm`, `tar.gz`
+- Release automation (`.github/workflows/release-publish.yml`) builds all three platforms and publishes artifacts to GitHub Releases for `v*` tags.
+- Linux CI includes a post-build smoke check that asserts required Linux artifact types exist before upload/publish.
