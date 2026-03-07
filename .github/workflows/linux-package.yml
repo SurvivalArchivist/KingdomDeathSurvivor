@@ -42,6 +42,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rpm flatpak flatpak-builder
 
+      - name: Configure Flatpak Runtime
+        run: |
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+
       - name: Build Linux Artifacts
         run: npm run package:linux -- --publish never
 

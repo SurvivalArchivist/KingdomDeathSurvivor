@@ -94,3 +94,4 @@ Electron desktop companion app for Kingdom Death survivor management with:
   - Linux: `flatpak`, `AppImage`, `deb`, `rpm`, `tar.gz`
 - Release automation (`.github/workflows/release-publish.yml`) builds all three platforms and publishes artifacts to GitHub Releases for `v*` tags.
 - Linux CI includes a post-build smoke check that asserts required Linux artifact types exist before upload/publish.
+- Linux CI configures the `flathub` remote and installs `org.freedesktop.Platform//24.08` + `org.freedesktop.Sdk//24.08` before Flatpak packaging.
