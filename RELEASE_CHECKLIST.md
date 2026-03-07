@@ -31,9 +31,12 @@ Use this checklist for every release (for example `1.1.0`, `1.2.0`).
 - `git tag v<version>` (example: `git tag v1.2.0`)
 - `git push origin v<version>`
 - Workflow `Release Publish` will automatically:
-- Build macOS + Windows + Linux artifacts
+- Build macOS + Windows artifacts
 - Create/update a GitHub Release for that tag
 - Attach artifacts to the Release page
+
+Optional Linux packaging (manual while Linux release packaging is stabilized):
+- GitHub -> Actions -> `Linux Package` -> `Run workflow`
 
 Alternative (manual trigger):
 - GitHub -> Actions -> `Release Publish` -> `Run workflow`
@@ -42,5 +45,4 @@ Alternative (manual trigger):
 ## 7) Artifact sanity check
 - Mac: verify `.dmg` and `.zip` exist
 - Windows: verify `.exe` outputs exist
-- Linux: verify `.flatpak`, `.AppImage`, and native packages (`.deb` + `.rpm`) exist
 - Launch each build once to confirm app starts
