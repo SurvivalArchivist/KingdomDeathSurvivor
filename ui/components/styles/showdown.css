@@ -84,8 +84,8 @@ body.showdown-mode .showdown-view {
 }
 
 body.showdown-mode .showdown-card {
-  height: min(calc(100vh - 168px), 1012px);
-  max-height: min(calc(100vh - 168px), 1012px);
+  height: min(calc(100vh - 100px), 1012px);
+  max-height: min(calc(100vh - 100px), 1012px);
   overflow: auto;
 }
 
@@ -218,6 +218,8 @@ body.showdown-mode .showdown-card {
 
 .showdown-group {
   margin-bottom: 0.95rem;
+  padding-left: 0.38rem;
+  padding-right: 0.3rem;
   padding-bottom: 0.15rem;
 }
 
@@ -755,7 +757,7 @@ body.showdown-mode .showdown-card {
 
 .showdown-toggle {
   border-top: 1px dashed rgba(94, 110, 77, 0.35);
-  padding-top: 0.65rem;
+  padding: 0.65rem 0.38rem 0;
   margin-top: 0.65rem;
 }
 
@@ -783,6 +785,12 @@ body.showdown-mode .showdown-card {
   padding-left: 1.1rem;
 }
 
+.showdown-card details[data-showdown-section='tenetKnowledge'] > ul,
+.showdown-card details[data-showdown-section='knowledge'] > ul {
+  padding-left: 0;
+  list-style: none;
+}
+
 .showdown-array-actions {
   margin: 0.45rem 0;
   display: flex;
@@ -793,10 +801,22 @@ body.showdown-mode .showdown-card {
 
 .showdown-array-neurosis {
   margin: 0.5rem 0 0.75rem;
-  padding: 0.55rem;
-  border: 1px solid rgba(124, 100, 79, 0.35);
-  border-radius: 8px;
-  background: rgba(39, 33, 30, 0.52);
+}
+
+.showdown-array-row-neurosis {
+  padding-bottom: 0.34rem;
+}
+
+.showdown-neurosis-title {
+  color: var(--ink);
+  font-size: 1.04rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.showdown-neurosis-title .icon-label svg {
+  width: 0.98rem;
+  height: 0.98rem;
 }
 
 .showdown-md-link {
@@ -830,6 +850,8 @@ body.showdown-mode .showdown-card {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin: 0.38rem 0;
+  padding-left: 0.18rem;
+  padding-right: 0.18rem;
 }
 
 .showdown-array-copy {
@@ -839,8 +861,170 @@ body.showdown-mode .showdown-card {
   min-width: 200px;
 }
 
+.showdown-array-copy-knowledge {
+  display: grid;
+  gap: 0.52rem;
+}
+
+.showdown-knowledge-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem 0.85rem;
+  align-items: start;
+}
+
+.showdown-copy-title {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.showdown-copy-title strong {
+  font-size: 1.12rem;
+  font-weight: 800;
+  line-height: 1.18;
+}
+
+.showdown-copy-level {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.showdown-copy-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.18rem;
+  align-items: start;
+  margin-top: 0.2rem;
+  padding-top: 0.34rem;
+  border-top: 1px solid var(--showdown-knowledge-meta-divider, rgba(124, 100, 79, 0.22));
+  font-size: 0.75rem;
+  color: var(--showdown-knowledge-meta-value, var(--muted));
+}
+
+.showdown-copy-meta-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.3rem;
+  align-items: baseline;
+}
+
+.showdown-copy-label {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.showdown-copy-meta .showdown-copy-label {
+  color: var(--showdown-knowledge-meta-label, var(--muted));
+  font-size: 0.74rem;
+}
+
+.showdown-copy-meta .showdown-copy-value {
+  color: inherit;
+  line-height: 1.3;
+}
+
+.showdown-copy-value {
+  min-width: 0;
+  color: var(--ink);
+  white-space: pre-wrap;
+  line-height: 1.38;
+}
+
+.showdown-copy-section {
+  display: grid;
+  gap: 0.3rem;
+  margin-inline: 0.18rem;
+  padding: 0.54rem 0.66rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+
+.showdown-copy-section + .showdown-copy-section {
+  margin-top: 0.12rem;
+}
+
+.showdown-copy-section-label {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  padding-bottom: 0.18rem;
+  border-bottom: 1px solid currentColor;
+  line-height: 1.25;
+  font-size: 0.82rem;
+}
+
+.showdown-copy-section-label .icon-label svg {
+  width: 0.84rem;
+  height: 0.84rem;
+}
+
+.showdown-copy-section-observation {
+  background: var(--showdown-knowledge-observation-bg, rgba(190, 137, 80, 0.09));
+  border-color: var(--showdown-knowledge-observation-border, rgba(170, 112, 52, 0.22));
+}
+
+.showdown-copy-section-rules {
+  background: var(--showdown-knowledge-rules-bg, rgba(80, 117, 142, 0.09));
+  border-color: var(--showdown-knowledge-rules-border, rgba(68, 106, 128, 0.22));
+}
+
+.showdown-copy-section-label-observation {
+  color: var(--showdown-knowledge-observation-label, #9a5f27);
+}
+
+.showdown-copy-section-label-rules {
+  color: var(--showdown-knowledge-rules-label, #46677a);
+}
+
+.showdown-copy-section-value {
+  min-width: 0;
+  color: var(--ink);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.showdown-array-row-knowledge {
+  display: grid;
+  gap: 0;
+  align-items: start;
+  padding: 0.34rem 0 0.44rem;
+}
+
+.showdown-knowledge-controls {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.42rem;
+  min-width: max-content;
+}
+
+.showdown-inline-stepper-knowledge {
+  flex: 0 0 auto;
+}
+
+.showdown-knowledge-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+}
+
+.showdown-knowledge-actions .btn {
+  min-width: 4.8rem;
+}
+
 .showdown-inline-text {
-  flex: 1 1 260px;
+  flex: 0 1 420px;
+  width: 420px;
+  max-width: 100%;
   min-width: 180px;
   border: 1px solid var(--outline);
   border-radius: 8px;
@@ -851,7 +1035,9 @@ body.showdown-mode .showdown-card {
 }
 
 .showdown-text-paragraph {
-  flex: 1 1 260px;
+  flex: 0 1 420px;
+  width: 420px;
+  max-width: 100%;
   min-width: 180px;
   margin: 0;
   white-space: pre-wrap;
@@ -972,6 +1158,31 @@ body.showdown-mode .showdown-card {
   .showdown-stepper-simple {
     grid-template-columns: 1fr;
     max-width: none;
+  }
+
+  .showdown-copy-meta {
+    grid-template-columns: 1fr;
+    gap: 0.16rem;
+  }
+
+  .showdown-array-row-knowledge {
+    grid-template-columns: 1fr;
+    padding: 0.28rem 0 0.38rem;
+  }
+
+  .showdown-knowledge-controls {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .showdown-knowledge-header {
+    grid-template-columns: 1fr;
+    gap: 0.32rem;
+  }
+
+  .showdown-knowledge-actions {
+    flex-wrap: wrap;
   }
 
   .showdown-stepper-bucket {

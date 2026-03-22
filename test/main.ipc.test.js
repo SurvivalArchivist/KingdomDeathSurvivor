@@ -27,6 +27,14 @@ function makeHarness(overrides = {}) {
       this.options = options
       this.loadedFile = null
       this.menuBarVisible = true
+      this.fullScreen = false
+      this.listeners = new Map()
+      this.sentMessages = []
+      this.webContents = {
+        send: (channel, ...args) => {
+          this.sentMessages.push({ channel, args })
+        }
+      }
       BrowserWindow.instances.push(this)
     }
 
@@ -36,6 +44,32 @@ function makeHarness(overrides = {}) {
 
     loadFile(filePath) {
       this.loadedFile = filePath
+    }
+
+    on(eventName, listener) {
+      const key = String(eventName)
+      const list = this.listeners.get(key) || []
+      list.push(listener)
+      this.listeners.set(key, list)
+    }
+
+    emit(eventName) {
+      const key = String(eventName)
+      const list = this.listeners.get(key) || []
+      for (const listener of list) listener()
+    }
+
+    setFullScreen(nextValue) {
+      this.fullScreen = Boolean(nextValue)
+      this.emit(this.fullScreen ? 'enter-full-screen' : 'leave-full-screen')
+    }
+
+    isFullScreen() {
+      return this.fullScreen
+    }
+
+    isDestroyed() {
+      return false
     }
 
     static getAllWindows() {
@@ -184,6 +218,9 @@ function makeHarness(overrides = {}) {
     getMarkdownRenderInput() {
       return markdownRenderInput
     },
+    async ready() {
+      await new Promise(resolve => setImmediate(resolve))
+    },
     cleanup() {
       delete require.cache[mainPath]
     }
@@ -326,4 +363,32 @@ test('knowledge template handlers resolve primary and legacy folder paths', asyn
   assert.throws(() => saveHandler(null, 'knowledge', { name: 'Knowledge 2' }), /No Knowledges folder selected/)
   const listResult = await listHandler(null, 'knowledge')
   assert.deepEqual(listResult, [])
+})
+
+test('full-screen handlers report and toggle window state', async t => {
+  const harness = makeHarness()
+  t.after(() => harness.cleanup())
+  await harness.ready()
+
+  const getStateHandler = harness.handlers.get('get-full-screen-state')
+  const toggleHandler = harness.handlers.get('toggle-full-screen')
+  const windowRef = harness.electron.BrowserWindow.instances[0]
+
+  assert.deepEqual(await getStateHandler(), { isFullScreen: false })
+
+  const toggledOn = await toggleHandler()
+  assert.deepEqual(toggledOn, { isFullScreen: true })
+  assert.equal(windowRef.isFullScreen(), true)
+  assert.deepEqual(windowRef.sentMessages.at(-1), {
+    channel: 'window-full-screen-changed',
+    args: [true]
+  })
+
+  const toggledOff = await toggleHandler()
+  assert.deepEqual(toggledOff, { isFullScreen: false })
+  assert.equal(windowRef.isFullScreen(), false)
+  assert.deepEqual(windowRef.sentMessages.at(-1), {
+    channel: 'window-full-screen-changed',
+    args: [false]
+  })
 })

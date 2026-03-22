@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const navSettlementButton = document.getElementById('navSettlement')
   const navBulkUpdatesButton = document.getElementById('navBulkUpdates')
   const navTechnicalButton = document.getElementById('navTechnical')
+  const navFullscreenButton = document.getElementById('navFullscreen')
   const themeToggleButton = document.getElementById('themeToggle')
   const settlementNameSearch = document.getElementById('settlementNameSearch')
   const settlementTraitSearch = document.getElementById('settlementTraitSearch')
@@ -219,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navSettlementButton,
     navBulkUpdatesButton,
     navTechnicalButton,
+    navFullscreenButton,
     themeToggleButton,
     settlementNameSearch,
     settlementTraitSearch,
@@ -380,8 +382,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let hasDataFolder = false
   let busy = false
+  const buttonFeedbackTimers = new WeakMap()
   const THEME_STORAGE_KEY = 'kdm-theme'
   let currentTheme = 'dark'
+  let windowIsFullScreen = false
   let currentMarkdownDoc = null
   let markdownCollections = []
   let markdownFiles = []
@@ -430,7 +434,6 @@ document.addEventListener('DOMContentLoaded', () => {
   ]
   const SHOWDOWN_PAGE_CONFIG = [
     { key: 'armor', symbol: 'A', label: 'Armor' },
-    { key: 'stats', symbol: 'S', label: 'Stats' },
     { key: 'knowledge', symbol: 'K', label: 'Tenet Knowledge / Neurosis / Knowledge' },
     { key: 'arts', symbol: 'F', label: 'Fighting Arts / Secret Fighting Arts' },
     { key: 'disorders', symbol: 'D', label: 'Disorders' },
@@ -652,6 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function normalizeShowdownPageKey(pageKey) {
     const value = String(pageKey || '').trim()
+    if (value === 'stats') return 'armor'
     return SHOWDOWN_PAGE_CONFIG.some(page => page.key === value) ? value : SHOWDOWN_DEFAULT_PAGE
   }
 
@@ -768,6 +772,25 @@ document.addEventListener('DOMContentLoaded', () => {
       window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme)
     } catch {
       // Ignore storage failures in restricted environments.
+    }
+  }
+
+  function applyWindowFullScreenState(isFullScreen) {
+    windowIsFullScreen = Boolean(isFullScreen)
+    navFullscreenButton.textContent = windowIsFullScreen ? 'Exit Full Screen' : 'Full Screen'
+    navFullscreenButton.setAttribute('aria-pressed', windowIsFullScreen ? 'true' : 'false')
+  }
+
+  async function syncWindowFullScreenState() {
+    if (typeof window.api.getFullScreenState !== 'function') {
+      applyWindowFullScreenState(false)
+      return
+    }
+    try {
+      const state = await window.api.getFullScreenState()
+      applyWindowFullScreenState(Boolean(state?.isFullScreen))
+    } catch {
+      applyWindowFullScreenState(false)
     }
   }
 
@@ -1025,6 +1048,84 @@ document.addEventListener('DOMContentLoaded', () => {
       return await task()
     } finally {
       setBusy(false)
+    }
+  }
+
+  function clearButtonFeedbackTimer(button) {
+    if (!(button instanceof HTMLButtonElement)) return
+    const timerId = buttonFeedbackTimers.get(button)
+    if (timerId) {
+      window.clearTimeout(timerId)
+      buttonFeedbackTimers.delete(button)
+    }
+  }
+
+  function resetButtonFeedback(button) {
+    if (!(button instanceof HTMLButtonElement)) return
+    clearButtonFeedbackTimer(button)
+    button.classList.remove('btn-feedback-pending', 'btn-feedback-success', 'btn-feedback-error')
+    button.removeAttribute('aria-busy')
+    if (button.dataset.feedbackDefaultLabel) {
+      button.textContent = button.dataset.feedbackDefaultLabel
+    }
+    delete button.dataset.feedbackState
+  }
+
+  function setButtonFeedbackState(button, state, label) {
+    if (!(button instanceof HTMLButtonElement)) return
+    clearButtonFeedbackTimer(button)
+    if (!button.dataset.feedbackDefaultLabel) {
+      button.dataset.feedbackDefaultLabel = button.textContent || ''
+    }
+    button.textContent = label
+    button.dataset.feedbackState = state
+    button.classList.remove('btn-feedback-pending', 'btn-feedback-success', 'btn-feedback-error')
+    button.classList.add(`btn-feedback-${state}`)
+    if (state === 'pending') button.setAttribute('aria-busy', 'true')
+    else button.removeAttribute('aria-busy')
+  }
+
+  function scheduleButtonFeedbackReset(button, delayMs = 1100) {
+    if (!(button instanceof HTMLButtonElement) || !button.isConnected) return
+    clearButtonFeedbackTimer(button)
+    const timerId = window.setTimeout(() => {
+      if (!button.isConnected) return
+      resetButtonFeedback(button)
+    }, delayMs)
+    buttonFeedbackTimers.set(button, timerId)
+  }
+
+  async function runWithButtonFeedback(button, task, options = {}) {
+    if (!(button instanceof HTMLButtonElement)) return task()
+    if (button.dataset.feedbackState === 'pending') return null
+
+    const pendingLabel = options.pendingLabel || 'Saving...'
+    const successLabel = options.successLabel || 'Saved'
+    const invalidLabel = options.invalidLabel || 'Check fields'
+    const errorLabel = options.errorLabel || 'Retry save'
+
+    setButtonFeedbackState(button, 'pending', pendingLabel)
+
+    try {
+      const result = await task()
+      if (result === false) {
+        if (button.isConnected) {
+          setButtonFeedbackState(button, 'error', invalidLabel)
+          scheduleButtonFeedbackReset(button, options.invalidDelayMs || 1400)
+        }
+        return result
+      }
+      if (button.isConnected) {
+        setButtonFeedbackState(button, 'success', successLabel)
+        scheduleButtonFeedbackReset(button, options.successDelayMs || 1000)
+      }
+      return result
+    } catch (err) {
+      if (button.isConnected) {
+        setButtonFeedbackState(button, 'error', errorLabel)
+        scheduleButtonFeedbackReset(button, options.errorDelayMs || 1500)
+      }
+      throw err
     }
   }
 
@@ -1575,15 +1676,12 @@ document.addEventListener('DOMContentLoaded', () => {
           }
     if (!template.name) {
       setStatus('Template name is required', 'error')
-      return
+      return false
     }
     await window.api.saveKnowledgeTemplate(entryType, template)
     await refreshKnowledgeTemplateCache(entryType)
     setStatus(`Saved ${template.name} as reusable template`, 'success')
-  }
-
-  async function applyShowdownNeurosisTemplate(slot) {
-    await openNeurosisTemplatePicker({ mode: 'showdown', slot })
+    return true
   }
 
   async function applyCreateNeurosisTemplate() {
@@ -1594,35 +1692,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const neurosis = createPhilosophyNeurosis.value.trim()
     if (!neurosis) {
       setStatus('Enter neurosis text before saving a template', 'error')
-      return
+      return false
     }
     const name = createNeurosisTemplateName.value.trim()
     if (!name) {
       setStatus('Template name is required', 'error')
-      return
+      return false
     }
     await window.api.saveNeurosisTemplate({ name, neurosis })
     createNeurosisTemplateName.value = name
     setStatus(`Saved neurosis template: ${name}`, 'success')
-  }
-
-  async function saveShowdownNeurosisTemplate(slot) {
-    if (!slot || !showdownPeople[slot]) return
-    const person = showdownPeople[slot].person
-    const neurosis = String(person?.philosophyNeurosis || '').trim()
-    if (!neurosis) {
-      setStatus('Enter neurosis text before saving a template', 'error')
-      return
-    }
-    const name = String(person?.philosophyNeurosisName || '').trim()
-    if (!name) {
-      setStatus('Template name is required', 'error')
-      return
-    }
-    await window.api.saveNeurosisTemplate({ name, neurosis })
-    showdownPeople[slot].person.philosophyNeurosisName = name
-    renderShowdownSlot(slot)
-    setStatus(`Saved neurosis template: ${name}`, 'success')
+    return true
   }
 
   function insertKnowledgeEntryIntoEditor(arrayName, entry) {
@@ -2524,6 +2604,72 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`
     }
 
+    const renderShowdownKnowledgeCopy = (item, level, req, nextDisplay, headerControls) => `
+      <div class="showdown-array-copy showdown-array-copy-knowledge">
+        <div class="showdown-knowledge-header">
+          <span class="showdown-copy-title">
+            <strong>${escapeHtml(item?.name || 'Unnamed')}</strong>
+            <span class="showdown-copy-level">L${level}</span>
+          </span>
+          <div class="showdown-knowledge-controls">
+            ${headerControls}
+          </div>
+        </div>
+        <div class="showdown-copy-section showdown-copy-section-observation">
+          <span class="showdown-copy-label showdown-copy-section-label showdown-copy-section-label-observation">${iconLabel('icon-observation', 'Observation')}</span>
+          <span class="showdown-copy-section-value">${escapeHtml(item?.observation || '-')}</span>
+        </div>
+        <div class="showdown-copy-section showdown-copy-section-rules">
+          <span class="showdown-copy-label showdown-copy-section-label showdown-copy-section-label-rules">${iconLabel('icon-rules', 'Rules')}</span>
+          <span class="showdown-copy-section-value">${escapeHtml(item?.rules || '-')}</span>
+        </div>
+        <div class="showdown-copy-meta">
+          <span class="showdown-copy-meta-item">
+            <span class="showdown-copy-label">Observations Required:</span>
+            <span class="showdown-copy-value">${req}</span>
+          </span>
+          <span class="showdown-copy-meta-item">
+            <span class="showdown-copy-label">Next:</span>
+            <span class="showdown-copy-value">${escapeHtml(nextDisplay)}</span>
+          </span>
+        </div>
+      </div>`
+
+    const renderShowdownKnowledgeRow = (item, slot, arrayName, index) => {
+      const req = coerceNumber(item?.observationRequirement, 0)
+      const current = coerceNumber(item?.currentObservations, coerceNumber(item?.observations, 0))
+      const level = Math.max(1, coerceNumber(item?.knowledgeLevel, 1))
+      const nextMode = String(item?.nextKnowledgeMode || 'noTemplate')
+      const nextTemplate = String(item?.nextKnowledgeTemplate || '').trim()
+      const nextDisplay =
+        nextMode === 'maxLevel'
+          ? 'N/A'
+          : nextMode === 'existingTemplate'
+            ? nextTemplate || 'Not selected'
+            : 'Not selected'
+      const canUpgrade = current >= req && nextMode !== 'maxLevel'
+      const headerControls = `
+        <div class="showdown-inline-stepper showdown-inline-stepper-knowledge">
+          <span>Current</span>
+          <button type="button" data-showdown-obs-slot="${slot}" data-showdown-obs-array="${arrayName}" data-showdown-obs-index="${index}" data-showdown-obs-delta="-1">-</button>
+          <strong class="showdown-static-value">${current}</strong>
+          <button type="button" data-showdown-obs-slot="${slot}" data-showdown-obs-array="${arrayName}" data-showdown-obs-index="${index}" data-showdown-obs-delta="1">+</button>
+        </div>
+        <div class="showdown-knowledge-actions">
+          ${
+            canUpgrade
+              ? `<button type="button" class="btn btn-primary" data-showdown-upgrade-slot="${slot}" data-showdown-upgrade-array="${arrayName}" data-showdown-upgrade-index="${index}">Upgrade</button>`
+              : ''
+          }
+          <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="${arrayName}" data-showdown-remove-index="${index}">Remove</button>
+        </div>`
+
+      return `
+        <li class="showdown-array-row showdown-array-row-knowledge">
+          ${renderShowdownKnowledgeCopy(item, level, req, nextDisplay, headerControls)}
+        </li>`
+    }
+
     container.innerHTML = `
       <div class="showdown-frozen-header">
         <div class="showdown-identity-bar">
@@ -2609,9 +2755,6 @@ document.addEventListener('DOMContentLoaded', () => {
               .join('')}
           </div>
         </section>
-      </section>
-
-      <section class="showdown-page-panel" data-showdown-page-panel="stats"${activePage === 'stats' ? '' : ' hidden'}>
         <section class="showdown-group">
           <h4>${iconLabel('icon-stats', 'Stats')}</h4>
           <div class="showdown-stats showdown-stats-combat">${combatStats.map(renderCombatStepper).join('')}</div>
@@ -2726,63 +2869,19 @@ document.addEventListener('DOMContentLoaded', () => {
       <section class="showdown-page-panel" data-showdown-page-panel="knowledge"${activePage === 'knowledge' ? '' : ' hidden'}>
         <details class="showdown-toggle" data-showdown-section="tenetKnowledge" open>
         <summary>Tenet Knowledge and Neurosis (${(p.tenetKnowledge || []).length})</summary>
-        <div class="showdown-array-actions">
-          <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="tenetKnowledge">+ Add</button>
-        </div>
-        <div class="showdown-array-neurosis">
-          <div class="showdown-proficiency-type">
-            <span>Neurosis Name</span>
-            <p class="showdown-text-paragraph">${escapeHtml(p.philosophyNeurosisName || '-')}</p>
-            <span>Neurosis</span>
-            <p class="showdown-text-paragraph">${escapeHtml(p.philosophyNeurosis || '-')}</p>
-          </div>
-          <div class="showdown-array-actions">
-            <button type="button" class="btn btn-secondary" data-showdown-neurosis-load-slot="${slot}">Load Template</button>
-            <button type="button" class="btn btn-secondary" data-showdown-neurosis-save-slot="${slot}">Save as Template</button>
+        <div class="showdown-array-neurosis showdown-array-row showdown-array-row-knowledge showdown-array-row-neurosis">
+          <div class="showdown-array-copy showdown-array-copy-knowledge">
+            <div class="showdown-neurosis-title">${iconLabel('icon-neurosis', escapeHtml(p.philosophyNeurosisName || 'Unnamed Neurosis'))}</div>
+            <div class="showdown-copy-section showdown-copy-section-rules showdown-copy-section-neurosis">
+              <span class="showdown-copy-label showdown-copy-section-label showdown-copy-section-label-rules">${iconLabel('icon-rules', 'Neurosis')}</span>
+              <span class="showdown-copy-section-value">${escapeHtml(p.philosophyNeurosis || '-')}</span>
+            </div>
           </div>
         </div>
         ${showdownListItems(
           p.tenetKnowledge,
           'None',
-          (item, index) => {
-            const req = coerceNumber(item?.observationRequirement, 0)
-            const current = coerceNumber(item?.currentObservations, coerceNumber(item?.observations, 0))
-            const level = Math.max(1, coerceNumber(item?.knowledgeLevel, 1))
-            const nextMode = String(item?.nextKnowledgeMode || 'noTemplate')
-            const nextTemplate = String(item?.nextKnowledgeTemplate || '').trim()
-            const nextDisplay =
-              nextMode === 'maxLevel'
-                ? 'N/A'
-                : nextMode === 'existingTemplate'
-                  ? nextTemplate || 'Not selected'
-                  : 'Not selected'
-            const canUpgrade = current >= req && nextMode !== 'maxLevel'
-            return `
-          <li class="showdown-array-row">
-            <div class="showdown-array-copy">
-              <span><strong>${item?.name || 'Unnamed'}</strong> • L${level}</span>
-              <span>Observations Required: ${req}</span>
-              <span>Next: ${nextDisplay}</span>
-              <span>Observation: ${item?.observation || '-'}</span>
-              <span>Rules: ${item?.rules || '-'}</span>
-            </div>
-            <div class="showdown-inline-stepper">
-              <span>Current</span>
-              <button type="button" data-showdown-obs-slot="${slot}" data-showdown-obs-array="tenetKnowledge" data-showdown-obs-index="${index}" data-showdown-obs-delta="-1">-</button>
-              <strong class="showdown-static-value">${coerceNumber(
-                item?.currentObservations,
-                coerceNumber(item?.observations, 0)
-              )}</strong>
-              <button type="button" data-showdown-obs-slot="${slot}" data-showdown-obs-array="tenetKnowledge" data-showdown-obs-index="${index}" data-showdown-obs-delta="1">+</button>
-            </div>
-            ${
-              canUpgrade
-                ? `<button type="button" class="btn btn-primary" data-showdown-upgrade-slot="${slot}" data-showdown-upgrade-array="tenetKnowledge" data-showdown-upgrade-index="${index}">Upgrade</button>`
-                : ''
-            }
-            <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="tenetKnowledge" data-showdown-remove-index="${index}">Remove</button>
-          </li>`
-          }
+          (item, index) => renderShowdownKnowledgeRow(item, slot, 'tenetKnowledge', index)
         )}
         </details>
         <details class="showdown-toggle" data-showdown-section="knowledge" open>
@@ -2793,45 +2892,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ${showdownListItems(
           p.knowledge,
           'None',
-          (item, index) => {
-            const req = coerceNumber(item?.observationRequirement, 0)
-            const current = coerceNumber(item?.currentObservations, coerceNumber(item?.observations, 0))
-            const level = Math.max(1, coerceNumber(item?.knowledgeLevel, 1))
-            const nextMode = String(item?.nextKnowledgeMode || 'noTemplate')
-            const nextTemplate = String(item?.nextKnowledgeTemplate || '').trim()
-            const nextDisplay =
-              nextMode === 'maxLevel'
-                ? 'N/A'
-                : nextMode === 'existingTemplate'
-                  ? nextTemplate || 'Not selected'
-                  : 'Not selected'
-            const canUpgrade = current >= req && nextMode !== 'maxLevel'
-            return `
-          <li class="showdown-array-row">
-            <div class="showdown-array-copy">
-              <span><strong>${item?.name || 'Unnamed'}</strong> • L${level}</span>
-              <span>Observations Required: ${req}</span>
-              <span>Next: ${nextDisplay}</span>
-              <span>Observation: ${item?.observation || '-'}</span>
-              <span>Rules: ${item?.rules || '-'}</span>
-            </div>
-            <div class="showdown-inline-stepper">
-              <span>Current</span>
-              <button type="button" data-showdown-obs-slot="${slot}" data-showdown-obs-array="knowledge" data-showdown-obs-index="${index}" data-showdown-obs-delta="-1">-</button>
-              <strong class="showdown-static-value">${coerceNumber(
-                item?.currentObservations,
-                coerceNumber(item?.observations, 0)
-              )}</strong>
-              <button type="button" data-showdown-obs-slot="${slot}" data-showdown-obs-array="knowledge" data-showdown-obs-index="${index}" data-showdown-obs-delta="1">+</button>
-            </div>
-            ${
-              canUpgrade
-                ? `<button type="button" class="btn btn-primary" data-showdown-upgrade-slot="${slot}" data-showdown-upgrade-array="knowledge" data-showdown-upgrade-index="${index}">Upgrade</button>`
-                : ''
-            }
-            <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="knowledge" data-showdown-remove-index="${index}">Remove</button>
-          </li>`
-          }
+          (item, index) => renderShowdownKnowledgeRow(item, slot, 'knowledge', index)
         )}
         </details>
       </section>
@@ -4592,6 +4653,19 @@ document.addEventListener('DOMContentLoaded', () => {
       setStatus(err.message || 'Failed to open technical view', 'error')
     })
   })
+  navFullscreenButton.addEventListener('click', () => {
+    if (typeof window.api.toggleFullScreen !== 'function') {
+      setStatus('Full screen is unavailable in this build', 'error')
+      return
+    }
+    window.api.toggleFullScreen().then(result => {
+      const isFullScreen = Boolean(result?.isFullScreen)
+      applyWindowFullScreenState(isFullScreen)
+      setStatus(isFullScreen ? 'Entered full screen' : 'Exited full screen', 'neutral')
+    }).catch(err => {
+      setStatus(err.message || 'Failed to toggle full screen', 'error')
+    })
+  })
   themeToggleButton.addEventListener('click', () => {
     applyTheme(currentTheme === 'light' ? 'dark' : 'light')
   })
@@ -4646,24 +4720,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
 
-    if (target.dataset.showdownNeurosisLoadSlot) {
-      const slot = target.dataset.showdownNeurosisLoadSlot
-      if (!slot || !showdownPeople[slot]) return
-      runBusy(() => applyShowdownNeurosisTemplate(slot)).catch(err => {
-        setStatus(err.message || 'Failed to load neurosis template', 'error')
-      })
-      return
-    }
-
-    if (target.dataset.showdownNeurosisSaveSlot) {
-      const slot = target.dataset.showdownNeurosisSaveSlot
-      if (!slot || !showdownPeople[slot]) return
-      runBusy(() => saveShowdownNeurosisTemplate(slot)).catch(err => {
-        setStatus(err.message || 'Failed to save neurosis template', 'error')
-      })
-      return
-    }
-
     if (target.dataset.showdownRemoveSlot && target.dataset.showdownRemoveArray) {
       const slot = target.dataset.showdownRemoveSlot
       const arrayName = target.dataset.showdownRemoveArray
@@ -4699,24 +4755,26 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
 
-    if (
-      target.dataset.showdownSaveTemplateSlot &&
-      target.dataset.showdownSaveTemplateArray &&
-      target.dataset.showdownSaveTemplateIndex
-    ) {
-      const slot = target.dataset.showdownSaveTemplateSlot
-      const arrayName = target.dataset.showdownSaveTemplateArray
-      const index = Number(target.dataset.showdownSaveTemplateIndex)
+    const showdownSaveTemplateButton = target.closest(
+      'button[data-showdown-save-template-slot][data-showdown-save-template-array][data-showdown-save-template-index]'
+    )
+    if (showdownSaveTemplateButton instanceof HTMLButtonElement) {
+      const slot = showdownSaveTemplateButton.dataset.showdownSaveTemplateSlot
+      const arrayName = showdownSaveTemplateButton.dataset.showdownSaveTemplateArray
+      const index = Number(showdownSaveTemplateButton.dataset.showdownSaveTemplateIndex)
       const type = getKnowledgeTypeFromArrayName(arrayName)
       if (!slot || !type || Number.isNaN(index) || !showdownPeople[slot]) return
       const entries = showdownPeople[slot].person?.[arrayName]
       if (!Array.isArray(entries) || !entries[index]) return
       const template = normalizeKnowledgeTemplateForEntry(type, entries[index])
-      runBusy(async () => {
-        await window.api.saveKnowledgeTemplate(type, template)
-        await refreshKnowledgeTemplateCache(type)
-        setStatus(`Saved ${template.name || 'entry'} as reusable template`, 'success')
-      }).catch(err => {
+      runWithButtonFeedback(showdownSaveTemplateButton, () =>
+        runBusy(async () => {
+          await window.api.saveKnowledgeTemplate(type, template)
+          await refreshKnowledgeTemplateCache(type)
+          setStatus(`Saved ${template.name || 'entry'} as reusable template`, 'success')
+          return true
+        })
+      ).catch(err => {
         setStatus(err.message || 'Failed to save knowledge template', 'error')
       })
       return
@@ -5070,14 +5128,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (row) commitCreateTextRow(row)
       return
     }
-    if (target.dataset.action === 'saveTemplate') {
-      const row = target.closest('.ve-row')
+    const createSaveTemplateButton = target.closest('button[data-action="saveTemplate"]')
+    if (createSaveTemplateButton instanceof HTMLButtonElement) {
+      const row = createSaveTemplateButton.closest('.ve-row')
       if (!row) return
       const type = row.dataset.arrayType
       if (type !== 'tenet' && type !== 'knowledge') return
-      runBusy(() => saveKnowledgeTemplateFromRow(type, row)).catch(err => {
-        setStatus(err.message || 'Failed to save knowledge template', 'error')
-      })
+      runWithButtonFeedback(createSaveTemplateButton, () => runBusy(() => saveKnowledgeTemplateFromRow(type, row))).catch(
+        err => {
+          setStatus(err.message || 'Failed to save knowledge template', 'error')
+        }
+      )
       return
     }
     if (target.dataset.action === 'upgradeKnowledgeRow') {
@@ -5197,7 +5258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   })
   createNeurosisSaveTemplate.addEventListener('click', () => {
-    runBusy(saveCreateNeurosisTemplate).catch(err => {
+    runWithButtonFeedback(createNeurosisSaveTemplate, () => runBusy(saveCreateNeurosisTemplate)).catch(err => {
       setStatus(err.message || 'Failed to save neurosis template', 'error')
     })
   })
@@ -5353,14 +5414,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
 
-    if (target.dataset.action === 'saveTemplate') {
-      const row = target.closest('.ve-row')
+    const editorSaveTemplateButton = target.closest('button[data-action="saveTemplate"]')
+    if (editorSaveTemplateButton instanceof HTMLButtonElement) {
+      const row = editorSaveTemplateButton.closest('.ve-row')
       if (!row) return
       const type = row.dataset.arrayType
       if (type !== 'tenet' && type !== 'knowledge') return
-      runBusy(() => saveKnowledgeTemplateFromRow(type, row)).catch(err => {
-        setStatus(err.message || 'Failed to save knowledge template', 'error')
-      })
+      runWithButtonFeedback(editorSaveTemplateButton, () => runBusy(() => saveKnowledgeTemplateFromRow(type, row))).catch(
+        err => {
+          setStatus(err.message || 'Failed to save knowledge template', 'error')
+        }
+      )
+      return
     }
   })
 
@@ -5446,6 +5511,12 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   loadThemePreference()
+  if (typeof window.api.onFullScreenChanged === 'function') {
+    window.api.onFullScreenChanged(isFullScreen => {
+      applyWindowFullScreenState(isFullScreen)
+    })
+  }
+  syncWindowFullScreenState()
   syncControlState()
   setPage('settlement')
   init()

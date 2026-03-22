@@ -356,6 +356,8 @@ function slugify(value) {
 
 function setupRendererHarness() {
   const calls = []
+  let fullScreen = false
+  const fullScreenListeners = new Set()
   const db = {
     'alice.json': makePerson('Alice'),
     'bob.json': makePerson('Bob')
@@ -377,6 +379,23 @@ function setupRendererHarness() {
         tenetKnowledges: '',
         neuroses: '',
         disorders: ''
+      }
+    },
+    async getFullScreenState() {
+      calls.push({ name: 'getFullScreenState', args: [] })
+      return { isFullScreen: fullScreen }
+    },
+    async toggleFullScreen() {
+      calls.push({ name: 'toggleFullScreen', args: [] })
+      fullScreen = !fullScreen
+      for (const listener of fullScreenListeners) listener(fullScreen)
+      return { isFullScreen: fullScreen }
+    },
+    onFullScreenChanged(listener) {
+      if (typeof listener !== 'function') return () => {}
+      fullScreenListeners.add(listener)
+      return () => {
+        fullScreenListeners.delete(listener)
       }
     },
     async listPeople() {
@@ -517,6 +536,24 @@ function setupRendererHarness() {
     }
   }
 }
+
+test('fullscreen nav button toggles window state and updates label', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const button = harness.document.getElementById('navFullscreen')
+  assert.equal(button.textContent, 'Full Screen')
+  assert.equal(button.getAttribute('aria-pressed'), 'false')
+
+  harness.click('navFullscreen')
+  await harness.flush()
+
+  assert.equal(button.textContent, 'Exit Full Screen')
+  assert.equal(button.getAttribute('aria-pressed'), 'true')
+  assert.ok(harness.calls.some(call => call.name === 'toggleFullScreen'))
+})
 
 function countCalls(calls, name) {
   return calls.filter(entry => entry.name === name).length

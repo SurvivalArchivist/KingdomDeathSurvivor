@@ -63,6 +63,24 @@ body.theme-dark .btn-secondary {
   border-color: rgba(119, 131, 150, 0.42);
 }
 
+body.theme-dark .btn.btn-feedback-pending {
+  background: linear-gradient(180deg, rgba(68, 79, 97, 0.92), rgba(45, 55, 70, 0.96));
+  border-color: rgba(144, 156, 176, 0.56);
+  color: #f0e9db;
+}
+
+body.theme-dark .btn.btn-feedback-success {
+  background: linear-gradient(180deg, rgba(53, 88, 66, 0.94), rgba(33, 58, 44, 0.96));
+  border-color: rgba(112, 169, 124, 0.58);
+  color: #f3f7ee;
+}
+
+body.theme-dark .btn.btn-feedback-error {
+  background: linear-gradient(180deg, rgba(111, 50, 44, 0.94), rgba(77, 31, 28, 0.96));
+  border-color: rgba(220, 107, 93, 0.58);
+  color: #fff1ee;
+}
+
 body.theme-dark .btn-ghost {
   border-color: rgba(117, 130, 151, 0.46);
   background: rgba(31, 38, 49, 0.62);
@@ -100,14 +118,22 @@ body.theme-dark .showdown-group .showdown-stats + .showdown-stats {
   border-top: 1px solid rgba(122, 138, 166, 0.33);
 }
 
-body.theme-dark .showdown-stat-card {
+body.theme-dark .showdown-stat-card,
+body.theme-dark .showdown-stepper,
+body.theme-dark .showdown-armor-stepper {
   border-color: rgba(122, 138, 166, 0.34);
   background: rgba(26, 32, 42, 0.84);
 }
 
-body.theme-dark .showdown-stepper {
-  border-color: rgba(122, 138, 166, 0.34);
-  background: rgba(26, 32, 42, 0.84);
+body.theme-dark .showdown-static-value,
+body.theme-dark .showdown-total-value {
+  border-color: rgba(125, 140, 162, 0.44);
+  background: rgba(20, 26, 35, 0.96);
+  color: #f0e9db;
+}
+
+body.theme-dark .showdown-total-value {
+  background: linear-gradient(145deg, rgba(128, 56, 45, 0.6), rgba(57, 34, 45, 0.94));
 }
 
 body.theme-dark .showdown-stepper-controls button,
@@ -128,7 +154,9 @@ body.theme-dark .showdown-armor-stepper input {
 
 body.theme-dark .showdown-toggle {
   border: 1px solid rgba(117, 133, 157, 0.3);
+  border-radius: 12px;
   background: rgba(21, 27, 36, 0.56);
+  padding: 0.65rem 0.5rem 0.22rem;
 }
 
 body.theme-dark .showdown-toggle summary::before {
@@ -142,6 +170,7 @@ body.theme-dark .showdown-toggle[open] summary::before {
 
 body.theme-dark .showdown-array-row {
   border: 1px solid rgba(107, 121, 145, 0.24);
+  border-radius: 10px;
   background: rgba(17, 22, 30, 0.62);
 }
 
@@ -162,6 +191,22 @@ body.theme-dark .showdown-md-link {
 
 body.theme-dark .showdown-md-link:hover {
   color: #ffd4a9;
+}
+
+body.theme-dark {
+  --showdown-knowledge-meta-label: #b39b82;
+  --showdown-knowledge-meta-value: #d3c1ad;
+  --showdown-knowledge-meta-divider: rgba(239, 191, 141, 0.18);
+  --showdown-knowledge-observation-bg: rgba(146, 98, 47, 0.2);
+  --showdown-knowledge-observation-border: rgba(223, 169, 105, 0.28);
+  --showdown-knowledge-observation-label: #f1c995;
+  --showdown-knowledge-rules-bg: rgba(54, 87, 115, 0.24);
+  --showdown-knowledge-rules-border: rgba(118, 162, 191, 0.28);
+  --showdown-knowledge-rules-label: #9fd0f0;
+}
+
+body.theme-dark .showdown-copy-level {
+  color: #cbb497;
 }
 
 body.theme-dark .create-grid {

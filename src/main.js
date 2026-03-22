@@ -18,6 +18,11 @@ function getAppIconPath() {
   return appIconSvgPath
 }
 
+function sendFullScreenState(windowRef = mainWindow) {
+  if (!windowRef || typeof windowRef.isDestroyed === 'function' && windowRef.isDestroyed()) return
+  windowRef.webContents.send('window-full-screen-changed', Boolean(windowRef.isFullScreen()))
+}
+
 function createWindow() {
   const iconPath = getAppIconPath()
   mainWindow = new BrowserWindow({
@@ -35,6 +40,8 @@ function createWindow() {
   if (process.platform === 'win32') {
     mainWindow.setMenuBarVisibility(false)
   }
+  mainWindow.on('enter-full-screen', () => sendFullScreenState(mainWindow))
+  mainWindow.on('leave-full-screen', () => sendFullScreenState(mainWindow))
   mainWindow.loadFile(path.join(__dirname, '..', 'ui', 'components', 'index.html'))
 }
 
@@ -210,4 +217,15 @@ ipcMain.handle('list-neurosis-templates', () => {
   const templatePath = String(dataSources.neuroses || '').trim()
   if (!templatePath) return []
   return dataService.listNeurosisTemplates(templatePath)
+})
+
+ipcMain.handle('get-full-screen-state', () => {
+  return { isFullScreen: Boolean(mainWindow && mainWindow.isFullScreen()) }
+})
+
+ipcMain.handle('toggle-full-screen', () => {
+  if (!mainWindow) throw new Error('Main window is not available')
+  const nextFullScreen = !mainWindow.isFullScreen()
+  mainWindow.setFullScreen(nextFullScreen)
+  return { isFullScreen: nextFullScreen }
 })

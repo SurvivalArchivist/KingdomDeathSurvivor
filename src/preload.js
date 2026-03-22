@@ -3,6 +3,16 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('api', {
   selectDataSourceFolder: sourceKey => ipcRenderer.invoke('select-data-source-folder', sourceKey),
   getSavedDataSources: () => ipcRenderer.invoke('get-saved-data-sources'),
+  getFullScreenState: () => ipcRenderer.invoke('get-full-screen-state'),
+  toggleFullScreen: () => ipcRenderer.invoke('toggle-full-screen'),
+  onFullScreenChanged: listener => {
+    if (typeof listener !== 'function') return () => {}
+    const wrapped = (_event, isFullScreen) => listener(Boolean(isFullScreen))
+    ipcRenderer.on('window-full-screen-changed', wrapped)
+    return () => {
+      ipcRenderer.removeListener('window-full-screen-changed', wrapped)
+    }
+  },
   listPeople: () => ipcRenderer.invoke('list-people'),
   loadPerson: fileName => ipcRenderer.invoke('load-person', fileName),
   savePerson: (person, options) => ipcRenderer.invoke('save-person', person, options),

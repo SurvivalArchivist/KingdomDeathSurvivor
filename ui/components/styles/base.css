@@ -338,6 +338,28 @@ h3 {
   color: var(--ink);
 }
 
+@keyframes btn-feedback-pulse {
+  0%,
+  100% {
+    opacity: 0.76;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.btn-feedback-pending {
+  pointer-events: none;
+  cursor: wait;
+  animation: btn-feedback-pulse 720ms ease-in-out infinite;
+}
+
+.btn-feedback-success,
+.btn-feedback-error {
+  animation: none;
+}
+
 .btn-danger {
   background: rgba(131, 39, 31, 0.28);
   border-color: rgba(193, 85, 73, 0.52);
