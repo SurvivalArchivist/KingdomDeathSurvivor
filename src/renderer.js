@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sourcePathTenetKnowledges = document.getElementById('sourcePathTenetKnowledges')
   const sourcePathNeuroses = document.getElementById('sourcePathNeuroses')
   const sourcePathDisorders = document.getElementById('sourcePathDisorders')
+  const settingsUserName = document.getElementById('settingsUserName')
   const settingsFastMode = document.getElementById('settingsFastMode')
   const status = document.getElementById('status')
 
@@ -55,8 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggleButton = document.getElementById('themeToggle')
   const settlementNameSearch = document.getElementById('settlementNameSearch')
   const settlementTraitSearch = document.getElementById('settlementTraitSearch')
+  const settlementToggleExtraFiltersButton = document.getElementById('settlementToggleExtraFilters')
+  const settlementExtraFilters = document.getElementById('settlementExtraFilters')
   const settlementToggleMovement = document.getElementById('settlementToggleMovement')
   const settlementToggleWeaponProficiency = document.getElementById('settlementToggleWeaponProficiency')
+  const settlementToggleLastUpdated = document.getElementById('settlementToggleLastUpdated')
+  const settlementToggleLastReturned = document.getElementById('settlementToggleLastReturned')
+  const settlementToggleStatsTotal = document.getElementById('settlementToggleStatsTotal')
   const settlementClearFiltersButton = document.getElementById('settlementClearFilters')
   const settlementAutoRefreshEnabled = document.getElementById('settlementAutoRefreshEnabled')
   const settlementAutoRefreshInterval = document.getElementById('settlementAutoRefreshInterval')
@@ -96,8 +102,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const createAddKnowledgeButton = document.getElementById('createAddKnowledge')
   const createAddAbilityButton = document.getElementById('createAddAbility')
   const createAddImpairmentButton = document.getElementById('createAddImpairment')
+  const createAddNoteButton = document.getElementById('createAddNote')
   const createAbilities = document.getElementById('createAbilities')
   const createImpairments = document.getElementById('createImpairments')
+  const createNotes = document.getElementById('createNotes')
   const createFightingArts = document.getElementById('createFightingArts')
   const createSecretFightingArts = document.getElementById('createSecretFightingArts')
   const createDisorders = document.getElementById('createDisorders')
@@ -192,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sourcePathTenetKnowledges,
     sourcePathNeuroses,
     sourcePathDisorders,
+    settingsUserName,
     settingsFastMode,
     status,
     refreshPeopleButton,
@@ -224,8 +233,13 @@ document.addEventListener('DOMContentLoaded', () => {
     themeToggleButton,
     settlementNameSearch,
     settlementTraitSearch,
+    settlementToggleExtraFiltersButton,
+    settlementExtraFilters,
     settlementToggleMovement,
     settlementToggleWeaponProficiency,
+    settlementToggleLastUpdated,
+    settlementToggleLastReturned,
+    settlementToggleStatsTotal,
     settlementClearFiltersButton,
     settlementAutoRefreshEnabled,
     settlementAutoRefreshInterval,
@@ -262,8 +276,10 @@ document.addEventListener('DOMContentLoaded', () => {
     createAddKnowledgeButton,
     createAddAbilityButton,
     createAddImpairmentButton,
+    createAddNoteButton,
     createAbilities,
     createImpairments,
+    createNotes,
     createFightingArts,
     createSecretFightingArts,
     createDisorders,
@@ -402,13 +418,18 @@ document.addEventListener('DOMContentLoaded', () => {
   let settlementAutoRefreshIntervalSeconds = 20
   let settlementFastMode = false
   let settlementLastRefreshedAt = null
+  let settlementExtraFiltersOpen = false
   let pendingSettlementEntryRefresh = false
+  let appSettings = {
+    userName: ''
+  }
   let createTemplateDefaults = null
   let createViewBase = null
   let createEditingFileName = null
   let createArrayState = {
     abilities: [],
     impairments: [],
+    notes: [],
     fightingArts: [],
     secretFightingArts: [],
     disorders: [],
@@ -417,8 +438,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   let createTextDraftState = {
     abilities: [],
-    impairments: []
+    impairments: [],
+    notes: []
   }
+  const TEXT_ENTRY_ARRAYS = ['abilities', 'impairments', 'notes']
   const SHOWDOWN_FIELDS = [
     'age',
     'survivalPts',
@@ -437,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
     { key: 'knowledge', symbol: 'K', label: 'Tenet Knowledge / Neurosis / Knowledge' },
     { key: 'arts', symbol: 'F', label: 'Fighting Arts / Secret Fighting Arts' },
     { key: 'disorders', symbol: 'D', label: 'Disorders' },
-    { key: 'traits', symbol: 'AI', label: 'Abilities / Impairments' }
+    { key: 'traits', symbol: 'AI', label: 'Abilities / Impairments / Notes' }
   ]
   const SHOWDOWN_DEFAULT_PAGE = SHOWDOWN_PAGE_CONFIG[0].key
   let showdownArmor = {
@@ -503,6 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
     courage: { label: 'Courage', min: 0, max: 9 },
     understanding: { label: 'Understanding', min: 0, max: 9 }
   }
+  const SETTLEMENT_STATS_TOTAL_FIELDS = ['strength', 'speed', 'evasion', 'luck', 'accuracy']
   let showdownPeople = {
     A: null,
     B: null
@@ -511,12 +535,11 @@ document.addEventListener('DOMContentLoaded', () => {
     A: SHOWDOWN_DEFAULT_PAGE,
     B: SHOWDOWN_DEFAULT_PAGE
   }
-  const showdownMarkdownPreviewCache = new Map()
-  const showdownMarkdownIndexCache = new Map()
-  const showdownMarkdownPreviewPending = new Set()
+  const showdownMarkdownContentCache = new Map()
+  const showdownMarkdownContentPending = new Set()
   let showdownTextDraftState = {
-    A: { abilities: [], impairments: [] },
-    B: { abilities: [], impairments: [] }
+    A: createEmptyShowdownTextDraftState(),
+    B: createEmptyShowdownTextDraftState()
   }
   let showdownDeparted = false
   let showdownLockedSlots = { A: '', B: '' }
@@ -550,6 +573,45 @@ document.addEventListener('DOMContentLoaded', () => {
   const knowledgeTemplateCache = {
     tenetKnowledge: [],
     knowledge: []
+  }
+
+  function createEmptyShowdownTextDraftState() {
+    return {
+      abilities: [],
+      impairments: [],
+      notes: []
+    }
+  }
+
+  function isTextEntryArrayName(arrayName) {
+    return TEXT_ENTRY_ARRAYS.includes(arrayName)
+  }
+
+  function normalizeAppSettings(input) {
+    return {
+      userName: input && typeof input.userName === 'string' ? input.userName.trim() : ''
+    }
+  }
+
+  function getTextEntryPlaceholder(arrayName) {
+    if (arrayName === 'abilities') return 'Ability text'
+    if (arrayName === 'impairments') return 'Impairment text'
+    if (arrayName === 'notes') return 'Note text'
+    return 'Free text'
+  }
+
+  function getTextEntrySingularLabel(arrayName) {
+    if (arrayName === 'abilities') return 'ability'
+    if (arrayName === 'impairments') return 'impairment'
+    if (arrayName === 'notes') return 'note'
+    return 'entry'
+  }
+
+  function getCreateTextContainer(arrayName) {
+    if (arrayName === 'abilities') return createAbilities
+    if (arrayName === 'impairments') return createImpairments
+    if (arrayName === 'notes') return createNotes
+    return null
   }
   const DATA_SOURCE_KEYS = [
     'survivors',
@@ -913,6 +975,12 @@ document.addEventListener('DOMContentLoaded', () => {
     syncSettlementAutoRefresh()
   }
 
+  function syncSettlementExtraFilters() {
+    settlementExtraFilters.hidden = !settlementExtraFiltersOpen
+    settlementToggleExtraFiltersButton.textContent = settlementExtraFiltersOpen ? 'Hide Extra Filters' : 'Show Extra Filters'
+    settlementToggleExtraFiltersButton.setAttribute('aria-expanded', settlementExtraFiltersOpen ? 'true' : 'false')
+  }
+
   function syncControlState() {
     const hasSelection = Boolean(peopleList.value)
     const hasMarkdownCollections = markdownCollection.options.length > 0 && markdownCollection.value !== ''
@@ -984,9 +1052,14 @@ document.addEventListener('DOMContentLoaded', () => {
     addKnowledgeButton.disabled = busy
     settlementNameSearch.disabled = !hasDataFolder || busy
     settlementTraitSearch.disabled = !hasDataFolder || busy
+    settlementToggleExtraFiltersButton.disabled = !hasDataFolder || busy
     settlementToggleMovement.disabled = !hasDataFolder || busy
     settlementToggleWeaponProficiency.disabled = !hasDataFolder || busy
+    settlementToggleLastUpdated.disabled = !hasDataFolder || busy
+    settlementToggleLastReturned.disabled = !hasDataFolder || busy
+    settlementToggleStatsTotal.disabled = !hasDataFolder || busy
     settlementClearFiltersButton.disabled = !hasDataFolder || busy
+    settingsUserName.disabled = busy
     settingsFastMode.disabled = busy
     settlementAutoRefreshEnabled.disabled = !hasDataFolder || busy
     settlementAutoRefreshInterval.disabled = !hasDataFolder || busy || !settlementAutoRefreshOn
@@ -1027,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createAddKnowledgeButton.disabled = busy
     createAddAbilityButton.disabled = busy
     createAddImpairmentButton.disabled = busy
+    createAddNoteButton.disabled = busy
     for (const inputId of Object.keys(createNumericConfig)) {
       const input = document.getElementById(inputId)
       if (input) input.disabled = busy
@@ -1371,16 +1445,17 @@ document.addEventListener('DOMContentLoaded', () => {
     createArrayState = {
       abilities: deepClone(source.abilities || []),
       impairments: deepClone(source.impairments || []),
+      notes: deepClone(source.notes || []),
       fightingArts: deepClone(source.fightingArts || []),
       secretFightingArts: deepClone(source.secretFightingArts || []),
       disorders: deepClone(source.disorders || []),
       tenetKnowledge: deepClone(source.tenetKnowledge || []),
       knowledge: deepClone(source.knowledge || [])
     }
-    syncCreateTextDraftState('abilities')
-    syncCreateTextDraftState('impairments')
+    for (const arrayName of TEXT_ENTRY_ARRAYS) syncCreateTextDraftState(arrayName)
     renderCreateTextRows(createAbilities, createArrayState.abilities, 'abilities')
     renderCreateTextRows(createImpairments, createArrayState.impairments, 'impairments')
+    renderCreateTextRows(createNotes, createArrayState.notes, 'notes')
     renderArrayRows(createFightingArts, createArrayState.fightingArts, 'fightingArts')
     renderArrayRows(createSecretFightingArts, createArrayState.secretFightingArts, 'secretFightingArts')
     renderArrayRows(createDisorders, createArrayState.disorders, 'disorders')
@@ -1409,7 +1484,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (draftEntry.isEditing) {
         const textInput = document.createElement('textarea')
-        textInput.placeholder = 'Free text'
+        textInput.placeholder = getTextEntryPlaceholder(type)
         textInput.value = draftEntry.draft
         textInput.dataset.field = 'draftText'
         textInput.rows = 4
@@ -1447,7 +1522,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function syncCreateTextDraftState(type) {
-    if (type !== 'abilities' && type !== 'impairments') return
+    if (!isTextEntryArrayName(type)) return
     if (!Array.isArray(createArrayState[type])) createArrayState[type] = []
     const existing = Array.isArray(createTextDraftState[type]) ? createTextDraftState[type] : []
     createTextDraftState[type] = createArrayState[type].map((value, index) => {
@@ -1471,7 +1546,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateCreateTextDraftFromRow(row) {
     const type = row?.dataset?.arrayType
     const index = Number(row?.dataset?.index)
-    if ((type !== 'abilities' && type !== 'impairments') || Number.isNaN(index) || index < 0) return null
+    if (!isTextEntryArrayName(type) || Number.isNaN(index) || index < 0) return null
     syncCreateTextDraftState(type)
     const entry = createTextDraftState[type][index]
     if (!entry) return null
@@ -1483,43 +1558,33 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function syncCreateArraysFromDom() {
-    syncCreateTextDraftState('abilities')
-    syncCreateTextDraftState('impairments')
+    for (const arrayName of TEXT_ENTRY_ARRAYS) syncCreateTextDraftState(arrayName)
     createArrayState = {
       abilities: (createArrayState.abilities || []).map(item => String(item || '').trim()).filter(Boolean),
       impairments: (createArrayState.impairments || []).map(item => String(item || '').trim()).filter(Boolean),
+      notes: (createArrayState.notes || []).map(item => String(item || '').trim()).filter(Boolean),
       fightingArts: collectVisualRows(createFightingArts, 'fightingArts'),
       secretFightingArts: collectVisualRows(createSecretFightingArts, 'secretFightingArts'),
       disorders: collectVisualRows(createDisorders, 'disorders'),
       tenetKnowledge: collectVisualRows(createTenetKnowledge, 'tenet'),
       knowledge: collectVisualRows(createKnowledge, 'knowledge')
     }
-    syncCreateTextDraftState('abilities')
-    syncCreateTextDraftState('impairments')
+    for (const arrayName of TEXT_ENTRY_ARRAYS) syncCreateTextDraftState(arrayName)
   }
 
   function addCreateArrayEntry(type) {
     syncCreateArraysFromDom()
-    if (type === 'abilities') {
-      createArrayState.abilities.push('')
-      syncCreateTextDraftState('abilities')
-      const draft = createTextDraftState.abilities[createArrayState.abilities.length - 1]
+    if (isTextEntryArrayName(type)) {
+      const container = getCreateTextContainer(type)
+      if (!container) return
+      createArrayState[type].push('')
+      syncCreateTextDraftState(type)
+      const draft = createTextDraftState[type][createArrayState[type].length - 1]
       if (draft) {
         draft.isEditing = true
         draft.draft = ''
       }
-      renderCreateTextRows(createAbilities, createArrayState.abilities, 'abilities')
-      return
-    }
-    if (type === 'impairments') {
-      createArrayState.impairments.push('')
-      syncCreateTextDraftState('impairments')
-      const draft = createTextDraftState.impairments[createArrayState.impairments.length - 1]
-      if (draft) {
-        draft.isEditing = true
-        draft.draft = ''
-      }
-      renderCreateTextRows(createImpairments, createArrayState.impairments, 'impairments')
+      renderCreateTextRows(container, createArrayState[type], type)
       return
     }
     if (type === 'fightingArts') {
@@ -1590,8 +1655,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const type = row.dataset.arrayType
     const index = Number(row.dataset.index)
     syncCreateArraysFromDom()
-    if (type === 'abilities') createArrayState.abilities.splice(index, 1)
-    if (type === 'impairments') createArrayState.impairments.splice(index, 1)
+    if (isTextEntryArrayName(type)) createArrayState[type].splice(index, 1)
     if (type === 'fightingArts') createArrayState.fightingArts.splice(index, 1)
     if (type === 'secretFightingArts') createArrayState.secretFightingArts.splice(index, 1)
     if (type === 'disorders') createArrayState.disorders.splice(index, 1)
@@ -1599,6 +1663,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (type === 'knowledge') createArrayState.knowledge.splice(index, 1)
     renderCreateTextRows(createAbilities, createArrayState.abilities, 'abilities')
     renderCreateTextRows(createImpairments, createArrayState.impairments, 'impairments')
+    renderCreateTextRows(createNotes, createArrayState.notes, 'notes')
     renderArrayRows(createFightingArts, createArrayState.fightingArts, 'fightingArts')
     renderArrayRows(createSecretFightingArts, createArrayState.secretFightingArts, 'secretFightingArts')
     renderArrayRows(createDisorders, createArrayState.disorders, 'disorders')
@@ -1609,17 +1674,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function editCreateTextRow(row) {
     const type = row?.dataset?.arrayType
     const index = Number(row?.dataset?.index)
-    if ((type !== 'abilities' && type !== 'impairments') || Number.isNaN(index) || index < 0) return
+    if (!isTextEntryArrayName(type) || Number.isNaN(index) || index < 0) return
     syncCreateTextDraftState(type)
     const entry = createTextDraftState[type][index]
     if (!entry) return
     entry.isEditing = true
     entry.draft = entry.text
-    if (type === 'abilities') {
-      renderCreateTextRows(createAbilities, createArrayState.abilities, type)
-    } else {
-      renderCreateTextRows(createImpairments, createArrayState.impairments, type)
-    }
+    const container = getCreateTextContainer(type)
+    if (!container) return
+    renderCreateTextRows(container, createArrayState[type], type)
   }
 
   function commitCreateTextRow(row) {
@@ -1634,11 +1697,9 @@ document.addEventListener('DOMContentLoaded', () => {
     update.entry.text = value
     update.entry.draft = value
     update.entry.isEditing = false
-    if (update.type === 'abilities') {
-      renderCreateTextRows(createAbilities, createArrayState.abilities, update.type)
-    } else {
-      renderCreateTextRows(createImpairments, createArrayState.impairments, update.type)
-    }
+    const container = getCreateTextContainer(update.type)
+    if (!container) return
+    renderCreateTextRows(container, createArrayState[update.type], update.type)
   }
 
   async function saveKnowledgeTemplateFromRow(type, row) {
@@ -2047,6 +2108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncCreateArraysFromDom()
     next.abilities = deepClone(createArrayState.abilities)
     next.impairments = deepClone(createArrayState.impairments)
+    next.notes = deepClone(createArrayState.notes)
     next.fightingArts = deepClone(createArrayState.fightingArts)
     next.secretFightingArts = deepClone(createArrayState.secretFightingArts)
     next.disorders = deepClone(createArrayState.disorders)
@@ -2078,11 +2140,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getSettlementSortValue(person, key) {
     if (key === 'canPonder') return canSurvivorPonder(person) ? 1 : 0
+    if (key === 'statsTotal') return getSettlementStatsTotal(person)
+    if (key === 'lastUpdated' || key === 'lastReturned') return getSettlementTimestampSortValue(person[key])
     const value = getNestedValue(person, key)
     if (key === 'name' || key === 'philosophy' || key === 'weaponProficiency.type') {
       return String(value || '')
     }
     return coerceNumber(value, 0)
+  }
+
+  function getSettlementTimestampSortValue(value) {
+    if (typeof value !== 'string' || value.trim() === '') return Number.NEGATIVE_INFINITY
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
+  }
+
+  function formatSettlementTimestamp(value) {
+    const timestamp = getSettlementTimestampSortValue(value)
+    if (!Number.isFinite(timestamp)) return '-'
+    return new Date(timestamp).toLocaleString()
+  }
+
+  function getSettlementStatsTotal(person) {
+    return SETTLEMENT_STATS_TOTAL_FIELDS.reduce((sum, field) => sum + coerceNumber(person?.[field], 0), 0)
   }
 
   function renderSettlementSortHeaders() {
@@ -2105,6 +2185,9 @@ document.addEventListener('DOMContentLoaded', () => {
       hidden.add('weaponProficiency')
       hidden.add('profRank')
     }
+    if (!settlementToggleLastUpdated.checked) hidden.add('lastUpdated')
+    if (!settlementToggleLastReturned.checked) hidden.add('lastReturned')
+    if (!settlementToggleStatsTotal.checked) hidden.add('statsTotal')
     return hidden
   }
 
@@ -2126,6 +2209,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const traitArrays = [
       person.abilities,
       person.impairments,
+      person.notes,
       person.fightingArts,
       person.secretFightingArts,
       person.disorders,
@@ -2241,7 +2325,10 @@ document.addEventListener('DOMContentLoaded', () => {
         { value: String(coerceNumber(person.courage, 0)), column: '' },
         { value: String(coerceNumber(person.understanding, 0)), column: '' },
         { value: String(proficiency.type || '-'), column: 'weaponProficiency' },
-        { value: String(normalizeProficiencyLevel(proficiency.level, 0)), column: 'profRank' }
+        { value: String(normalizeProficiencyLevel(proficiency.level, 0)), column: 'profRank' },
+        { value: formatSettlementTimestamp(person.lastUpdated), column: 'lastUpdated' },
+        { value: formatSettlementTimestamp(person.lastReturned), column: 'lastReturned' },
+        { value: String(getSettlementStatsTotal(person)), column: 'statsTotal' }
       ]
 
       const row = document.createElement('tr')
@@ -2383,65 +2470,65 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<span class="icon-label"><svg aria-hidden="true"><use href="#${iconId}"></use></svg>${label}</span>`
   }
 
-  function resetShowdownMarkdownPreviewCache() {
-    showdownMarkdownPreviewCache.clear()
-    showdownMarkdownIndexCache.clear()
-    showdownMarkdownPreviewPending.clear()
+  function resetShowdownMarkdownContentCache() {
+    showdownMarkdownContentCache.clear()
+    showdownMarkdownContentPending.clear()
   }
 
-  async function ensureShowdownMarkdownIndex(collectionId) {
-    if (showdownMarkdownIndexCache.has(collectionId)) {
-      return showdownMarkdownIndexCache.get(collectionId)
-    }
-    const files = await window.api.listMarkdownFiles(collectionId)
-    const index = new Map()
-    for (const file of files) {
-      const key = normalizeMarkdownFileKey(file?.fileName)
-      if (!key) continue
-      index.set(key, String(file?.preview || '').trim())
-    }
-    showdownMarkdownIndexCache.set(collectionId, index)
-    return index
+  function formatShowdownMarkdownContent(markdown) {
+    return String(markdown || '')
+      .replace(/\r\n?/g, '\n')
+      .replace(/^\s*---\n[\s\S]*?\n---\s*/u, '')
+      .replace(/^#{1,6}\s*/gmu, '')
+      .replace(/^\s*[-*+]\s+/gmu, '• ')
+      .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/`{1,3}([^`]+)`{1,3}/g, '$1')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '$1')
+      .replace(/(?<!_)_([^_\n]+)_(?!_)/g, '$1')
+      .replace(/~~([^~]+)~~/g, '$1')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
   }
 
-  function queueShowdownMarkdownPreview(arrayName, fileName) {
+  function queueShowdownMarkdownContent(arrayName, fileName) {
     const normalizedFile = normalizeMarkdownFileKey(fileName)
     if (!normalizedFile) return
     const cacheKey = `${arrayName}|${normalizedFile}`
-    if (showdownMarkdownPreviewCache.has(cacheKey) || showdownMarkdownPreviewPending.has(cacheKey)) return
+    if (showdownMarkdownContentCache.has(cacheKey) || showdownMarkdownContentPending.has(cacheKey)) return
 
-    showdownMarkdownPreviewPending.add(cacheKey)
+    showdownMarkdownContentPending.add(cacheKey)
     ;(async () => {
-      let preview = ''
+      let content = ''
       const matchingCollections = markdownCollections.filter(collection => collectionMatchesArray(collection, arrayName))
       for (const collection of matchingCollections) {
         try {
-          const index = await ensureShowdownMarkdownIndex(collection.id)
-          if (index.has(normalizedFile)) {
-            preview = String(index.get(normalizedFile) || '').trim()
-            break
-          }
+          const doc = await window.api.loadMarkdownFile(collection.id, normalizedFile)
+          content = formatShowdownMarkdownContent(doc?.markdown)
+          break
         } catch {
           // Ignore lookup errors and continue to other matching collections.
         }
       }
-      showdownMarkdownPreviewCache.set(cacheKey, preview)
+      showdownMarkdownContentCache.set(cacheKey, content)
     })()
       .finally(() => {
-        showdownMarkdownPreviewPending.delete(cacheKey)
+        showdownMarkdownContentPending.delete(cacheKey)
         if (showdownPeople.A || showdownPeople.B) renderShowdown()
       })
   }
 
-  function getShowdownMarkdownPreview(arrayName, fileName) {
+  function getShowdownMarkdownContent(arrayName, fileName) {
     const normalizedFile = normalizeMarkdownFileKey(fileName)
     if (!normalizedFile) return ''
     const cacheKey = `${arrayName}|${normalizedFile}`
-    if (showdownMarkdownPreviewCache.has(cacheKey)) {
-      return String(showdownMarkdownPreviewCache.get(cacheKey) || '')
+    if (showdownMarkdownContentCache.has(cacheKey)) {
+      return String(showdownMarkdownContentCache.get(cacheKey) || '')
     }
-    queueShowdownMarkdownPreview(arrayName, normalizedFile)
-    return showdownMarkdownPreviewPending.has(cacheKey) ? 'Loading preview...' : ''
+    queueShowdownMarkdownContent(arrayName, normalizedFile)
+    return showdownMarkdownContentPending.has(cacheKey) ? 'Loading text...' : ''
   }
 
   function buildShowdownProficiencyTypeOptions(currentType) {
@@ -2670,6 +2757,41 @@ document.addEventListener('DOMContentLoaded', () => {
         </li>`
     }
 
+    const renderShowdownMarkdownRulesRow = (item, slot, arrayName, index) => {
+      const content = getShowdownMarkdownContent(arrayName, item?.file || '')
+      const displayPreview = content || 'No text available.'
+      return `
+        <li class="showdown-array-row showdown-array-row-knowledge showdown-array-row-markdown">
+          <div class="showdown-array-copy showdown-array-copy-knowledge showdown-array-copy-markdown">
+            <div class="showdown-knowledge-header">
+              <span class="showdown-copy-title">
+                <button
+                  type="button"
+                  class="showdown-copy-title-button"
+                  data-showdown-md-array="${arrayName}"
+                  data-showdown-md-file="${escapeHtml(item?.file || '')}"
+                >${escapeHtml(item?.name || 'Unknown')}</button>
+              </span>
+              <div class="showdown-knowledge-controls">
+                <div class="showdown-knowledge-actions">
+                  <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="${arrayName}" data-showdown-remove-index="${index}">Remove</button>
+                </div>
+              </div>
+            </div>
+            <div class="showdown-copy-section showdown-copy-section-rules">
+              <span class="showdown-copy-label showdown-copy-section-label showdown-copy-section-label-rules">${iconLabel('icon-rules', 'Rules')}</span>
+              <span class="showdown-copy-section-value">${escapeHtml(displayPreview)}</span>
+            </div>
+            <div class="showdown-copy-meta">
+              <span class="showdown-copy-meta-item">
+                <span class="showdown-copy-label">Reference:</span>
+                <span class="showdown-copy-value">${escapeHtml(item?.file || '-')}</span>
+              </span>
+            </div>
+          </div>
+        </li>`
+    }
+
     container.innerHTML = `
       <div class="showdown-frozen-header">
         <div class="showdown-identity-bar">
@@ -2770,18 +2892,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ${showdownListItems(
           p.fightingArts,
           'None',
-          (item, index) => {
-            const preview = getShowdownMarkdownPreview('fightingArts', item?.file || '')
-            return `
-          <li class="showdown-array-row">
-            <div class="showdown-array-copy">
-              <button type="button" class="showdown-md-link" data-showdown-md-array="fightingArts" data-showdown-md-file="${item?.file || ''}">${item?.name || 'Unknown'}</button>
-              <span>(${item?.file || '-'})</span>
-              ${preview ? `<span class="showdown-md-preview">${escapeHtml(preview)}</span>` : ''}
-            </div>
-            <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="fightingArts" data-showdown-remove-index="${index}">Remove</button>
-          </li>`
-          }
+          (item, index) => renderShowdownMarkdownRulesRow(item, slot, 'fightingArts', index)
         )}
         </details>
         <details class="showdown-toggle" data-showdown-section="secretFightingArts" open>
@@ -2792,18 +2903,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ${showdownListItems(
           p.secretFightingArts,
           'None',
-          (item, index) => {
-            const preview = getShowdownMarkdownPreview('secretFightingArts', item?.file || '')
-            return `
-          <li class="showdown-array-row">
-            <div class="showdown-array-copy">
-              <button type="button" class="showdown-md-link" data-showdown-md-array="secretFightingArts" data-showdown-md-file="${item?.file || ''}">${item?.name || 'Unknown'}</button>
-              <span>(${item?.file || '-'})</span>
-              ${preview ? `<span class="showdown-md-preview">${escapeHtml(preview)}</span>` : ''}
-            </div>
-            <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="secretFightingArts" data-showdown-remove-index="${index}">Remove</button>
-          </li>`
-          }
+          (item, index) => renderShowdownMarkdownRulesRow(item, slot, 'secretFightingArts', index)
         )}
         </details>
       </section>
@@ -2839,6 +2939,21 @@ document.addEventListener('DOMContentLoaded', () => {
           </li>`
         )}
         </details>
+        <details class="showdown-toggle" data-showdown-section="notes" open>
+        <summary>Notes (${(p.notes || []).length})</summary>
+        <div class="showdown-array-actions">
+          <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="notes">+ Add New</button>
+        </div>
+        ${showdownListItems(
+          p.notes,
+          'None',
+          (_item, index) => `
+          <li class="showdown-array-row">
+            ${renderShowdownTextEntry(slot, 'notes', index)}
+            <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="notes" data-showdown-remove-index="${index}">Remove</button>
+          </li>`
+        )}
+        </details>
       </section>
 
       <section class="showdown-page-panel" data-showdown-page-panel="disorders"${activePage === 'disorders' ? '' : ' hidden'}>
@@ -2850,18 +2965,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ${showdownListItems(
           p.disorders,
           'None',
-          (item, index) => {
-            const preview = getShowdownMarkdownPreview('disorders', item?.file || '')
-            return `
-          <li class="showdown-array-row">
-            <div class="showdown-array-copy">
-              <button type="button" class="showdown-md-link" data-showdown-md-array="disorders" data-showdown-md-file="${item?.file || ''}">${item?.name || 'Unknown'}</button>
-              <span>(${item?.file || '-'})</span>
-              ${preview ? `<span class="showdown-md-preview">${escapeHtml(preview)}</span>` : ''}
-            </div>
-            <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="disorders" data-showdown-remove-index="${index}">Remove</button>
-          </li>`
-          }
+          (item, index) => renderShowdownMarkdownRulesRow(item, slot, 'disorders', index)
         )}
         </details>
       </section>
@@ -2950,9 +3054,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncShowdownTextDraftState(slot, person) {
     if ((slot !== 'A' && slot !== 'B') || !person) return
     if (!showdownTextDraftState[slot]) {
-      showdownTextDraftState[slot] = { abilities: [], impairments: [] }
+      showdownTextDraftState[slot] = createEmptyShowdownTextDraftState()
     }
-    for (const arrayName of ['abilities', 'impairments']) {
+    for (const arrayName of TEXT_ENTRY_ARRAYS) {
       if (!Array.isArray(person[arrayName])) person[arrayName] = []
       const current = Array.isArray(showdownTextDraftState[slot][arrayName]) ? showdownTextDraftState[slot][arrayName] : []
       showdownTextDraftState[slot][arrayName] = person[arrayName].map((entry, index) => {
@@ -2969,7 +3073,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderShowdownTextEntry(slot, arrayName, index) {
     const entry = showdownTextDraftState[slot]?.[arrayName]?.[index]
     if (entry?.isEditing) {
-      const placeholder = arrayName === 'abilities' ? 'Ability text' : 'Impairment text'
+      const placeholder = getTextEntryPlaceholder(arrayName)
       return '<textarea class="showdown-inline-text" data-showdown-draft-slot="' + slot + '" data-showdown-draft-array="' + arrayName + '" data-showdown-draft-index="' + index + '" placeholder="' + placeholder + '" rows="3">' + escapeHtml(entry.draft) + '</textarea>' +
         '<button type="button" class="btn btn-secondary" data-showdown-commit-slot="' + slot + '" data-showdown-commit-array="' + arrayName + '" data-showdown-commit-index="' + index + '">Save/Commit</button>'
     }
@@ -2990,7 +3094,7 @@ document.addEventListener('DOMContentLoaded', () => {
       draft.text = ''
     }
     renderShowdownSlot(slot)
-    const label = arrayName === 'abilities' ? 'ability' : 'impairment'
+    const label = getTextEntrySingularLabel(arrayName)
     setStatus('Added ' + label, 'success')
   }
 
@@ -3023,11 +3127,17 @@ document.addEventListener('DOMContentLoaded', () => {
     renderShowdownSlot(slot)
   }
 
-  async function saveShowdownSurvivors() {
+  async function saveShowdownSurvivors(options = {}) {
     if (!showdownPeople.A || !showdownPeople.B) return
     const results = await Promise.all([
-      window.api.savePerson(showdownPeople.A.person, { expectedFileName: showdownPeople.A.fileName }),
-      window.api.savePerson(showdownPeople.B.person, { expectedFileName: showdownPeople.B.fileName })
+      window.api.savePerson(showdownPeople.A.person, {
+        expectedFileName: showdownPeople.A.fileName,
+        markReturned: Boolean(options.markReturned)
+      }),
+      window.api.savePerson(showdownPeople.B.person, {
+        expectedFileName: showdownPeople.B.fileName,
+        markReturned: Boolean(options.markReturned)
+      })
     ])
     for (const result of results) {
       if (!result || result.ok === false) {
@@ -3075,7 +3185,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const field of SHOWDOWN_FIELDS) {
       showdownModifiers[slot][field] = { temporary: 0, tokens: 0 }
     }
-    showdownTextDraftState[slot] = { abilities: [], impairments: [] }
+    showdownTextDraftState[slot] = createEmptyShowdownTextDraftState()
   }
 
   function reconcileShowdownMemoryForSelectionChange() {
@@ -3141,8 +3251,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (clearPeople) {
       showdownPeople = { A: null, B: null }
       showdownTextDraftState = {
-        A: { abilities: [], impairments: [] },
-        B: { abilities: [], impairments: [] }
+        A: createEmptyShowdownTextDraftState(),
+        B: createEmptyShowdownTextDraftState()
       }
       renderShowdown()
     }
@@ -3190,7 +3300,7 @@ document.addEventListener('DOMContentLoaded', () => {
     )
     if (!confirmed) return
     setStatus('Saving showdown survivors...', 'neutral')
-    await saveShowdownSurvivors()
+    await saveShowdownSurvivors({ markReturned: true })
     resetShowdownSessionState(true, true)
     setPage('settlement')
     try {
@@ -4169,7 +4279,7 @@ document.addEventListener('DOMContentLoaded', () => {
     markdownFiles = []
     markdownCollection.innerHTML = ''
     markdownCollections = []
-    resetShowdownMarkdownPreviewCache()
+    resetShowdownMarkdownContentCache()
 
     const collections = await window.api.listMarkdownCollections()
     markdownCollections = collections
@@ -4297,7 +4407,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const person = showdownPeople[slot].person
     if (!Array.isArray(person[arrayName])) return
     person[arrayName].splice(index, 1)
-    if (arrayName === 'abilities' || arrayName === 'impairments') {
+    if (isTextEntryArrayName(arrayName)) {
       syncShowdownTextDraftState(slot, person)
     }
     renderShowdownSlot(slot)
@@ -4327,6 +4437,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function init() {
     await runBusy(async () => {
+      if (typeof window.api.getAppSettings === 'function') {
+        appSettings = normalizeAppSettings(await window.api.getAppSettings())
+      }
+      settingsUserName.value = appSettings.userName
       settingsFastMode.checked = settlementFastMode
       settlementAutoRefreshEnabled.checked = settlementAutoRefreshOn
       settlementAutoRefreshInterval.value = String(settlementAutoRefreshIntervalSeconds)
@@ -4381,6 +4495,21 @@ document.addEventListener('DOMContentLoaded', () => {
     setStatus(`${sourceKey} folder updated`, 'success')
   }
 
+  async function persistAppSettingsFromUi() {
+    const nextSettings = normalizeAppSettings({ userName: settingsUserName.value })
+    if (nextSettings.userName === appSettings.userName) {
+      settingsUserName.value = appSettings.userName
+      return
+    }
+    if (typeof window.api.saveAppSettings === 'function') {
+      appSettings = normalizeAppSettings(await window.api.saveAppSettings(nextSettings))
+    } else {
+      appSettings = nextSettings
+    }
+    settingsUserName.value = appSettings.userName
+    setStatus(appSettings.userName ? `Username saved as ${appSettings.userName}` : 'Username cleared', 'success')
+  }
+
   for (const sourceKey of DATA_SOURCE_KEYS) {
     const button = dataSourceButtons[sourceKey]
     if (!button) continue
@@ -4414,6 +4543,14 @@ document.addEventListener('DOMContentLoaded', () => {
   settlementTraitSearch.addEventListener('input', renderSettlementTable)
   settlementToggleMovement.addEventListener('change', renderSettlementTable)
   settlementToggleWeaponProficiency.addEventListener('change', renderSettlementTable)
+  settlementToggleLastUpdated.addEventListener('change', renderSettlementTable)
+  settlementToggleLastReturned.addEventListener('change', renderSettlementTable)
+  settlementToggleStatsTotal.addEventListener('change', renderSettlementTable)
+  settingsUserName.addEventListener('change', () => {
+    runBusy(persistAppSettingsFromUi).catch(err => {
+      setStatus(err.message || 'Failed to save username setting', 'error')
+    })
+  })
   settingsFastMode.addEventListener('change', () => {
     settlementFastMode = Boolean(settingsFastMode.checked)
     syncSettlementAutoRefresh()
@@ -4511,6 +4648,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderSettlementTable()
   })
+  settlementToggleExtraFiltersButton.addEventListener('click', () => {
+    settlementExtraFiltersOpen = !settlementExtraFiltersOpen
+    syncSettlementExtraFilters()
+  })
   settlementApplyBulkButton.addEventListener('click', () => {
     runBusy(applySettlementBulkChange).catch(err => {
       setStatus(err.message || 'Failed to apply bulk update', 'error')
@@ -4545,6 +4686,8 @@ document.addEventListener('DOMContentLoaded', () => {
     syncControlState()
     if (currentPage === 'settlement') renderSettlementTable()
   })
+
+  syncSettlementExtraFilters()
   showdownSelectB.addEventListener('change', () => {
     if (showdownDeparted) {
       applyShowdownLockSelections()
@@ -4695,7 +4838,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const arrayName = target.dataset.showdownAddArray
       if (!slot || !arrayName || !showdownPeople[slot]) return
 
-      if (arrayName === 'abilities' || arrayName === 'impairments') {
+      if (isTextEntryArrayName(arrayName)) {
         addShowdownTextEntry(slot, arrayName)
         return
       }
@@ -4732,7 +4875,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const slot = target.dataset.showdownEditSlot
       const arrayName = target.dataset.showdownEditArray
       const index = Number(target.dataset.showdownEditIndex)
-      if (!slot || (arrayName !== 'abilities' && arrayName !== 'impairments') || Number.isNaN(index)) return
+      if (!slot || !isTextEntryArrayName(arrayName) || Number.isNaN(index)) return
       editShowdownTextEntry(slot, arrayName, index)
       return
     }
@@ -4741,7 +4884,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const slot = target.dataset.showdownCommitSlot
       const arrayName = target.dataset.showdownCommitArray
       const index = Number(target.dataset.showdownCommitIndex)
-      if (!slot || (arrayName !== 'abilities' && arrayName !== 'impairments') || Number.isNaN(index)) return
+      if (!slot || !isTextEntryArrayName(arrayName) || Number.isNaN(index)) return
       commitShowdownTextEntry(slot, arrayName, index)
       return
     }
@@ -4891,7 +5034,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const slot = target.dataset.showdownDraftSlot
       const arrayName = target.dataset.showdownDraftArray
       const index = Number(target.dataset.showdownDraftIndex)
-      if (!slot || (arrayName !== 'abilities' && arrayName !== 'impairments') || Number.isNaN(index)) return
+      if (!slot || !isTextEntryArrayName(arrayName) || Number.isNaN(index)) return
       if (!showdownPeople[slot]) return
       syncShowdownTextDraftState(slot, showdownPeople[slot].person)
       const draft = showdownTextDraftState[slot]?.[arrayName]?.[index]
@@ -5242,6 +5385,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
   createAddAbilityButton.addEventListener('click', () => addCreateArrayEntry('abilities'))
   createAddImpairmentButton.addEventListener('click', () => addCreateArrayEntry('impairments'))
+  createAddNoteButton.addEventListener('click', () => addCreateArrayEntry('notes'))
   createAddTenetKnowledgeButton.addEventListener('click', () => {
     runBusy(() => openKnowledgeTemplatePicker({ arrayName: 'tenetKnowledge', mode: 'create' })).catch(err => {
       setStatus(err.message || 'Failed to open tenet knowledge options', 'error')

@@ -73,7 +73,11 @@ test('save/load default create template roundtrip and null when missing', () => 
   assert.equal(loaded.name, 'Default Survivor')
   assert.equal(loaded.age, 4)
   assert.equal(loaded.philosophy, 'Skylore')
-  assert.equal(loaded.schemaVersion, 1)
+  assert.equal(loaded.schemaVersion, 3)
+  assert.deepEqual(loaded.notes, [])
+  assert.equal(typeof loaded.lastUpdated, 'string')
+  assert.equal(loaded.lastReturned, null)
+  assert.equal(loaded.editedBy, '')
 
   assert.equal(dataService.loadDefaultCreateTemplate(path.join(root, 'missing')), null)
   assert.equal(dataService.loadDefaultCreateTemplate(''), null)

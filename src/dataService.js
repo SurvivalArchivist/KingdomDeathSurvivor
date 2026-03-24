@@ -16,6 +16,9 @@ const SOURCE_KEYS = [
   'neuroses',
   'disorders'
 ]
+const DEFAULT_APP_SETTINGS = Object.freeze({
+  userName: ''
+})
 const DEFAULT_CREATE_TEMPLATE_FILE_NAME = 'default-new-survivor.json'
 const MARKDOWN_SOURCE_LABELS = {
   fightingArts: 'Fighting Arts',
@@ -31,7 +34,7 @@ const schemaPath = path.join(__dirname, 'validation', 'person.schema.json')
 const personSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'))
 const ajv = new Ajv2020({ allErrors: true, strict: false })
 const validatePerson = ajv.compile(personSchema)
-const CURRENT_PERSON_SCHEMA_VERSION = 1
+const CURRENT_PERSON_SCHEMA_VERSION = 3
 
 class ValidationError extends Error {
   constructor(message, errors) {
@@ -61,10 +64,7 @@ function applyPersonSchemaCompatibility(person) {
 
   if (schemaVersion === 0) {
     next.schemaVersion = CURRENT_PERSON_SCHEMA_VERSION
-    return next
-  }
-
-  if (schemaVersion > CURRENT_PERSON_SCHEMA_VERSION) {
+  } else if (schemaVersion > CURRENT_PERSON_SCHEMA_VERSION) {
     throw new ValidationError(
       'Unsupported person schemaVersion ' + schemaVersion + '. This app supports up to ' + CURRENT_PERSON_SCHEMA_VERSION + '.',
       [
@@ -75,20 +75,44 @@ function applyPersonSchemaCompatibility(person) {
         }
       ]
     )
-  }
-
-  if (schemaVersion < CURRENT_PERSON_SCHEMA_VERSION) {
+  } else if (schemaVersion < CURRENT_PERSON_SCHEMA_VERSION) {
     // Migration stub for future schema upgrades.
     next.schemaVersion = CURRENT_PERSON_SCHEMA_VERSION
-    return next
+  } else {
+    next.schemaVersion = schemaVersion
   }
 
-  next.schemaVersion = schemaVersion
+  if (typeof next.notes === 'undefined') {
+    next.notes = []
+  }
+  if (typeof next.lastUpdated !== 'string') {
+    next.lastUpdated = typeof next.updatedAt === 'string' ? next.updatedAt : ''
+  }
+  if (typeof next.lastReturned === 'undefined') {
+    next.lastReturned = null
+  } else if (next.lastReturned !== null && typeof next.lastReturned !== 'string') {
+    next.lastReturned = String(next.lastReturned || '')
+  }
+  if (typeof next.editedBy !== 'string') {
+    next.editedBy = ''
+  }
+
   return next
 }
 
 function getConfigPath(app) {
   return path.join(app.getPath('userData'), 'config.json')
+}
+
+function readConfigObject(app) {
+  const configPath = getConfigPath(app)
+  if (!fs.existsSync(configPath)) return {}
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+    return config && typeof config === 'object' ? config : {}
+  } catch {
+    return {}
+  }
 }
 
 function normalizeDataSources(input) {
@@ -100,14 +124,22 @@ function normalizeDataSources(input) {
   return next
 }
 
+function normalizeAppSettings(input) {
+  return {
+    userName: input && typeof input.userName === 'string' ? input.userName.trim() : DEFAULT_APP_SETTINGS.userName
+  }
+}
+
 function ensureFolderStructure() {}
 
-function saveConfig(app, dataSources) {
+function saveConfig(app, dataSources, appSettings) {
   const configPath = getConfigPath(app)
   fs.mkdirSync(path.dirname(configPath), { recursive: true })
   const normalized =
     typeof dataSources === 'string' ? normalizeDataSources({ survivors: dataSources }) : normalizeDataSources(dataSources || {})
-  fs.writeFileSync(configPath, JSON.stringify({ dataSources: normalized }, null, 2), 'utf8')
+  const normalizedSettings =
+    typeof appSettings === 'undefined' ? getSavedAppSettings(app) : normalizeAppSettings(appSettings || {})
+  fs.writeFileSync(configPath, JSON.stringify({ dataSources: normalized, settings: normalizedSettings }, null, 2), 'utf8')
 }
 
 function setDataSource(app, sourceKey, folderPath) {
@@ -117,29 +149,39 @@ function setDataSource(app, sourceKey, folderPath) {
   }
   const current = getSavedDataSources(app)
   current[sourceKey] = folderPath.trim()
-  saveConfig(app, current)
+  saveConfig(app, current, getSavedAppSettings(app))
   return current
 }
 
 function getSavedDataSources(app) {
-  const configPath = getConfigPath(app)
-  if (!fs.existsSync(configPath)) return normalizeDataSources({})
-
-  try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
-    if (config && typeof config === 'object') {
-      if (config.dataSources && typeof config.dataSources === 'object') {
-        return normalizeDataSources(config.dataSources)
-      }
-      // Backward compatibility for legacy single-path config.
-      if (typeof config.dataPath === 'string' && config.dataPath.trim().length > 0) {
-        return normalizeDataSources({ survivors: config.dataPath.trim() })
-      }
+  const config = readConfigObject(app)
+  if (config && typeof config === 'object') {
+    if (config.dataSources && typeof config.dataSources === 'object') {
+      return normalizeDataSources(config.dataSources)
     }
-  } catch {
-    return normalizeDataSources({})
+    // Backward compatibility for legacy single-path config.
+    if (typeof config.dataPath === 'string' && config.dataPath.trim().length > 0) {
+      return normalizeDataSources({ survivors: config.dataPath.trim() })
+    }
   }
   return normalizeDataSources({})
+}
+
+function getSavedAppSettings(app) {
+  const config = readConfigObject(app)
+  if (config.settings && typeof config.settings === 'object') {
+    return normalizeAppSettings(config.settings)
+  }
+  if (typeof config.userName === 'string') {
+    return normalizeAppSettings({ userName: config.userName })
+  }
+  return normalizeAppSettings({})
+}
+
+function saveAppSettings(app, settings) {
+  const normalizedSettings = normalizeAppSettings(settings || {})
+  saveConfig(app, getSavedDataSources(app), normalizedSettings)
+  return normalizedSettings
 }
 
 function getSavedDataFolder(app) {
@@ -204,6 +246,8 @@ function resolveIncomingRevision(person) {
 function savePerson(basePath, person, options = {}) {
   fs.mkdirSync(basePath, { recursive: true })
   const normalizedPerson = applyPersonSchemaCompatibility(person)
+  const editorName = typeof options.editorName === 'string' ? options.editorName.trim() : ''
+  const markReturned = Boolean(options.markReturned)
   if (!validatePerson(normalizedPerson)) {
     const errors = mapValidationErrors(validatePerson.errors || [])
     throw new ValidationError(`Invalid person data: ${validationErrorSummary(errors)}`, errors)
@@ -241,10 +285,14 @@ function savePerson(basePath, person, options = {}) {
   }
 
   const nextRevision = (baselineRevision ?? incomingRevision) + 1
+  const savedAt = new Date().toISOString()
   const personToSave = {
     ...normalizedPerson,
     revision: nextRevision,
-    updatedAt: new Date().toISOString()
+    updatedAt: savedAt,
+    lastUpdated: savedAt,
+    lastReturned: markReturned ? savedAt : normalizedPerson.lastReturned ?? null,
+    editedBy: editorName
   }
 
   if (!validatePerson(personToSave)) {
@@ -296,11 +344,15 @@ function deletePerson(basePath, fileName) {
 }
 
 function createPersonTemplate(name = 'New Survivor') {
+  const createdAt = new Date().toISOString()
   return {
     name,
     schemaVersion: CURRENT_PERSON_SCHEMA_VERSION,
     revision: 0,
-    updatedAt: new Date().toISOString(),
+    updatedAt: createdAt,
+    lastUpdated: createdAt,
+    lastReturned: null,
+    editedBy: '',
     gender: 'M',
     age: 0,
     isAlive: true,
@@ -335,6 +387,7 @@ function createPersonTemplate(name = 'New Survivor') {
     tinker: false,
     abilities: [],
     impairments: [],
+    notes: [],
     fightingArts: [],
     secretFightingArts: [],
     disorders: [],
@@ -686,8 +739,10 @@ module.exports = {
   SOURCE_KEYS,
   ensureFolderStructure,
   saveConfig,
+  saveAppSettings,
   setDataSource,
   getSavedDataSources,
+  getSavedAppSettings,
   getSavedDataFolder,
   ensureDataFolderConfigured,
   savePerson,

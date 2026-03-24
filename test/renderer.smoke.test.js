@@ -300,9 +300,12 @@ function deepClone(value) {
 function makePerson(name, overrides = {}) {
   return {
     name,
-    schemaVersion: 1,
+    schemaVersion: 3,
     revision: 1,
     updatedAt: new Date().toISOString(),
+    lastUpdated: new Date().toISOString(),
+    lastReturned: null,
+    editedBy: '',
     gender: 'F',
     age: 0,
     isAlive: true,
@@ -337,6 +340,7 @@ function makePerson(name, overrides = {}) {
     tinker: false,
     abilities: [],
     impairments: [],
+    notes: [],
     fightingArts: [],
     secretFightingArts: [],
     disorders: [],
@@ -358,6 +362,7 @@ function setupRendererHarness() {
   const calls = []
   let fullScreen = false
   const fullScreenListeners = new Set()
+  let appSettings = { userName: 'Lantern Mike' }
   const db = {
     'alice.json': makePerson('Alice'),
     'bob.json': makePerson('Bob')
@@ -380,6 +385,15 @@ function setupRendererHarness() {
         neuroses: '',
         disorders: ''
       }
+    },
+    async getAppSettings() {
+      calls.push({ name: 'getAppSettings', args: [] })
+      return deepClone(appSettings)
+    },
+    async saveAppSettings(settings) {
+      calls.push({ name: 'saveAppSettings', args: [deepClone(settings)] })
+      appSettings = { userName: String(settings?.userName || '').trim() }
+      return deepClone(appSettings)
     },
     async getFullScreenState() {
       calls.push({ name: 'getFullScreenState', args: [] })
@@ -616,4 +630,5 @@ test('renderer smoke: load, save, create, and showdown flows invoke API contract
     )
   assert.ok(showdownSaves.some(entry => entry.args[1].expectedFileName === 'alice.json'))
   assert.ok(showdownSaves.some(entry => entry.args[1].expectedFileName === 'bob.json'))
+  assert.ok(showdownSaves.every(entry => entry.args[1].markReturned === true))
 })

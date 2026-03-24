@@ -615,6 +615,45 @@ body.showdown-mode .showdown-card {
   text-overflow: clip;
 }
 
+.create-survivor-view .showdown-stats-vitals.create-vitals-layout {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: stretch;
+  gap: 0.4rem;
+}
+
+.create-survivor-view .showdown-stats-vitals.create-vitals-layout .showdown-stepper-simple {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  justify-self: stretch;
+  grid-template-columns: minmax(0, 1fr) minmax(82px, 92px);
+}
+
+.create-survivor-view .showdown-stats-mind.create-mind-layout {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  justify-content: stretch;
+  align-items: start;
+  gap: 0.4rem;
+}
+
+.create-survivor-view .showdown-stats-mind.create-mind-layout .showdown-stepper-simple,
+.create-survivor-view .showdown-stats-mind.create-mind-layout .showdown-proficiency-type {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  justify-self: stretch;
+}
+
+.create-survivor-view .showdown-stats-mind.create-mind-layout .showdown-stepper-simple {
+  grid-template-columns: minmax(124px, 1fr) minmax(82px, 92px);
+}
+
+.create-survivor-view .showdown-stats-mind.create-mind-layout .showdown-stepper-simple .showdown-stepper-label {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .create-survivor-view .create-philosophy-layout {
   grid-template-columns: minmax(200px, 320px) max-content max-content;
   align-items: start;
@@ -888,6 +927,25 @@ body.showdown-mode .showdown-card {
   line-height: 1.18;
 }
 
+.showdown-copy-title-button {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.12rem;
+  font-weight: 800;
+  line-height: 1.18;
+  padding: 0;
+  text-align: left;
+  text-decoration: none;
+}
+
+.showdown-copy-title-button:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
 .showdown-copy-level {
   font-size: 0.78rem;
   font-weight: 700;
@@ -947,6 +1005,10 @@ body.showdown-mode .showdown-card {
 
 .showdown-copy-section + .showdown-copy-section {
   margin-top: 0.12rem;
+}
+
+.showdown-array-copy-markdown .showdown-copy-section {
+  margin-inline: 0.18rem;
 }
 
 .showdown-copy-section-label {
@@ -1097,6 +1159,9 @@ body.showdown-mode .showdown-card {
   font-size: 0.78rem;
 }
 
+.showdown-card details[data-showdown-section='fightingArts'] .showdown-array-row + .showdown-array-row,
+.showdown-card details[data-showdown-section='secretFightingArts'] .showdown-array-row + .showdown-array-row,
+.showdown-card details[data-showdown-section='disorders'] .showdown-array-row + .showdown-array-row,
 .showdown-card details[data-showdown-section='tenetKnowledge'] .showdown-array-row + .showdown-array-row,
 .showdown-card details[data-showdown-section='knowledge'] .showdown-array-row + .showdown-array-row {
   border-top: 1px solid rgba(124, 100, 79, 0.42);
@@ -1133,6 +1198,11 @@ body.showdown-mode .showdown-card {
     grid-template-columns: 1fr;
   }
 
+  .create-survivor-view .showdown-stats-vitals.create-vitals-layout,
+  .create-survivor-view .showdown-stats-mind.create-mind-layout {
+    grid-template-columns: 1fr;
+  }
+
   .showdown-group-vitals .showdown-stats-vitals-bleeding {
     grid-template-columns: 1fr;
   }
@@ -1158,6 +1228,11 @@ body.showdown-mode .showdown-card {
   .showdown-stepper-simple {
     grid-template-columns: 1fr;
     max-width: none;
+  }
+
+  .create-survivor-view .showdown-stats-vitals.create-vitals-layout .showdown-stepper-simple,
+  .create-survivor-view .showdown-stats-mind.create-mind-layout .showdown-stepper-simple {
+    grid-template-columns: 1fr;
   }
 
   .showdown-copy-meta {

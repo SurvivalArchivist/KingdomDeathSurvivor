@@ -92,6 +92,14 @@ ipcMain.handle('get-saved-data-sources', () => {
   return dataService.getSavedDataSources(app)
 })
 
+ipcMain.handle('get-app-settings', () => {
+  return dataService.getSavedAppSettings(app)
+})
+
+ipcMain.handle('save-app-settings', (_event, settings) => {
+  return dataService.saveAppSettings(app, settings)
+})
+
 ipcMain.handle('list-people', () => {
   const dataPath = dataService.ensureDataFolderConfigured(app)
   return dataService.listPeople(dataPath)
@@ -105,7 +113,11 @@ ipcMain.handle('load-person', (_event, fileName) => {
 ipcMain.handle('save-person', (_event, person, options) => {
   try {
     const dataPath = dataService.ensureDataFolderConfigured(app)
-    const fileName = dataService.savePerson(dataPath, person, options)
+    const appSettings = dataService.getSavedAppSettings(app)
+    const fileName = dataService.savePerson(dataPath, person, {
+      ...(options && typeof options === 'object' ? options : {}),
+      editorName: appSettings.userName || ''
+    })
     return { ok: true, fileName }
   } catch (err) {
     if (err instanceof dataService.ConflictError) {

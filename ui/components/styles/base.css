@@ -212,6 +212,16 @@ body.departed-active .hero h1 {
   padding: 0.24rem 0.4rem;
 }
 
+.settings-row input[type="text"] {
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  font: inherit;
+  background: rgba(31, 26, 23, 0.95);
+  color: var(--ink);
+  padding: 0.24rem 0.5rem;
+  min-width: 12rem;
+}
+
 .settings-row .muted {
   margin: 0;
 }
@@ -1084,9 +1094,22 @@ h3 {
 .settlement-filters {
   display: grid;
   gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+
+.settlement-filters-primary,
+.settlement-filters-extra {
+  display: grid;
+  gap: 0.45rem;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   align-items: end;
-  margin-bottom: 0.65rem;
+}
+
+.settlement-filters-extra {
+  border: 1px solid rgba(127, 102, 79, 0.26);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem 0.65rem;
+  background: var(--surface);
 }
 
 .settlement-filters label {
@@ -1110,13 +1133,22 @@ h3 {
   align-self: end;
 }
 
+.settlement-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.45rem;
+}
+
 .settlement-column-toggles {
   margin: 0;
   border: 1px solid rgba(127, 102, 79, 0.38);
   border-radius: 8px;
   padding: 0.32rem 0.45rem;
   display: flex;
+  grid-column: 1 / -1;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.28rem 0.55rem;
   min-height: 2.2rem;
 }
@@ -1128,11 +1160,13 @@ h3 {
 }
 
 .settlement-column-toggles label {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 0.28rem;
   font-size: 0.76rem;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .settlement-col-hidden {

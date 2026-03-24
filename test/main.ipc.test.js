@@ -123,6 +123,12 @@ function makeHarness(overrides = {}) {
     getSavedDataSources() {
       return {}
     },
+    getSavedAppSettings() {
+      return { userName: '' }
+    },
+    saveAppSettings(_app, settings) {
+      return settings
+    },
     ensureDataFolderConfigured() {
       return '/tmp/survivors'
     },
@@ -267,6 +273,31 @@ test('save-person handler maps ValidationError and includes structured errors', 
   })
 })
 
+test('save-person handler injects saved username into save options', async t => {
+  let receivedOptions = null
+  const harness = makeHarness({
+    dataService: {
+      getSavedAppSettings() {
+        return { userName: 'Watcher' }
+      },
+      savePerson(_basePath, _person, options) {
+        receivedOptions = options
+        return 'watcher.json'
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  const handler = harness.handlers.get('save-person')
+  const result = await handler(null, { name: 'Ava' }, { expectedFileName: 'ava.json', markReturned: true })
+  assert.deepEqual(result, { ok: true, fileName: 'watcher.json' })
+  assert.deepEqual(receivedOptions, {
+    expectedFileName: 'ava.json',
+    markReturned: true,
+    editorName: 'Watcher'
+  })
+})
+
 test('select-data-source-folder returns null for canceled dialog and data for selected path', async t => {
   let selected = null
   const harness = makeHarness({
@@ -363,6 +394,29 @@ test('knowledge template handlers resolve primary and legacy folder paths', asyn
   assert.throws(() => saveHandler(null, 'knowledge', { name: 'Knowledge 2' }), /No Knowledges folder selected/)
   const listResult = await listHandler(null, 'knowledge')
   assert.deepEqual(listResult, [])
+})
+
+test('app settings handlers load and persist username settings', async t => {
+  let savedSettings = null
+  const harness = makeHarness({
+    dataService: {
+      getSavedAppSettings() {
+        return { userName: 'Archivist' }
+      },
+      saveAppSettings(_app, settings) {
+        savedSettings = settings
+        return { userName: String(settings.userName || '').trim() }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  const getHandler = harness.handlers.get('get-app-settings')
+  const saveHandler = harness.handlers.get('save-app-settings')
+
+  assert.deepEqual(await getHandler(), { userName: 'Archivist' })
+  assert.deepEqual(await saveHandler(null, { userName: '  Mike  ' }), { userName: 'Mike' })
+  assert.deepEqual(savedSettings, { userName: '  Mike  ' })
 })
 
 test('full-screen handlers report and toggle window state', async t => {

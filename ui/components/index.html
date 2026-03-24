@@ -36,6 +36,10 @@
       </div>
       <p class="muted">Select folders for each category. The app will never create folders automatically.</p>
       <div class="settings-row">
+        <label>
+          Username
+          <input id="settingsUserName" type="text" placeholder="Who is saving?" />
+        </label>
         <label class="ve-check">
           Fast Mode
           <input id="settingsFastMode" type="checkbox" />
@@ -53,7 +57,7 @@
             <option value="30">30s</option>
           </select>
         </label>
-        <p class="muted">When enabled, settlement refresh interval is capped to a faster cadence.</p>
+        <p class="muted">Saved into editedBy on survivor saves. When enabled, settlement refresh interval is capped to a faster cadence.</p>
       </div>
       <div class="data-sources-grid">
         <div class="data-source-row">
@@ -326,68 +330,86 @@
       <article class="panel settlement-panel">
         <h2>Settlement View <span id="settlementAliveCount" class="muted">(Alive: 0)</span></h2>
         <div class="settlement-filters">
-          <label>
-            Name
-            <input id="settlementNameSearch" type="search" placeholder="Search by name..." />
-          </label>
-          <label>
-            Traits
-            <input
-              id="settlementTraitSearch"
-              type="search"
-              placeholder="Search abilities, impairments, arts, disorders, knowledge..."
-            />
-          </label>
-          <label>
-            Alive
-            <select data-bool-filter="isAlive">
-              <option value="all">All</option>
-              <option value="yes" selected>Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-          <label>
-            Lifetime Reroll
-            <select data-bool-filter="lifetimeReroll">
-              <option value="all">All</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-          <label>
-            Courage Ability
-            <select data-triad-filter="courageGroup">
-              <option value="any">Any</option>
-              <option value="none">None</option>
-              <option value="stalwart">Stalwart</option>
-              <option value="prepared">Prepared</option>
-              <option value="matchmaker">Matchmaker</option>
-            </select>
-          </label>
-          <label>
-            Understanding Ability
-            <select data-triad-filter="understandingGroup">
-              <option value="any">Any</option>
-              <option value="none">None</option>
-              <option value="analyze">Analyze</option>
-              <option value="explore">Explorer</option>
-              <option value="tinker">Tinker</option>
-            </select>
-          </label>
-          <label>
-            Can Ponder
-            <select data-bool-filter="canPonder">
-              <option value="all">All</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-          <fieldset class="settlement-column-toggles">
-            <legend>Columns</legend>
-            <label><input id="settlementToggleMovement" type="checkbox" /> Movement</label>
-            <label><input id="settlementToggleWeaponProficiency" type="checkbox" /> Weapon Proficiency + Prof Rank</label>
-          </fieldset>
-          <button id="settlementClearFilters" type="button" class="btn btn-secondary">Clear Filters</button>
+          <div class="settlement-filters-primary">
+            <label>
+              Name
+              <input id="settlementNameSearch" type="search" placeholder="Search by name..." />
+            </label>
+            <label>
+              Traits
+              <input
+                id="settlementTraitSearch"
+                type="search"
+                placeholder="Search abilities, impairments, notes, arts, disorders, knowledge..."
+              />
+            </label>
+            <label>
+              Alive
+              <select data-bool-filter="isAlive">
+                <option value="all">All</option>
+                <option value="yes" selected>Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+            <div class="settlement-filter-actions">
+              <button
+                id="settlementToggleExtraFilters"
+                type="button"
+                class="btn btn-secondary"
+                aria-expanded="false"
+                aria-controls="settlementExtraFilters"
+              >
+                Show Extra Filters
+              </button>
+              <button id="settlementClearFilters" type="button" class="btn btn-secondary">Clear Filters</button>
+            </div>
+          </div>
+          <div id="settlementExtraFilters" class="settlement-filters-extra" hidden>
+            <label>
+              Lifetime Reroll
+              <select data-bool-filter="lifetimeReroll">
+                <option value="all">All</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+            <label>
+              Courage Ability
+              <select data-triad-filter="courageGroup">
+                <option value="any">Any</option>
+                <option value="none">None</option>
+                <option value="stalwart">Stalwart</option>
+                <option value="prepared">Prepared</option>
+                <option value="matchmaker">Matchmaker</option>
+              </select>
+            </label>
+            <label>
+              Understanding Ability
+              <select data-triad-filter="understandingGroup">
+                <option value="any">Any</option>
+                <option value="none">None</option>
+                <option value="analyze">Analyze</option>
+                <option value="explore">Explorer</option>
+                <option value="tinker">Tinker</option>
+              </select>
+            </label>
+            <label>
+              Can Ponder
+              <select data-bool-filter="canPonder">
+                <option value="all">All</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+            <fieldset class="settlement-column-toggles">
+              <legend>Columns</legend>
+              <label><input id="settlementToggleMovement" type="checkbox" /> Movement</label>
+              <label><input id="settlementToggleWeaponProficiency" type="checkbox" /> Weapon Proficiency + Prof Rank</label>
+              <label><input id="settlementToggleLastUpdated" type="checkbox" /> Last Updated</label>
+              <label><input id="settlementToggleLastReturned" type="checkbox" /> Last Returned</label>
+              <label><input id="settlementToggleStatsTotal" type="checkbox" /> Stats Total</label>
+            </fieldset>
+          </div>
         </div>
         <div class="settlement-refresh-controls">
           <button id="settlementRefreshNow" type="button" class="btn btn-secondary">Refresh Now</button>
@@ -417,6 +439,9 @@
                 <th><button type="button" class="settlement-sort" data-sort-key="understanding">Und</button></th>
                 <th data-settlement-col="weaponProficiency"><button type="button" class="settlement-sort" data-sort-key="weaponProficiency.type">Weapon Prof</button></th>
                 <th data-settlement-col="profRank"><button type="button" class="settlement-sort" data-sort-key="weaponProficiency.level">Prof</button></th>
+                <th data-settlement-col="lastUpdated"><button type="button" class="settlement-sort" data-sort-key="lastUpdated">Last Updated</button></th>
+                <th data-settlement-col="lastReturned"><button type="button" class="settlement-sort" data-sort-key="lastReturned">Last Returned</button></th>
+                <th data-settlement-col="statsTotal"><button type="button" class="settlement-sort" data-sort-key="statsTotal">Stats Total</button></th>
                 <th>Showdown</th>
               </tr>
             </thead>
@@ -469,27 +494,11 @@
           <label>Ponder <span id="createPonderIndicator" class="status-pill status-pill-neutral">Not Ready</span></label>
           <label class="ve-check">Alive <input id="createSurvivorAlive" type="checkbox" checked /></label>
           <label class="ve-check">Lifetime Reroll <input id="createSurvivorLifetimeReroll" type="checkbox" /></label>
-          <label>Courage Ability
-            <select id="createSurvivorMatchmaker">
-              <option value="none">None</option>
-              <option value="stalwart">Stalwart</option>
-              <option value="prepared">Prepared</option>
-              <option value="matchmaker">Matchmaker</option>
-            </select>
-          </label>
-          <label>Understanding Ability
-            <select id="createSurvivorTinker">
-              <option value="none">None</option>
-              <option value="analyze">Analyze</option>
-              <option value="explore">Explorer</option>
-              <option value="tinker">Tinker</option>
-            </select>
-          </label>
         </div>
 
         <section class="showdown-group">
           <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-vitals"></use></svg>Age / Survival / Insanity</span></h4>
-          <div class="showdown-stats showdown-stats-vitals">
+          <div class="showdown-stats showdown-stats-vitals create-vitals-layout">
             <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Age</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorAge" data-create-step-delta="-1">-</button><input id="createSurvivorAge" type="number" /><button type="button" data-create-step-target="createSurvivorAge" data-create-step-delta="1">+</button></div></div>
             <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Lumi</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorLumi" data-create-step-delta="-1">-</button><input id="createSurvivorLumi" type="number" /><button type="button" data-create-step-target="createSurvivorLumi" data-create-step-delta="1">+</button></div></div>
             <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Survival</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorSurvivalPts" data-create-step-delta="-1">-</button><input id="createSurvivorSurvivalPts" type="number" /><button type="button" data-create-step-target="createSurvivorSurvivalPts" data-create-step-delta="1">+</button></div></div>
@@ -518,9 +527,25 @@
         </section>
         <section class="showdown-group">
           <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-mind"></use></svg>Courage / Understanding</span></h4>
-          <div class="showdown-stats showdown-stats-mind">
+          <div class="showdown-stats showdown-stats-mind create-mind-layout">
             <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Courage</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorCourage" data-create-step-delta="-1">-</button><input id="createSurvivorCourage" type="number" /><button type="button" data-create-step-target="createSurvivorCourage" data-create-step-delta="1">+</button></div></div>
             <div class="showdown-stepper showdown-stepper-simple create-stepper-wide"><span class="showdown-stepper-label">Understanding</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createSurvivorUnderstanding" data-create-step-delta="-1">-</button><input id="createSurvivorUnderstanding" type="number" /><button type="button" data-create-step-target="createSurvivorUnderstanding" data-create-step-delta="1">+</button></div></div>
+            <label class="showdown-proficiency-type create-mind-select">Courage Ability
+              <select id="createSurvivorMatchmaker">
+                <option value="none">None</option>
+                <option value="stalwart">Stalwart</option>
+                <option value="prepared">Prepared</option>
+                <option value="matchmaker">Matchmaker</option>
+              </select>
+            </label>
+            <label class="showdown-proficiency-type create-mind-select">Understanding Ability
+              <select id="createSurvivorTinker">
+                <option value="none">None</option>
+                <option value="analyze">Analyze</option>
+                <option value="explore">Explorer</option>
+                <option value="tinker">Tinker</option>
+              </select>
+            </label>
           </div>
         </section>
         <section class="showdown-group">
@@ -596,6 +621,14 @@
             <button id="createAddImpairment" class="btn btn-secondary" type="button">+ Add New</button>
           </div>
           <div id="createImpairments"></div>
+        </div>
+
+        <div class="ve-list">
+          <div class="panel-header panel-header-tight">
+            <h4>Notes</h4>
+            <button id="createAddNote" class="btn btn-secondary" type="button">+ Add New</button>
+          </div>
+          <div id="createNotes"></div>
         </div>
 
         <div class="button-row">

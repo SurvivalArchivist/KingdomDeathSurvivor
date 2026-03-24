@@ -73,12 +73,26 @@ test('config save/read and configured folder lookup', () => {
   dataService.saveConfig(app, dataPath)
   assert.equal(dataService.getSavedDataFolder(app), dataPath)
   assert.equal(dataService.ensureDataFolderConfigured(app), dataPath)
+  assert.deepEqual(dataService.getSavedAppSettings(app), { userName: '' })
 })
 
 test('ensureDataFolderConfigured throws without config', () => {
   const userData = makeTempDir()
   const app = makeApp(userData)
   assert.throws(() => dataService.ensureDataFolderConfigured(app), /No data folder selected/)
+})
+
+test('saveAppSettings persists username without disturbing data sources', () => {
+  const userData = makeTempDir()
+  const app = makeApp(userData)
+  const dataPath = path.join(userData, 'survivors')
+
+  dataService.saveConfig(app, dataPath)
+  const saved = dataService.saveAppSettings(app, { userName: '  Mike  ' })
+
+  assert.deepEqual(saved, { userName: 'Mike' })
+  assert.deepEqual(dataService.getSavedAppSettings(app), { userName: 'Mike' })
+  assert.equal(dataService.getSavedDataFolder(app), dataPath)
 })
 
 test('knowledge templates persist reusable entries without current observations', () => {
@@ -299,16 +313,23 @@ test('savePerson manages revision and updatedAt metadata', () => {
   const basePath = path.join(root, 'data')
   const person = dataService.createPersonTemplate('Meta Survivor')
 
-  const fileName = dataService.savePerson(basePath, person)
+  const fileName = dataService.savePerson(basePath, person, { editorName: 'Archivist' })
   const first = dataService.loadPerson(basePath, fileName)
   assert.equal(first.revision, 1)
   assert.equal(typeof first.updatedAt, 'string')
   assert.equal(Number.isNaN(Date.parse(first.updatedAt)), false)
+  assert.equal(first.lastUpdated, first.updatedAt)
+  assert.equal(first.lastReturned, null)
+  assert.equal(first.editedBy, 'Archivist')
 
   first.philosophy = 'Updated'
-  const fileName2 = dataService.savePerson(basePath, first)
+  const fileName2 = dataService.savePerson(basePath, first, { editorName: 'Chronicler', markReturned: true })
   const second = dataService.loadPerson(basePath, fileName2)
   assert.equal(second.revision, 2)
+  assert.equal(second.lastUpdated, second.updatedAt)
+  assert.equal(typeof second.lastReturned, 'string')
+  assert.equal(Number.isNaN(Date.parse(second.lastReturned)), false)
+  assert.equal(second.editedBy, 'Chronicler')
 })
 
 test('savePerson throws ConflictError on stale revision', () => {
@@ -359,7 +380,11 @@ test('loadPerson auto-populates missing schemaVersion for legacy records', () =>
   fs.writeFileSync(filePath, JSON.stringify(person, null, 2), 'utf8')
 
   const loaded = dataService.loadPerson(basePath, 'legacy-survivor.json')
-  assert.equal(loaded.schemaVersion, 1)
+  assert.equal(loaded.schemaVersion, 3)
+  assert.deepEqual(loaded.notes, [])
+  assert.equal(loaded.lastUpdated, loaded.updatedAt)
+  assert.equal(loaded.lastReturned, null)
+  assert.equal(loaded.editedBy, '')
 })
 
 test('loadPerson rejects unsupported future schemaVersion', () => {

@@ -7,6 +7,9 @@
   "required": [
     "name",
     "schemaVersion",
+    "lastUpdated",
+    "lastReturned",
+    "editedBy",
     "gender",
     "age",
     "isAlive",
@@ -30,6 +33,7 @@
     "understanding",
     "abilities",
     "impairments",
+    "notes",
     "fightingArts",
     "secretFightingArts",
     "disorders",
@@ -44,7 +48,7 @@
     "schemaVersion": {
       "type": "integer",
       "minimum": 1,
-      "default": 1
+      "default": 3
     },
     "revision": {
       "type": "integer",
@@ -53,6 +57,20 @@
     },
     "updatedAt": {
       "type": "string"
+    },
+    "lastUpdated": {
+      "type": "string"
+    },
+    "lastReturned": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null
+    },
+    "editedBy": {
+      "type": "string",
+      "default": ""
     },
     "gender": {
       "type": "string",
@@ -228,6 +246,12 @@
       }
     },
     "impairments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
       "type": "array",
       "items": {
         "type": "string"
