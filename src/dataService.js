@@ -28,7 +28,10 @@ const MARKDOWN_SOURCE_LABELS = {
   disorders: 'Disorders'
 }
 const MARKDOWN_PREVIEW_CACHE_MAX = 3000
+const MARKDOWN_COLLECTION_CACHE_MAX = 10
+const MARKDOWN_COLLECTION_CACHE_TTL_MS = 5000 // 5 seconds
 const markdownPreviewCache = new Map()
+const markdownCollectionCache = new Map()
 
 const schemaPath = path.join(__dirname, 'validation', 'person.schema.json')
 const personSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'))
@@ -428,6 +431,14 @@ function loadDefaultCreateTemplate(basePath) {
 
 function listMarkdownCollections(dataSources) {
   const normalized = normalizeDataSources(dataSources || {})
+  
+  // Create a cache key from the normalized sources
+  const cacheKey = JSON.stringify(normalized)
+  const cached = markdownCollectionCache.get(cacheKey)
+  if (cached && (Date.now() - cached.timestamp) < MARKDOWN_COLLECTION_CACHE_TTL_MS) {
+    return cached.collections
+  }
+
   const categories = Object.keys(MARKDOWN_SOURCE_LABELS)
   const collections = []
   for (const category of categories) {
@@ -444,7 +455,16 @@ function listMarkdownCollections(dataSources) {
       count: files.length
     })
   }
-  return collections.sort((a, b) => a.label.localeCompare(b.label))
+  const result = collections.sort((a, b) => a.label.localeCompare(b.label))
+  
+  // Cache the result
+  if (markdownCollectionCache.size >= MARKDOWN_COLLECTION_CACHE_MAX) {
+    const oldestKey = markdownCollectionCache.keys().next().value
+    if (oldestKey) markdownCollectionCache.delete(oldestKey)
+  }
+  markdownCollectionCache.set(cacheKey, { timestamp: Date.now(), collections: result })
+  
+  return result
 }
 
 function parseCollectionId(dataSources, collectionId) {

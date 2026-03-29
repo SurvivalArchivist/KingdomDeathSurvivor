@@ -932,6 +932,7 @@ document.addEventListener('DOMContentLoaded', () => {
       scheduleSettlementAutoRefresh()
       return
     }
+
     settlementAutoRefreshBusy = true
     try {
       await refreshPeople({ silentStatus: true, updateRefreshTimestamp: true })
@@ -2463,7 +2464,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showdownListItems(items, emptyText, renderItem) {
     if (!Array.isArray(items) || items.length === 0) {
-      return `<ul><li>${emptyText}</li></ul>`
+      return `<ul><li>${escapeHtml(emptyText)}</li></ul>`
     }
     return `<ul>${items.map((item, index) => renderItem(item, index)).join('')}</ul>`
   }
