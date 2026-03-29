@@ -11,11 +11,20 @@ body.theme-light {
   --danger: #bc4d41;
   --outline: #b7ab99;
   --shadow: 0 16px 36px rgba(97, 75, 49, 0.16);
+  --field-bg: rgba(255, 252, 246, 0.98);
+  --field-bg-muted: rgba(235, 225, 211, 0.94);
+  --field-border: rgba(163, 149, 129, 0.64);
+  --field-ink: #2d251d;
+  color-scheme: light;
   background:
     radial-gradient(circle at 12% 12%, rgba(174, 82, 67, 0.16) 0%, transparent 36%),
     radial-gradient(circle at 89% 10%, rgba(117, 104, 84, 0.14) 0%, transparent 42%),
     radial-gradient(circle at 52% 120%, rgba(91, 110, 141, 0.12) 0%, transparent 48%),
     linear-gradient(168deg, #f8f1e6 0%, #efe6d8 54%, #e8ddcc 100%);
+}
+
+html:has(body.theme-light) {
+  color-scheme: light;
 }
 
 body.theme-light .bg-orb-one {
@@ -76,10 +85,46 @@ body.theme-light .showdown-armor-stepper {
 body.theme-light input:not([type='checkbox']),
 body.theme-light select,
 body.theme-light textarea {
-  border-color: rgba(163, 149, 129, 0.64);
-  background: rgba(255, 252, 246, 0.98);
-  color: #2d251d;
-  caret-color: #2d251d;
+  border-color: var(--field-border);
+  background: var(--field-bg);
+  color: var(--field-ink);
+  caret-color: var(--field-ink);
+}
+
+body.theme-light .settings-row select,
+body.theme-light .ve-grid select,
+body.theme-light .ve-row select,
+body.theme-light .settlement-filters select,
+body.theme-light .settlement-refresh-controls select,
+body.theme-light .settlement-bulk-actions select,
+body.theme-light .create-grid select,
+body.theme-light .showdown-proficiency-type select,
+body.theme-light #addMarkdownCollection,
+body.theme-light #knowledgeTemplateSearch,
+body.theme-light #knowledgeTemplateSelect,
+body.theme-light .showdown-header-inline-select {
+  border-color: var(--field-border);
+  background: var(--field-bg);
+  color: var(--field-ink);
+}
+
+body.theme-light #knowledgeTemplateSearch,
+body.theme-light #addMarkdownSearch {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Native select menus do not reliably inherit the themed surface on macOS/Electron. */
+body.theme-light select,
+body.theme-light select option {
+  background-color: var(--field-bg);
+  color: var(--field-ink);
+}
+
+body.theme-light select:disabled,
+body.theme-light select:disabled option {
+  background-color: var(--field-bg-muted);
+  color: rgba(78, 68, 58, 0.82);
 }
 
 body.theme-light .showdown-static-value,
@@ -352,7 +397,7 @@ body.theme-light .showdown-identity-item {
 body.theme-light #veNextPhilosophyAgeThreshold,
 body.theme-light #createNextPhilosophyAgeThreshold {
   border-color: rgba(163, 149, 129, 0.68);
-  background: rgba(255, 252, 246, 0.98);
-  color: #2d251d;
-  caret-color: #2d251d;
+  background: var(--field-bg);
+  color: var(--field-ink);
+  caret-color: var(--field-ink);
 }

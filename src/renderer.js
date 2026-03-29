@@ -828,6 +828,9 @@ document.addEventListener('DOMContentLoaded', () => {
     currentTheme = nextTheme
     document.body.classList.toggle('theme-light', nextTheme === 'light')
     document.body.classList.toggle('theme-dark', nextTheme === 'dark')
+    if (document.documentElement?.style) {
+      document.documentElement.style.colorScheme = nextTheme
+    }
     themeToggleButton.textContent = nextTheme === 'light' ? 'Dark Mode' : 'Light Mode'
     themeToggleButton.setAttribute('aria-pressed', nextTheme === 'light' ? 'true' : 'false')
     try {
@@ -2847,8 +2850,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="showdown-armor-grid">
             ${[
               ['head', 'Head', 'icon-head'],
-              ['body', 'Body', 'icon-body'],
               ['arms', 'Arms', 'icon-arms'],
+              ['body', 'Body', 'icon-body'],
               ['waist', 'Waist', 'icon-waist'],
               ['legs', 'Legs', 'icon-legs']
             ]
