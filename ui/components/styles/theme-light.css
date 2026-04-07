@@ -100,6 +100,7 @@ body.theme-light .settlement-bulk-actions select,
 body.theme-light .create-grid select,
 body.theme-light .showdown-proficiency-type select,
 body.theme-light #addMarkdownCollection,
+body.theme-light #addMarkdownSearch,
 body.theme-light #knowledgeTemplateSearch,
 body.theme-light #knowledgeTemplateSelect,
 body.theme-light .showdown-header-inline-select {
@@ -114,11 +115,44 @@ body.theme-light #addMarkdownSearch {
   appearance: none;
 }
 
+body.theme-light #addMarkdownModal label,
+body.theme-light #knowledgeTemplateModal label {
+  color: #5f5145;
+}
+
+body.theme-light #addMarkdownSearch::placeholder,
+body.theme-light #knowledgeTemplateSearch::placeholder {
+  color: rgba(95, 81, 69, 0.78);
+}
+
 /* Native select menus do not reliably inherit the themed surface on macOS/Electron. */
 body.theme-light select,
 body.theme-light select option {
   background-color: var(--field-bg);
   color: var(--field-ink);
+}
+
+body.theme-light #addMarkdownCollection,
+body.theme-light #addMarkdownCollection option,
+body.theme-light #addMarkdownSearch,
+body.theme-light #addMarkdownOptions,
+body.theme-light #addMarkdownOptions .md-row,
+body.theme-light #addMarkdownOptions .md-open,
+body.theme-light #addMarkdownOptions .md-open strong,
+body.theme-light #addMarkdownOptions .md-open span,
+body.theme-light #addMarkdownOptions .md-empty {
+  color: var(--field-ink);
+}
+
+body.theme-light #addMarkdownOptions {
+  background: rgba(248, 242, 233, 0.72);
+  border-radius: 12px;
+  padding: 0.2rem;
+}
+
+body.theme-light #addMarkdownOptions .md-open span,
+body.theme-light #addMarkdownOptions .md-empty {
+  color: #6f655b;
 }
 
 body.theme-light select:disabled,

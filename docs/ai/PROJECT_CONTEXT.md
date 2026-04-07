@@ -24,13 +24,13 @@ Electron desktop companion app for Kingdom Death survivor management with:
 4. Showdown View
 - Side-by-side survivors
 - Editable combat/session values
-- Depart/Showdown Over session lifecycle
+- Depart/End Showdown session lifecycle
 
 ## Showdown Session Rules
 - `Depart` locks survivor slots and keeps showdown state active across navigation.
-- Button text becomes `Departed` when active.
-- Global departed indicator is shown across app while active.
-- `Showdown Over` confirms, then writes persistent survivor updates.
+- After `Depart`, the `Depart` button hides and `End Showdown` appears in the showdown session bar.
+- There is no global departed indicator pill.
+- `End Showdown` confirms, then writes persistent survivor updates.
 - Temporary combat modifiers, armor, and bleeding tokens are non-persistent.
 
 ## Multi-User Safety (Current)

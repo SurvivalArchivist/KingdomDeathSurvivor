@@ -314,10 +314,10 @@
     <section id="showdownView" class="showdown-view hidden">
       <div class="showdown-session-bar panel">
         <p id="showdownSessionState" class="muted">Session not departed</p>
-        <div class="button-row">
+        <div class="button-row showdown-session-actions">
           <button id="refreshShowdownSurvivors" type="button" class="btn btn-secondary">Refresh Survivors</button>
           <button id="departShowdown" type="button" class="btn btn-primary">Depart</button>
-          <button id="showdownOver" type="button" class="btn btn-danger">Showdown Over</button>
+          <button id="showdownOver" type="button" class="btn btn-danger hidden">End Showdown</button>
         </div>
       </div>
       <div class="showdown-grid">
@@ -454,26 +454,11 @@
     <section id="bulkUpdatesView" class="bulk-updates-view hidden">
       <article class="panel bulk-updates-panel">
         <h2>Bulk Updates</h2>
-        <p class="muted">Apply a stat modifier to all survivors at once. Use with care.</p>
-        <div class="settlement-bulk-actions">
-          <label>
-            Bulk field
-            <select id="settlementBulkField">
-              <option value="movement">Movement</option>
-              <option value="speed">Speed</option>
-              <option value="accuracy">Accuracy</option>
-              <option value="strength" selected>Strength</option>
-              <option value="luck">Luck</option>
-              <option value="evasion">Evasion</option>
-              <option value="courage">Courage</option>
-              <option value="understanding">Understanding</option>
-            </select>
-          </label>
-          <label>
-            Delta
-            <input id="settlementBulkDelta" type="number" step="1" value="1" />
-          </label>
-          <button id="settlementApplyBulk" type="button" class="btn btn-primary">Apply to All Survivors</button>
+        <p class="muted">Apply a stat modifier to all living survivors at once. Use with care.</p>
+        <div id="settlementBulkRows" class="settlement-bulk-rows" aria-live="polite"></div>
+        <div class="settlement-bulk-toolbar">
+          <button id="settlementAddBulkChange" type="button" class="btn btn-secondary">Add Extra Change</button>
+          <button id="settlementApplyBulk" type="button" class="btn btn-primary">Apply to Living Survivors</button>
         </div>
       </article>
     </section>

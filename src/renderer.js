@@ -69,8 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const settlementRefreshNow = document.getElementById('settlementRefreshNow')
   const settlementLastRefreshed = document.getElementById('settlementLastRefreshed')
   const settlementAliveCount = document.getElementById('settlementAliveCount')
-  const settlementBulkField = document.getElementById('settlementBulkField')
-  const settlementBulkDelta = document.getElementById('settlementBulkDelta')
+  const settlementBulkRows = document.getElementById('settlementBulkRows')
+  const settlementAddBulkChangeButton = document.getElementById('settlementAddBulkChange')
   const settlementApplyBulkButton = document.getElementById('settlementApplyBulk')
   const settlementTableBody = document.getElementById('settlementTableBody')
   const settlementCount = document.getElementById('settlementCount')
@@ -246,8 +246,8 @@ document.addEventListener('DOMContentLoaded', () => {
     settlementRefreshNow,
     settlementLastRefreshed,
     settlementAliveCount,
-    settlementBulkField,
-    settlementBulkDelta,
+    settlementBulkRows,
+    settlementAddBulkChangeButton,
     settlementApplyBulkButton,
     settlementTableBody,
     settlementCount,
@@ -526,6 +526,9 @@ document.addEventListener('DOMContentLoaded', () => {
     courage: { label: 'Courage', min: 0, max: 9 },
     understanding: { label: 'Understanding', min: 0, max: 9 }
   }
+  const BULK_EDIT_DEFAULT_FIELD = 'strength'
+  const BULK_EDIT_DEFAULT_DELTA = 1
+  let settlementBulkChanges = [createBulkEditChange()]
   const SETTLEMENT_STATS_TOTAL_FIELDS = ['strength', 'speed', 'evasion', 'luck', 'accuracy']
   let showdownPeople = {
     A: null,
@@ -664,6 +667,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function coerceInt(value, fallback = 0) {
     return Math.trunc(coerceNumber(value, fallback))
+  }
+
+  function createBulkEditChange(field = BULK_EDIT_DEFAULT_FIELD, delta = BULK_EDIT_DEFAULT_DELTA) {
+    return { field, delta }
+  }
+
+  function renderSettlementBulkRows() {
+    settlementBulkRows.innerHTML = ''
+    settlementBulkChanges.forEach((change, index) => {
+      const row = document.createElement('div')
+      row.className = 'settlement-bulk-actions settlement-bulk-row'
+      row.dataset.bulkIndex = String(index)
+      row.innerHTML = `
+        <span class="settlement-bulk-row-index">#${index + 1}</span>
+        <label>
+          Bulk field
+          <select data-bulk-field>
+            ${Object.entries(BULK_EDIT_FIELD_CONFIG)
+              .map(
+                ([key, config]) =>
+                  `<option value="${key}"${key === change.field ? ' selected' : ''}>${config.label}</option>`
+              )
+              .join('')}
+          </select>
+        </label>
+        <label>
+          Delta
+          <input data-bulk-delta type="number" step="1" value="${coerceInt(change.delta, BULK_EDIT_DEFAULT_DELTA)}" />
+        </label>
+        <button type="button" class="btn btn-danger" data-remove-bulk-change="${index}"${
+          settlementBulkChanges.length === 1 ? ' disabled' : ''
+        }>Remove</button>
+      `
+      settlementBulkRows.appendChild(row)
+    })
+  }
+
+  function resetSettlementBulkChanges() {
+    settlementBulkChanges = [createBulkEditChange()]
+    renderSettlementBulkRows()
+    syncControlState()
+  }
+
+  function collectSettlementBulkChangesFromDom() {
+    const rows = [...settlementBulkRows.querySelectorAll('.settlement-bulk-row')]
+    const nextChanges = rows.map(row => {
+      const fieldSelect = row.querySelector('[data-bulk-field]')
+      const deltaInput = row.querySelector('[data-bulk-delta]')
+      return createBulkEditChange(
+        fieldSelect instanceof HTMLSelectElement ? fieldSelect.value : BULK_EDIT_DEFAULT_FIELD,
+        deltaInput instanceof HTMLInputElement ? coerceInt(deltaInput.value, BULK_EDIT_DEFAULT_DELTA) : BULK_EDIT_DEFAULT_DELTA
+      )
+    })
+    settlementBulkChanges = nextChanges.length > 0 ? nextChanges : [createBulkEditChange()]
+    return settlementBulkChanges
   }
 
   function normalizeProficiencyLevel(value, fallback = 0) {
@@ -1006,22 +1064,17 @@ document.addEventListener('DOMContentLoaded', () => {
     showdownSelectA.disabled = !hasDataFolder || busy || showdownDeparted
     showdownSelectB.disabled = !hasDataFolder || busy || showdownDeparted
     openShowdownButton.disabled = !hasDataFolder || !canOpenShowdown || busy || showdownDeparted
-    departShowdownButton.disabled = busy || !hasShowdownPairLoaded
+    departShowdownButton.disabled = busy || !hasShowdownPairLoaded || showdownDeparted
     refreshShowdownSurvivorsButton.disabled = busy || showdownDeparted || !canOpenShowdown
     showdownOverButton.disabled = busy || !hasShowdownPairLoaded || !showdownDeparted
-    departShowdownButton.textContent = showdownDeparted ? 'Departed' : 'Depart'
-    departShowdownButton.classList.toggle('btn-primary', !showdownDeparted)
-    departShowdownButton.classList.toggle('btn-danger', showdownDeparted)
-    globalDepartedIndicator.classList.toggle('hidden', !showdownDeparted)
+    departShowdownButton.classList.toggle('hidden', showdownDeparted)
+    showdownOverButton.classList.toggle('hidden', !showdownDeparted)
     document.body.classList.toggle('departed-active', showdownDeparted)
     if (showdownDeparted) {
       showdownHint.textContent = `Showdown departed. Slots locked: ${showdownLockedSlots.A || '-'} vs ${
         showdownLockedSlots.B || '-'
       }.`
-      showdownSessionState.textContent = `Departed: ${showdownLockedSlots.A || '-'} vs ${showdownLockedSlots.B || '-'}`
-      globalDepartedIndicator.textContent = `Showdown In Progress: DEPARTED (${showdownLockedSlots.A || '-'} vs ${
-        showdownLockedSlots.B || '-'
-      })`
+      showdownSessionState.textContent = 'Session departed'
     } else if (!hasTwoShowdownOptions) {
       showdownHint.textContent = 'Save at least 2 alive survivors to use showdown.'
       showdownSessionState.textContent = 'Session not departed'
@@ -1068,8 +1121,11 @@ document.addEventListener('DOMContentLoaded', () => {
     settlementAutoRefreshEnabled.disabled = !hasDataFolder || busy
     settlementAutoRefreshInterval.disabled = !hasDataFolder || busy || !settlementAutoRefreshOn
     settlementRefreshNow.disabled = !hasDataFolder || busy
-    settlementBulkField.disabled = !hasDataFolder || busy
-    settlementBulkDelta.disabled = !hasDataFolder || busy
+    settlementAddBulkChangeButton.disabled = !hasDataFolder || busy
+    for (const control of settlementBulkRows.querySelectorAll('input, select, button')) {
+      control.disabled =
+        !hasDataFolder || busy || (control instanceof HTMLButtonElement && control.dataset.removeBulkChange !== undefined && settlementBulkChanges.length === 1)
+    }
     settlementApplyBulkButton.disabled = !hasDataFolder || busy || settlementRecords.length === 0
     for (const filter of settlementBoolFilters) {
       filter.disabled = !hasDataFolder || busy
@@ -2382,44 +2438,57 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function applySettlementBulkChange() {
-    const field = settlementBulkField.value
-    const fieldConfig = BULK_EDIT_FIELD_CONFIG[field]
-    if (!fieldConfig) {
-      setStatus('Choose a valid field to update', 'error')
+    const changes = collectSettlementBulkChangesFromDom()
+    const validChanges = []
+    for (const change of changes) {
+      const fieldConfig = BULK_EDIT_FIELD_CONFIG[change.field]
+      if (!fieldConfig) {
+        setStatus('Choose a valid field to update', 'error')
+        return
+      }
+      const delta = coerceInt(change.delta, 0)
+      if (delta === 0) {
+        setStatus('Each bulk change needs a non-zero delta', 'error')
+        return
+      }
+      validChanges.push({ field: change.field, delta, config: fieldConfig })
+    }
+
+    const livingRecords = settlementRecords.filter(record => Boolean(record?.person?.isAlive))
+    if (livingRecords.length === 0) {
+      setStatus('No living survivors available for bulk update', 'error')
       return
     }
 
-    if (settlementRecords.length === 0) {
-      setStatus('No survivors available for bulk update', 'error')
-      return
-    }
-
-    const delta = coerceInt(settlementBulkDelta.value, 0)
-    if (delta === 0) {
-      setStatus('Delta must be a non-zero integer', 'error')
-      return
-    }
-
-    const sign = delta > 0 ? `+${delta}` : String(delta)
-    const proceed = window.confirm(
-      `Apply ${sign} ${fieldConfig.label} to all ${settlementRecords.length} survivors?`
-    )
+    const summary = validChanges
+      .map(change => `${change.delta > 0 ? `+${change.delta}` : String(change.delta)} ${change.config.label}`)
+      .join(', ')
+    const proceed = window.confirm(`Apply ${summary} to all ${livingRecords.length} living survivors?`)
     if (!proceed) return
 
     let updated = 0
     let unchanged = 0
     let failed = 0
 
-    for (const record of settlementRecords) {
+    for (const record of livingRecords) {
       try {
         const latest = await window.api.loadPerson(record.fileName)
-        const current = coerceNumber(latest?.[field], 0)
-        const nextValue = clamp(current + delta, fieldConfig.min, fieldConfig.max)
-        if (nextValue === current) {
+        if (!latest?.isAlive) {
           unchanged += 1
           continue
         }
-        latest[field] = nextValue
+        let recordChanged = false
+        for (const change of validChanges) {
+          const current = coerceNumber(latest?.[change.field], 0)
+          const nextValue = clamp(current + change.delta, change.config.min, change.config.max)
+          if (nextValue === current) continue
+          latest[change.field] = nextValue
+          recordChanged = true
+        }
+        if (!recordChanged) {
+          unchanged += 1
+          continue
+        }
         const result = await window.api.savePerson(latest, { expectedFileName: record.fileName })
         if (!result || result.ok === false) {
           failed += 1
@@ -2432,8 +2501,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     await refreshPeople()
+    resetSettlementBulkChanges()
     setStatus(
-      `Bulk update complete: ${updated} updated, ${unchanged} unchanged, ${failed} failed (${fieldConfig.label} ${sign})`,
+      `Bulk update complete: ${updated} updated, ${unchanged} unchanged, ${failed} failed (${summary})`,
       failed > 0 ? 'error' : 'success'
     )
   }
@@ -2807,6 +2877,12 @@ document.addEventListener('DOMContentLoaded', () => {
               p.isAlive ? 'checked' : ''
             } />
             <span>Alive</span>
+          </label>
+          <label class="showdown-bool-toggle showdown-bool-toggle-compact">
+            <input type="checkbox" data-showdown-bool-slot="${slot}" data-showdown-bool-field="lifetimeReroll" ${
+              p.lifetimeReroll ? 'checked' : ''
+            } />
+            <span>Lifetime Reroll</span>
           </label>
         </div>
         <section class="showdown-group showdown-group-vitals">
@@ -4656,6 +4732,29 @@ document.addEventListener('DOMContentLoaded', () => {
     settlementExtraFiltersOpen = !settlementExtraFiltersOpen
     syncSettlementExtraFilters()
   })
+  settlementAddBulkChangeButton.addEventListener('click', () => {
+    collectSettlementBulkChangesFromDom()
+    settlementBulkChanges.push(createBulkEditChange())
+    renderSettlementBulkRows()
+    syncControlState()
+  })
+  settlementBulkRows.addEventListener('click', event => {
+    const target = event.target
+    if (!(target instanceof HTMLElement)) return
+    const removeButton = target.closest('button[data-remove-bulk-change]')
+    if (!(removeButton instanceof HTMLButtonElement)) return
+    const index = Number(removeButton.dataset.removeBulkChange)
+    if (Number.isNaN(index)) return
+    collectSettlementBulkChangesFromDom()
+    if (settlementBulkChanges.length <= 1) return
+    settlementBulkChanges.splice(index, 1)
+    renderSettlementBulkRows()
+    syncControlState()
+  })
+  settlementBulkRows.addEventListener('change', () => {
+    collectSettlementBulkChangesFromDom()
+    syncControlState()
+  })
   settlementApplyBulkButton.addEventListener('click', () => {
     runBusy(applySettlementBulkChange).catch(err => {
       setStatus(err.message || 'Failed to apply bulk update', 'error')
@@ -5090,8 +5189,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (target instanceof HTMLInputElement && target.dataset.showdownBoolSlot && target.dataset.showdownBoolField) {
       const slot = target.dataset.showdownBoolSlot
       const field = target.dataset.showdownBoolField
-      if (!slot || field !== 'isAlive' || !showdownPeople[slot]) return
-      showdownPeople[slot].person.isAlive = Boolean(target.checked)
+      if (
+        !slot ||
+        (field !== 'isAlive' && field !== 'lifetimeReroll') ||
+        !showdownPeople[slot] ||
+        !showdownPeople[slot].person
+      ) {
+        return
+      }
+      showdownPeople[slot].person[field] = Boolean(target.checked)
       return
     }
     if (target instanceof HTMLInputElement && target.dataset.showdownSlot && target.dataset.showdownArmorCheck) {
@@ -5659,6 +5765,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   loadThemePreference()
+  renderSettlementBulkRows()
   if (typeof window.api.onFullScreenChanged === 'function') {
     window.api.onFullScreenChanged(isFullScreen => {
       applyWindowFullScreenState(isFullScreen)
