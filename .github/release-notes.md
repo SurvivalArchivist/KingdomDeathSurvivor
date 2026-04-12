@@ -1,12 +1,12 @@
-## KDM Survivors Console 1.5.3
+## KDM Survivors Console 1.5.5
 
-This patch release focuses on Showdown quality-of-life updates, more flexible bulk updates, and light-theme readability fixes.
+This patch release focuses on Showdown knowledge upgrade quality-of-life so blank next-level knowledge upgrades are easier to fill out and reuse.
 
 ### Patch Notes
-- Added `Lifetime Reroll` to Showdown survivor cards so it can be toggled during a showdown alongside `Alive`.
-- Simplified the Showdown session controls: removed the global/in-header departed pill, moved the action controls to the right, and changed the finalize action to `End Showdown`, which only appears after `Depart`.
-- Bulk Updates now apply only to living survivors and support multiple stat changes in a single action, such as `+1 Strength`, `+1 Evasion`, and `-1 Luck`.
-- Fixed the Showdown `Add New Disorder` filter/search field in light theme so it no longer renders as a dark unreadable control.
+- Upgrading a Showdown `Knowledge` or `Tenet Knowledge` with `No Template` now opens a write-in modal instead of replacing the entry with a blank card.
+- The new Showdown upgrade modal lets you fill in the upgraded knowledge immediately, including observation text, rules, requirement, level, and next-upgrade behavior.
+- Added an `Also save as reusable template` option to that modal so newly written upgraded knowledge can be stored in the template library during the same save.
+- Fixed the modal checkbox interaction so the new save-as-template toggle can actually be clicked reliably.
 
 ### Downloads
 - Windows: use the `.exe` installer asset in this release.

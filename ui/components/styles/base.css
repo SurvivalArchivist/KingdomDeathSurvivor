@@ -526,6 +526,44 @@ h3 {
   margin-bottom: 0.6rem;
 }
 
+#knowledgeEntryName,
+#knowledgeEntryObservation,
+#knowledgeEntryRules,
+#knowledgeEntryRequirement,
+#knowledgeEntryLevel,
+#knowledgeEntryNextMode,
+#knowledgeEntryNextTemplate {
+  width: 100%;
+  font: inherit;
+  border: 1px solid var(--outline);
+  border-radius: 10px;
+  background: rgba(33, 28, 24, 0.96);
+  color: var(--ink);
+  padding: 0.45rem;
+  margin-bottom: 0.6rem;
+}
+
+#knowledgeEntryObservation,
+#knowledgeEntryRules {
+  resize: vertical;
+}
+
+.knowledge-entry-meta {
+  display: block;
+}
+
+.knowledge-entry-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.2rem;
+  cursor: pointer;
+}
+
+.knowledge-entry-checkbox input {
+  margin: 0;
+}
+
 .modal-panel label {
   display: block;
   font-size: 0.82rem;

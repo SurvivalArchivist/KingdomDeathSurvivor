@@ -103,6 +103,13 @@ body.theme-light #addMarkdownCollection,
 body.theme-light #addMarkdownSearch,
 body.theme-light #knowledgeTemplateSearch,
 body.theme-light #knowledgeTemplateSelect,
+body.theme-light #knowledgeEntryName,
+body.theme-light #knowledgeEntryObservation,
+body.theme-light #knowledgeEntryRules,
+body.theme-light #knowledgeEntryRequirement,
+body.theme-light #knowledgeEntryLevel,
+body.theme-light #knowledgeEntryNextMode,
+body.theme-light #knowledgeEntryNextTemplate,
 body.theme-light .showdown-header-inline-select {
   border-color: var(--field-border);
   background: var(--field-bg);
@@ -110,7 +117,12 @@ body.theme-light .showdown-header-inline-select {
 }
 
 body.theme-light #knowledgeTemplateSearch,
-body.theme-light #addMarkdownSearch {
+body.theme-light #addMarkdownSearch,
+body.theme-light #knowledgeEntryName,
+body.theme-light #knowledgeEntryObservation,
+body.theme-light #knowledgeEntryRules,
+body.theme-light #knowledgeEntryRequirement,
+body.theme-light #knowledgeEntryLevel {
   -webkit-appearance: none;
   appearance: none;
 }
@@ -121,7 +133,10 @@ body.theme-light #knowledgeTemplateModal label {
 }
 
 body.theme-light #addMarkdownSearch::placeholder,
-body.theme-light #knowledgeTemplateSearch::placeholder {
+body.theme-light #knowledgeTemplateSearch::placeholder,
+body.theme-light #knowledgeEntryName::placeholder,
+body.theme-light #knowledgeEntryObservation::placeholder,
+body.theme-light #knowledgeEntryRules::placeholder {
   color: rgba(95, 81, 69, 0.78);
 }
 

@@ -678,10 +678,40 @@
         <h2 id="knowledgeTemplateTitle">Add from Template</h2>
       </header>
       <p id="knowledgeTemplateHint" class="muted">Choose a saved template or create from scratch.</p>
-      <label for="knowledgeTemplateSearch">Search</label>
-      <input id="knowledgeTemplateSearch" type="search" placeholder="Filter templates..." />
-      <label for="knowledgeTemplateSelect">Saved Templates</label>
-      <select id="knowledgeTemplateSelect" aria-label="Knowledge templates"></select>
+      <div id="knowledgeTemplateLibrary">
+        <label for="knowledgeTemplateSearch">Search</label>
+        <input id="knowledgeTemplateSearch" type="search" placeholder="Filter templates..." />
+        <label for="knowledgeTemplateSelect">Saved Templates</label>
+        <select id="knowledgeTemplateSelect" aria-label="Knowledge templates"></select>
+      </div>
+      <div id="knowledgeEntryEditor" class="hidden">
+        <label for="knowledgeEntryName">Name</label>
+        <input id="knowledgeEntryName" type="text" placeholder="Knowledge name" />
+        <label for="knowledgeEntryObservation">Observation</label>
+        <textarea id="knowledgeEntryObservation" rows="3" placeholder="Observation"></textarea>
+        <label for="knowledgeEntryRules">Rules</label>
+        <textarea id="knowledgeEntryRules" rows="4" placeholder="Rules"></textarea>
+        <div class="knowledge-entry-meta">
+          <label for="knowledgeEntryRequirement">Observations Required</label>
+          <input id="knowledgeEntryRequirement" type="number" min="0" step="1" />
+        </div>
+        <div class="knowledge-entry-meta">
+          <label for="knowledgeEntryLevel">Knowledge Level</label>
+          <input id="knowledgeEntryLevel" type="number" min="1" step="1" readonly />
+        </div>
+        <label for="knowledgeEntryNextMode">Next Knowledge</label>
+        <select id="knowledgeEntryNextMode" aria-label="Next knowledge mode">
+          <option value="existingTemplate">Existing Template</option>
+          <option value="noTemplate">No Template</option>
+          <option value="maxLevel">MAX LEVEL</option>
+        </select>
+        <label for="knowledgeEntryNextTemplate">Next Template</label>
+        <select id="knowledgeEntryNextTemplate" aria-label="Next knowledge template"></select>
+        <label class="knowledge-entry-checkbox" for="knowledgeEntrySaveTemplate">
+          <input id="knowledgeEntrySaveTemplate" type="checkbox" />
+          <span>Also save as reusable template</span>
+        </label>
+      </div>
       <div class="button-row">
         <button id="knowledgeTemplateUse" type="button" class="btn btn-secondary">Use Selected Template</button>
         <button id="knowledgeTemplateScratch" type="button" class="btn btn-primary">Create From Scratch</button>

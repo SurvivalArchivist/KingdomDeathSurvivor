@@ -136,8 +136,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeKnowledgeTemplateModal = document.getElementById('closeKnowledgeTemplateModal')
   const knowledgeTemplateTitle = document.getElementById('knowledgeTemplateTitle')
   const knowledgeTemplateHint = document.getElementById('knowledgeTemplateHint')
+  const knowledgeTemplateLibrary = document.getElementById('knowledgeTemplateLibrary')
   const knowledgeTemplateSearch = document.getElementById('knowledgeTemplateSearch')
   const knowledgeTemplateSelect = document.getElementById('knowledgeTemplateSelect')
+  const knowledgeEntryEditor = document.getElementById('knowledgeEntryEditor')
+  const knowledgeEntryName = document.getElementById('knowledgeEntryName')
+  const knowledgeEntryObservation = document.getElementById('knowledgeEntryObservation')
+  const knowledgeEntryRules = document.getElementById('knowledgeEntryRules')
+  const knowledgeEntryRequirement = document.getElementById('knowledgeEntryRequirement')
+  const knowledgeEntryLevel = document.getElementById('knowledgeEntryLevel')
+  const knowledgeEntryNextMode = document.getElementById('knowledgeEntryNextMode')
+  const knowledgeEntryNextTemplate = document.getElementById('knowledgeEntryNextTemplate')
+  const knowledgeEntrySaveTemplate = document.getElementById('knowledgeEntrySaveTemplate')
   const knowledgeTemplateUse = document.getElementById('knowledgeTemplateUse')
   const knowledgeTemplateScratch = document.getElementById('knowledgeTemplateScratch')
   const savePersonButton = document.getElementById('savePerson')
@@ -308,8 +318,18 @@ document.addEventListener('DOMContentLoaded', () => {
     closeKnowledgeTemplateModal,
     knowledgeTemplateTitle,
     knowledgeTemplateHint,
+    knowledgeTemplateLibrary,
     knowledgeTemplateSearch,
     knowledgeTemplateSelect,
+    knowledgeEntryEditor,
+    knowledgeEntryName,
+    knowledgeEntryObservation,
+    knowledgeEntryRules,
+    knowledgeEntryRequirement,
+    knowledgeEntryLevel,
+    knowledgeEntryNextMode,
+    knowledgeEntryNextTemplate,
+    knowledgeEntrySaveTemplate,
     knowledgeTemplateUse,
     knowledgeTemplateScratch,
     savePersonButton,
@@ -573,7 +593,8 @@ document.addEventListener('DOMContentLoaded', () => {
     templates: [],
     preferredTemplateFile: '',
     forceTemplateOnly: false,
-    forceScratchOnly: false
+    forceScratchOnly: false,
+    scratchEditorActive: false
   }
   const knowledgeTemplateCache = {
     tenetKnowledge: [],
@@ -1094,14 +1115,27 @@ document.addEventListener('DOMContentLoaded', () => {
     markdownCollection.disabled = !hasMarkdownCollections || busy
     markdownSearch.disabled = !hasMarkdownCollections || busy
     insertMarkdownButton.disabled = busy || !currentMarkdownDoc
-    knowledgeTemplateSelect.disabled = busy
-    knowledgeTemplateSearch.disabled = busy
+    knowledgeTemplateSelect.disabled = busy || knowledgeTemplatePickerState.scratchEditorActive
+    knowledgeTemplateSearch.disabled = busy || knowledgeTemplatePickerState.scratchEditorActive
     knowledgeTemplateUse.disabled =
       busy ||
+      knowledgeTemplatePickerState.scratchEditorActive ||
       knowledgeTemplatePickerState.forceScratchOnly ||
       knowledgeTemplateSelect.options.length === 0 ||
       knowledgeTemplateSelect.value === ''
-    knowledgeTemplateScratch.disabled = busy || knowledgeTemplatePickerState.forceTemplateOnly
+    knowledgeTemplateScratch.disabled =
+      busy ||
+      (!knowledgeTemplatePickerState.scratchEditorActive && knowledgeTemplatePickerState.forceTemplateOnly)
+    knowledgeEntryName.disabled = busy || !knowledgeTemplatePickerState.scratchEditorActive
+    knowledgeEntryObservation.disabled = busy || !knowledgeTemplatePickerState.scratchEditorActive
+    knowledgeEntryRules.disabled = busy || !knowledgeTemplatePickerState.scratchEditorActive
+    knowledgeEntryRequirement.disabled = busy || !knowledgeTemplatePickerState.scratchEditorActive
+    knowledgeEntryLevel.disabled = true
+    knowledgeEntryNextMode.disabled = busy || !knowledgeTemplatePickerState.scratchEditorActive
+    knowledgeEntryNextTemplate.disabled =
+      busy ||
+      !knowledgeTemplatePickerState.scratchEditorActive ||
+      knowledgeEntryNextMode.value !== 'existingTemplate'
     newPersonTemplateButton.disabled = !hasDataFolder || busy
     savePersonButton.disabled = !hasDataFolder || busy
     loadJsonToVisualButton.disabled = busy
@@ -1318,8 +1352,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeKnowledgeTemplatePickerModal() {
+    knowledgeTemplatePickerState.scratchEditorActive = false
     knowledgeTemplateModal.classList.add('hidden')
     knowledgeTemplateModal.setAttribute('aria-hidden', 'true')
+    syncKnowledgeTemplateModalMode()
   }
 
   function openKnowledgeTemplatePickerModal() {
@@ -1908,6 +1944,110 @@ document.addEventListener('DOMContentLoaded', () => {
     return next
   }
 
+  function renderKnowledgeEntryNextTemplateOptions() {
+    const entryType = getKnowledgeTypeFromArrayName(knowledgeTemplatePickerState.type)
+    const templates = Array.isArray(knowledgeTemplatePickerState.templates) ? knowledgeTemplatePickerState.templates : []
+    const currentValue = String(knowledgeEntryNextTemplate.value || '').trim()
+    knowledgeEntryNextTemplate.innerHTML = ''
+
+    const noneOption = document.createElement('option')
+    noneOption.value = ''
+    noneOption.textContent = 'Select next template...'
+    knowledgeEntryNextTemplate.appendChild(noneOption)
+
+    for (const template of templates) {
+      const option = document.createElement('option')
+      option.value = template.fileName
+      option.textContent = entryType ? getKnowledgeTemplateLabel(entryType, template) : String(template.name || 'Unnamed Template')
+      if (template.fileName === currentValue) option.selected = true
+      knowledgeEntryNextTemplate.appendChild(option)
+    }
+  }
+
+  function syncKnowledgeScratchEditorState() {
+    const mode = String(knowledgeEntryNextMode.value || 'noTemplate')
+    knowledgeEntryNextTemplate.disabled = mode !== 'existingTemplate'
+    if (mode !== 'existingTemplate') knowledgeEntryNextTemplate.value = ''
+  }
+
+  function populateKnowledgeScratchEditor(entry) {
+    const nextEntry = entry && typeof entry === 'object' ? entry : buildBlankKnowledgeEntry('knowledge')
+    knowledgeEntryName.value = String(nextEntry.name || '')
+    knowledgeEntryObservation.value = String(nextEntry.observation || '')
+    knowledgeEntryRules.value = String(nextEntry.rules || '')
+    knowledgeEntryRequirement.value = String(Math.max(0, coerceNumber(nextEntry.observationRequirement, 0)))
+    knowledgeEntryLevel.value = String(Math.max(1, coerceNumber(nextEntry.knowledgeLevel, 1)))
+    const nextMode = String(nextEntry.nextKnowledgeMode || 'noTemplate')
+    knowledgeEntryNextMode.value =
+      nextMode === 'existingTemplate' || nextMode === 'maxLevel' || nextMode === 'noTemplate' ? nextMode : 'noTemplate'
+    renderKnowledgeEntryNextTemplateOptions()
+    knowledgeEntryNextTemplate.value =
+      knowledgeEntryNextMode.value === 'existingTemplate' ? String(nextEntry.nextKnowledgeTemplate || '').trim() : ''
+    syncKnowledgeScratchEditorState()
+  }
+
+  function collectKnowledgeScratchEditorEntry(entryType) {
+    const entry = buildBlankKnowledgeEntry(entryType)
+    entry.name = String(knowledgeEntryName.value || '').trim()
+    entry.observation = String(knowledgeEntryObservation.value || '').trim()
+    entry.rules = String(knowledgeEntryRules.value || '').trim()
+    entry.observationRequirement = Math.max(0, coerceNumber(knowledgeEntryRequirement.value, 0))
+    entry.knowledgeLevel = Math.max(1, coerceNumber(knowledgeEntryLevel.value, 1))
+    const nextMode = String(knowledgeEntryNextMode.value || 'noTemplate')
+    entry.nextKnowledgeMode =
+      nextMode === 'existingTemplate' || nextMode === 'maxLevel' || nextMode === 'noTemplate' ? nextMode : 'noTemplate'
+    entry.nextKnowledgeTemplate =
+      entry.nextKnowledgeMode === 'existingTemplate' ? String(knowledgeEntryNextTemplate.value || '').trim() : ''
+    entry.currentObservations = 0
+    return entry
+  }
+
+  async function saveKnowledgeTemplateFromEntry(entryType, entry) {
+    const template = normalizeKnowledgeTemplateForEntry(entryType, entry)
+    if (!template.name) {
+      setStatus('Template name is required', 'error')
+      return false
+    }
+    await window.api.saveKnowledgeTemplate(entryType, template)
+    await refreshKnowledgeTemplateCache(entryType)
+    setStatus(`Saved ${template.name} as reusable template`, 'success')
+    return true
+  }
+
+  function syncKnowledgeTemplateModalMode() {
+    const scratchEditorActive = Boolean(knowledgeTemplatePickerState.scratchEditorActive)
+    knowledgeTemplateLibrary.classList.toggle('hidden', scratchEditorActive)
+    knowledgeEntryEditor.classList.toggle('hidden', !scratchEditorActive)
+    knowledgeTemplateUse.classList.toggle('hidden', scratchEditorActive)
+    knowledgeTemplateSearch.disabled = busy || scratchEditorActive
+    knowledgeTemplateSelect.disabled = busy || scratchEditorActive
+    knowledgeEntryName.disabled = busy || !scratchEditorActive
+    knowledgeEntryObservation.disabled = busy || !scratchEditorActive
+    knowledgeEntryRules.disabled = busy || !scratchEditorActive
+    knowledgeEntryRequirement.disabled = busy || !scratchEditorActive
+    knowledgeEntryLevel.disabled = true
+    knowledgeEntryNextMode.disabled = busy || !scratchEditorActive
+    knowledgeEntryNextTemplate.disabled = busy || !scratchEditorActive || knowledgeEntryNextMode.value !== 'existingTemplate'
+    knowledgeEntrySaveTemplate.disabled = busy || !scratchEditorActive
+  }
+
+  function openKnowledgeScratchEditorForShowdownUpgrade() {
+    const entryType = getKnowledgeTypeFromArrayName(knowledgeTemplatePickerState.type)
+    if (!entryType) return
+    knowledgeTemplatePickerState.scratchEditorActive = true
+    knowledgeTemplateTitle.textContent = `Write ${knowledgeTemplatePickerState.type === 'tenetKnowledge' ? 'Tenet Knowledge' : 'Knowledge'}`
+    knowledgeTemplateHint.textContent = 'Write the upgraded knowledge now, then save it straight into the showdown entry.'
+    knowledgeTemplateScratch.textContent = 'Save Knowledge'
+    populateKnowledgeScratchEditor(buildUpgradedScratchKnowledge(entryType, knowledgeTemplatePickerState.sourceItem))
+    knowledgeEntrySaveTemplate.checked = false
+    syncKnowledgeTemplateModalMode()
+    openKnowledgeTemplatePickerModal()
+    window.requestAnimationFrame(() => {
+      knowledgeEntryName.focus()
+      knowledgeEntryName.select()
+    })
+  }
+
   function canUpgradeKnowledgeEntry(sourceItem) {
     const req = Math.max(0, coerceNumber(sourceItem?.observationRequirement, 0))
     const current = Math.max(0, coerceNumber(sourceItem?.currentObservations, coerceNumber(sourceItem?.observations, 0)))
@@ -1915,7 +2055,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return current >= req && nextMode !== 'maxLevel'
   }
 
-  function applyKnowledgeTemplateSelection(useTemplate) {
+  async function applyKnowledgeTemplateSelection(useTemplate) {
     const arrayName = knowledgeTemplatePickerState.type
     if (arrayName === 'neurosis') {
       const selected = knowledgeTemplatePickerState.templates.find(
@@ -1944,6 +2084,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const entryType = getKnowledgeTypeFromArrayName(arrayName)
     if (!entryType) return
     const isUpgrade = knowledgeTemplatePickerState.action === 'upgrade'
+    if (!useTemplate && isUpgrade && knowledgeTemplatePickerState.mode === 'showdown') {
+      if (!knowledgeTemplatePickerState.scratchEditorActive) {
+        openKnowledgeScratchEditorForShowdownUpgrade()
+        return
+      }
+      const entry = collectKnowledgeScratchEditorEntry(entryType)
+      const sourceItem = knowledgeTemplatePickerState.sourceItem || {}
+      const minLevel = Math.max(1, coerceNumber(sourceItem.knowledgeLevel, 1)) + 1
+      entry.knowledgeLevel = Math.max(minLevel, coerceNumber(entry.knowledgeLevel, minLevel))
+      if (knowledgeEntrySaveTemplate.checked) {
+        const saved = await saveKnowledgeTemplateFromEntry(entryType, entry)
+        if (!saved) return
+      }
+      if (!replaceKnowledgeEntryInShowdown(knowledgeTemplatePickerState.slot, arrayName, knowledgeTemplatePickerState.index, entry)) {
+        return
+      }
+      closeKnowledgeTemplatePickerModal()
+      setStatus(
+        `${arrayName === 'tenetKnowledge' ? 'Tenet Knowledge' : 'Knowledge'} upgraded and filled in${
+          knowledgeEntrySaveTemplate.checked ? ', and saved as a template' : ''
+        }`,
+        'success'
+      )
+      return
+    }
+
     let entry = buildBlankKnowledgeEntry(entryType)
     if (useTemplate) {
       const selected = knowledgeTemplatePickerState.templates.find(
@@ -2056,6 +2222,7 @@ document.addEventListener('DOMContentLoaded', () => {
       action === 'upgrade' ? String(sourceItem?.nextKnowledgeTemplate || '').trim() : ''
     knowledgeTemplatePickerState.forceTemplateOnly = forceTemplateOnly
     knowledgeTemplatePickerState.forceScratchOnly = forceScratchOnly
+    knowledgeTemplatePickerState.scratchEditorActive = false
 
     const label = arrayName === 'tenetKnowledge' ? 'Tenet Knowledge' : 'Knowledge'
     const isUpgrade = action === 'upgrade'
@@ -2079,6 +2246,7 @@ document.addEventListener('DOMContentLoaded', () => {
     knowledgeTemplateScratch.textContent = isUpgrade ? 'Upgrade with Blank Next Level' : 'Create From Scratch'
     knowledgeTemplateUse.textContent = isUpgrade ? 'Upgrade using Selected Template' : 'Use Selected Template'
     knowledgeTemplateScratch.classList.remove('hidden')
+    syncKnowledgeTemplateModalMode()
     openKnowledgeTemplatePickerModal()
   }
 
@@ -5076,6 +5244,20 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
 
+        if (nextMode === 'noTemplate') {
+          await openKnowledgeTemplatePicker({
+            arrayName,
+            mode: 'showdown',
+            slot,
+            action: 'upgrade',
+            index,
+            sourceItem,
+            forceScratchOnly: true
+          })
+          openKnowledgeScratchEditorForShowdownUpgrade()
+          return
+        }
+
         await openKnowledgeTemplatePicker({
           arrayName,
           mode: 'showdown',
@@ -5255,6 +5437,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
   addMarkdownSearch.addEventListener('input', renderAddPickerOptions)
   knowledgeTemplateSearch.addEventListener('input', renderKnowledgeTemplateOptions)
+  knowledgeEntryNextMode.addEventListener('change', syncKnowledgeScratchEditorState)
   peopleList.addEventListener('change', syncControlState)
   refreshShowdownSurvivorsButton.addEventListener('click', () => {
     runBusy(refreshSelectedShowdownSurvivors).catch(err => {
@@ -5744,8 +5927,16 @@ document.addEventListener('DOMContentLoaded', () => {
   closeMarkdownModal.addEventListener('click', closeModal)
   closeAddMarkdownModal.addEventListener('click', closeAddPickerModal)
   closeKnowledgeTemplateModal.addEventListener('click', closeKnowledgeTemplatePickerModal)
-  knowledgeTemplateUse.addEventListener('click', () => applyKnowledgeTemplateSelection(true))
-  knowledgeTemplateScratch.addEventListener('click', () => applyKnowledgeTemplateSelection(false))
+  knowledgeTemplateUse.addEventListener('click', () => {
+    runBusy(() => applyKnowledgeTemplateSelection(true)).catch(err => {
+      setStatus(err.message || 'Failed to apply knowledge template', 'error')
+    })
+  })
+  knowledgeTemplateScratch.addEventListener('click', () => {
+    runBusy(() => applyKnowledgeTemplateSelection(false)).catch(err => {
+      setStatus(err.message || 'Failed to save knowledge', 'error')
+    })
+  })
   markdownModal.addEventListener('click', event => {
     if (event.target === markdownModal) closeModal()
   })
@@ -5762,6 +5953,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!(rawTarget instanceof Element)) return
       const editable = rawTarget.closest('input, textarea, select, [contenteditable="true"]')
       if (!(editable instanceof HTMLElement)) return
+      if (editable instanceof HTMLInputElement && (editable.type === 'checkbox' || editable.type === 'radio')) return
       if ('disabled' in editable && editable.disabled) return
       window.requestAnimationFrame(() => {
         editable.focus()

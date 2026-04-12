@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 2026-04-12
+
+### Added
+- Showdown blank-template knowledge upgrades now open a write-in modal so the upgraded knowledge can be completed immediately.
+- The Showdown knowledge upgrade modal now includes an option to also save the new knowledge as a reusable template.
+
+### Fixed
+- Fixed the Showdown knowledge upgrade flow where choosing a blank next level could leave the upgraded entry looking empty with no immediate way to write it.
+- Fixed checkbox interaction in the Showdown knowledge upgrade modal so the reusable-template toggle can be selected normally.
+
 ## [1.5.2] - 2026-03-29
 
 ### Added
