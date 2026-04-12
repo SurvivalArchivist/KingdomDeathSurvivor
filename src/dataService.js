@@ -17,7 +17,8 @@ const SOURCE_KEYS = [
   'disorders'
 ]
 const DEFAULT_APP_SETTINGS = Object.freeze({
-  userName: ''
+  userName: '',
+  dateFormat: 'en-GB'
 })
 const DEFAULT_CREATE_TEMPLATE_FILE_NAME = 'default-new-survivor.json'
 const MARKDOWN_SOURCE_LABELS = {
@@ -128,8 +129,10 @@ function normalizeDataSources(input) {
 }
 
 function normalizeAppSettings(input) {
+  const dateFormat = input && typeof input.dateFormat === 'string' ? input.dateFormat.trim() : ''
   return {
-    userName: input && typeof input.userName === 'string' ? input.userName.trim() : DEFAULT_APP_SETTINGS.userName
+    userName: input && typeof input.userName === 'string' ? input.userName.trim() : DEFAULT_APP_SETTINGS.userName,
+    dateFormat: dateFormat === 'en-US' ? 'en-US' : 'en-GB'
   }
 }
 

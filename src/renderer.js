@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sourcePathNeuroses = document.getElementById('sourcePathNeuroses')
   const sourcePathDisorders = document.getElementById('sourcePathDisorders')
   const settingsUserName = document.getElementById('settingsUserName')
+  const settingsDateFormat = document.getElementById('settingsDateFormat')
   const settingsFastMode = document.getElementById('settingsFastMode')
   const status = document.getElementById('status')
 
@@ -421,7 +422,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let settlementExtraFiltersOpen = false
   let pendingSettlementEntryRefresh = false
   let appSettings = {
-    userName: ''
+    userName: '',
+    dateFormat: 'en-GB'
   }
   let createTemplateDefaults = null
   let createViewBase = null
@@ -591,8 +593,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function normalizeAppSettings(input) {
+    const dateFormat = input && typeof input.dateFormat === 'string' ? input.dateFormat.trim() : ''
     return {
-      userName: input && typeof input.userName === 'string' ? input.userName.trim() : ''
+      userName: input && typeof input.userName === 'string' ? input.userName.trim() : '',
+      dateFormat: dateFormat === 'en-US' ? 'en-US' : 'en-GB'
     }
   }
 
@@ -1117,6 +1121,7 @@ document.addEventListener('DOMContentLoaded', () => {
     settlementToggleStatsTotal.disabled = !hasDataFolder || busy
     settlementClearFiltersButton.disabled = !hasDataFolder || busy
     settingsUserName.disabled = busy
+    settingsDateFormat.disabled = busy
     settingsFastMode.disabled = busy
     settlementAutoRefreshEnabled.disabled = !hasDataFolder || busy
     settlementAutoRefreshInterval.disabled = !hasDataFolder || busy || !settlementAutoRefreshOn
@@ -2218,7 +2223,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function formatSettlementTimestamp(value) {
     const timestamp = getSettlementTimestampSortValue(value)
     if (!Number.isFinite(timestamp)) return '-'
-    return new Date(timestamp).toLocaleString()
+    return new Date(timestamp).toLocaleString(appSettings.dateFormat)
   }
 
   function getSettlementStatsTotal(person) {
@@ -4521,6 +4526,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appSettings = normalizeAppSettings(await window.api.getAppSettings())
       }
       settingsUserName.value = appSettings.userName
+      settingsDateFormat.value = appSettings.dateFormat
       settingsFastMode.checked = settlementFastMode
       settlementAutoRefreshEnabled.checked = settlementAutoRefreshOn
       settlementAutoRefreshInterval.value = String(settlementAutoRefreshIntervalSeconds)
@@ -4576,9 +4582,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function persistAppSettingsFromUi() {
-    const nextSettings = normalizeAppSettings({ userName: settingsUserName.value })
-    if (nextSettings.userName === appSettings.userName) {
+    const nextSettings = normalizeAppSettings({
+      userName: settingsUserName.value,
+      dateFormat: settingsDateFormat.value
+    })
+    if (nextSettings.userName === appSettings.userName && nextSettings.dateFormat === appSettings.dateFormat) {
       settingsUserName.value = appSettings.userName
+      settingsDateFormat.value = appSettings.dateFormat
       return
     }
     if (typeof window.api.saveAppSettings === 'function') {
@@ -4587,7 +4597,9 @@ document.addEventListener('DOMContentLoaded', () => {
       appSettings = nextSettings
     }
     settingsUserName.value = appSettings.userName
-    setStatus(appSettings.userName ? `Username saved as ${appSettings.userName}` : 'Username cleared', 'success')
+    settingsDateFormat.value = appSettings.dateFormat
+    renderSettlementTable()
+    setStatus(appSettings.userName ? `Settings saved for ${appSettings.userName}` : 'Settings saved', 'success')
   }
 
   for (const sourceKey of DATA_SOURCE_KEYS) {
@@ -4628,7 +4640,12 @@ document.addEventListener('DOMContentLoaded', () => {
   settlementToggleStatsTotal.addEventListener('change', renderSettlementTable)
   settingsUserName.addEventListener('change', () => {
     runBusy(persistAppSettingsFromUi).catch(err => {
-      setStatus(err.message || 'Failed to save username setting', 'error')
+      setStatus(err.message || 'Failed to save app settings', 'error')
+    })
+  })
+  settingsDateFormat.addEventListener('change', () => {
+    runBusy(persistAppSettingsFromUi).catch(err => {
+      setStatus(err.message || 'Failed to save app settings', 'error')
     })
   })
   settingsFastMode.addEventListener('change', () => {
@@ -5205,6 +5222,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const key = target.dataset.showdownArmorCheck
       if (!showdownArmor[slot] || !Object.prototype.hasOwnProperty.call(showdownArmor[slot], key)) return
       showdownArmor[slot][key] = Boolean(target.checked)
+      if (target.checked && key.endsWith('Heavy')) {
+        const lightKey = `${key.slice(0, -'Heavy'.length)}Light`
+        if (Object.prototype.hasOwnProperty.call(showdownArmor[slot], lightKey)) {
+          showdownArmor[slot][lightKey] = true
+          const lightInput = showdownView.querySelector(
+            `input[data-showdown-slot="${slot}"][data-showdown-armor-check="${lightKey}"]`
+          )
+          if (lightInput instanceof HTMLInputElement) lightInput.checked = true
+        }
+      }
       return
     }
     if (target.tagName !== 'SELECT') return

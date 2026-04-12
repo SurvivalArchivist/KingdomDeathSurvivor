@@ -221,11 +221,13 @@ test('normalizeAppSettings handles username trimming', () => {
   const userData = makeTempDir()
   const app = makeApp(userData)
 
-  const saved = dataService.saveAppSettings(app, { userName: '  Mike  ' })
+  const saved = dataService.saveAppSettings(app, { userName: '  Mike  ', dateFormat: 'en-US' })
   assert.equal(saved.userName, 'Mike')
+  assert.equal(saved.dateFormat, 'en-US')
 
   const loaded = dataService.getSavedAppSettings(app)
   assert.equal(loaded.userName, 'Mike')
+  assert.equal(loaded.dateFormat, 'en-US')
 })
 
 test('normalizeAppSettings handles empty username', () => {
@@ -234,9 +236,23 @@ test('normalizeAppSettings handles empty username', () => {
 
   const saved = dataService.saveAppSettings(app, { userName: '' })
   assert.equal(saved.userName, '')
+  assert.equal(saved.dateFormat, 'en-GB')
 
   const loaded = dataService.getSavedAppSettings(app)
   assert.equal(loaded.userName, '')
+  assert.equal(loaded.dateFormat, 'en-GB')
+})
+
+test('normalizeAppSettings falls back to british date format for invalid input', () => {
+  const userData = makeTempDir()
+  const app = makeApp(userData)
+
+  const saved = dataService.saveAppSettings(app, { userName: 'Mike', dateFormat: 'iso' })
+  assert.equal(saved.userName, 'Mike')
+  assert.equal(saved.dateFormat, 'en-GB')
+
+  const loaded = dataService.getSavedAppSettings(app)
+  assert.equal(loaded.dateFormat, 'en-GB')
 })
 
 test('saveConfig and getSavedDataSources roundtrip', () => {

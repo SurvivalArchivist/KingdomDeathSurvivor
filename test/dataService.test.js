@@ -73,7 +73,7 @@ test('config save/read and configured folder lookup', () => {
   dataService.saveConfig(app, dataPath)
   assert.equal(dataService.getSavedDataFolder(app), dataPath)
   assert.equal(dataService.ensureDataFolderConfigured(app), dataPath)
-  assert.deepEqual(dataService.getSavedAppSettings(app), { userName: '' })
+  assert.deepEqual(dataService.getSavedAppSettings(app), { userName: '', dateFormat: 'en-GB' })
 })
 
 test('ensureDataFolderConfigured throws without config', () => {
@@ -88,10 +88,10 @@ test('saveAppSettings persists username without disturbing data sources', () => 
   const dataPath = path.join(userData, 'survivors')
 
   dataService.saveConfig(app, dataPath)
-  const saved = dataService.saveAppSettings(app, { userName: '  Mike  ' })
+  const saved = dataService.saveAppSettings(app, { userName: '  Mike  ', dateFormat: 'en-US' })
 
-  assert.deepEqual(saved, { userName: 'Mike' })
-  assert.deepEqual(dataService.getSavedAppSettings(app), { userName: 'Mike' })
+  assert.deepEqual(saved, { userName: 'Mike', dateFormat: 'en-US' })
+  assert.deepEqual(dataService.getSavedAppSettings(app), { userName: 'Mike', dateFormat: 'en-US' })
   assert.equal(dataService.getSavedDataFolder(app), dataPath)
 })
 

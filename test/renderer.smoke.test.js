@@ -362,7 +362,7 @@ function setupRendererHarness() {
   const calls = []
   let fullScreen = false
   const fullScreenListeners = new Set()
-  let appSettings = { userName: 'Lantern Mike' }
+  let appSettings = { userName: 'Lantern Mike', dateFormat: 'en-GB' }
   const db = {
     'alice.json': makePerson('Alice'),
     'bob.json': makePerson('Bob')
@@ -392,7 +392,10 @@ function setupRendererHarness() {
     },
     async saveAppSettings(settings) {
       calls.push({ name: 'saveAppSettings', args: [deepClone(settings)] })
-      appSettings = { userName: String(settings?.userName || '').trim() }
+      appSettings = {
+        userName: String(settings?.userName || '').trim(),
+        dateFormat: settings?.dateFormat === 'en-US' ? 'en-US' : 'en-GB'
+      }
       return deepClone(appSettings)
     },
     async getFullScreenState() {
@@ -567,6 +570,26 @@ test('fullscreen nav button toggles window state and updates label', async t => 
   assert.equal(button.textContent, 'Exit Full Screen')
   assert.equal(button.getAttribute('aria-pressed'), 'true')
   assert.ok(harness.calls.some(call => call.name === 'toggleFullScreen'))
+})
+
+test('renderer persists app settings including date format', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const dateFormat = harness.document.getElementById('settingsDateFormat')
+  const userName = harness.document.getElementById('settingsUserName')
+  const saveBefore = countCalls(harness.calls, 'saveAppSettings')
+
+  dateFormat.value = 'en-US'
+  userName.value = 'Lantern Mike Updated'
+  userName.dispatchEvent(new FakeEvent('change', { target: userName }))
+  await harness.flush()
+
+  const saves = harness.calls.slice(saveBefore).filter(entry => entry.name === 'saveAppSettings')
+  assert.equal(saves.length, 1)
+  assert.deepEqual(saves[0].args[0], { userName: 'Lantern Mike Updated', dateFormat: 'en-US' })
 })
 
 function countCalls(calls, name) {

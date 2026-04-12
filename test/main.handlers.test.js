@@ -641,7 +641,7 @@ test('select-data-source-folder returns null when canceled', async t => {
 // ============================================
 
 test('get-app-settings handler returns settings', async t => {
-  const settings = { userName: 'Mike' }
+  const settings = { userName: 'Mike', dateFormat: 'en-GB' }
   const harness = makeHarness({
     dataService: {
       getSavedAppSettings() {
@@ -662,16 +662,19 @@ test('save-app-settings handler saves and returns settings', async t => {
     dataService: {
       saveAppSettings(app, settings) {
         savedSettings = settings
-        return { userName: String(settings.userName || '').trim() }
+        return {
+          userName: String(settings.userName || '').trim(),
+          dateFormat: settings.dateFormat === 'en-US' ? 'en-US' : 'en-GB'
+        }
       }
     }
   })
   t.after(() => harness.cleanup())
 
   const handler = harness.handlers.get('save-app-settings')
-  const result = await handler(null, { userName: '  Mike  ' })
-  assert.deepEqual(result, { userName: 'Mike' })
-  assert.deepEqual(savedSettings, { userName: '  Mike  ' })
+  const result = await handler(null, { userName: '  Mike  ', dateFormat: 'en-US' })
+  assert.deepEqual(result, { userName: 'Mike', dateFormat: 'en-US' })
+  assert.deepEqual(savedSettings, { userName: '  Mike  ', dateFormat: 'en-US' })
 })
 
 // ============================================

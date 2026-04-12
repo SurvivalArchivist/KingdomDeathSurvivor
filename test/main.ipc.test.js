@@ -396,16 +396,19 @@ test('knowledge template handlers resolve primary and legacy folder paths', asyn
   assert.deepEqual(listResult, [])
 })
 
-test('app settings handlers load and persist username settings', async t => {
+test('app settings handlers load and persist app settings', async t => {
   let savedSettings = null
   const harness = makeHarness({
     dataService: {
       getSavedAppSettings() {
-        return { userName: 'Archivist' }
+        return { userName: 'Archivist', dateFormat: 'en-GB' }
       },
       saveAppSettings(_app, settings) {
         savedSettings = settings
-        return { userName: String(settings.userName || '').trim() }
+        return {
+          userName: String(settings.userName || '').trim(),
+          dateFormat: settings.dateFormat === 'en-US' ? 'en-US' : 'en-GB'
+        }
       }
     }
   })
@@ -414,9 +417,9 @@ test('app settings handlers load and persist username settings', async t => {
   const getHandler = harness.handlers.get('get-app-settings')
   const saveHandler = harness.handlers.get('save-app-settings')
 
-  assert.deepEqual(await getHandler(), { userName: 'Archivist' })
-  assert.deepEqual(await saveHandler(null, { userName: '  Mike  ' }), { userName: 'Mike' })
-  assert.deepEqual(savedSettings, { userName: '  Mike  ' })
+  assert.deepEqual(await getHandler(), { userName: 'Archivist', dateFormat: 'en-GB' })
+  assert.deepEqual(await saveHandler(null, { userName: '  Mike  ', dateFormat: 'en-US' }), { userName: 'Mike', dateFormat: 'en-US' })
+  assert.deepEqual(savedSettings, { userName: '  Mike  ', dateFormat: 'en-US' })
 })
 
 test('full-screen handlers report and toggle window state', async t => {
