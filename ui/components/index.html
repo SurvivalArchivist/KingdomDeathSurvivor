@@ -8,55 +8,67 @@
   <link rel="stylesheet" href="./styles/showdown.css" />
   <link rel="stylesheet" href="./styles/theme-dark.css" />
   <link rel="stylesheet" href="./styles/theme-light.css" />
+  <link rel="stylesheet" href="./styles/theme-zen.css" />
 </head>
 <body>
   <div class="bg-orb bg-orb-one"></div>
   <div class="bg-orb bg-orb-two"></div>
+  <header class="app-header">
+    <nav class="top-nav" aria-label="Primary">
+      <span class="top-nav-brand">KDM Survivors Console</span>
+      <button id="navDataSources" type="button" class="btn btn-ghost">Settings</button>
+      <button id="navCreate" type="button" class="btn btn-ghost">Create Survivor</button>
+      <button id="navShowdown" type="button" class="btn btn-ghost">Showdown View</button>
+      <button id="navSettlement" type="button" class="btn btn-ghost">Settlement View</button>
+      <button id="navBulkUpdates" type="button" class="btn btn-ghost">Bulk Updates</button>
+      <div class="nav-showdown-actions" role="group" aria-label="Showdown actions">
+        <span id="showdownSessionState" class="hidden">Session not departed</span>
+        <button id="refreshShowdownSurvivors" type="button" class="btn btn-secondary">Refresh Survivors</button>
+        <button id="departShowdown" type="button" class="btn btn-primary">Depart</button>
+        <button id="showdownOver" type="button" class="btn btn-danger hidden">End Showdown</button>
+      </div>
+      <button id="navFullscreen" type="button" class="btn btn-ghost nav-window-toggle" aria-pressed="false">Full Screen</button>
+      <label class="nav-theme-switcher" for="themeSelect">
+        <span class="nav-theme-switcher-label">Theme</span>
+        <select id="themeSelect" class="nav-theme-select" aria-label="Theme">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="zen-day">Zen Day</option>
+          <option value="zen-night">Zen Night</option>
+        </select>
+      </label>
+    </nav>
+  </header>
   <main class="app-shell">
-    <header class="hero">
-      <p class="eyebrow">Kingdom Death Companion</p>
-      <h1>KDM Survivors Console</h1>
-      <p class="subtitle">Manage survivors with schema-validated JSON records.</p>
-      <nav class="top-nav" aria-label="Primary">
-        <button id="navDataSources" type="button" class="btn btn-ghost">Settings</button>
-        <button id="navCreate" type="button" class="btn btn-ghost">Create Survivor</button>
-        <button id="navShowdown" type="button" class="btn btn-ghost">Showdown View</button>
-        <button id="navSettlement" type="button" class="btn btn-ghost">Settlement View</button>
-        <button id="navBulkUpdates" type="button" class="btn btn-ghost">Bulk Updates</button>
-        <button id="navTechnical" type="button" class="btn btn-ghost">Technical View</button>
-        <button id="navFullscreen" type="button" class="btn btn-ghost nav-window-toggle" aria-pressed="false">Full Screen</button>
-        <button id="themeToggle" type="button" class="btn btn-ghost nav-theme-toggle" aria-pressed="false">Light Mode</button>
-      </nav>
-      <p id="globalDepartedIndicator" class="global-departed-indicator hidden">Showdown In Progress: DEPARTED</p>
-    </header>
+    <p id="globalDepartedIndicator" class="global-departed-indicator hidden">Showdown In Progress: DEPARTED</p>
 
-    <section id="dataSourcesView" class="data-sources-view panel">
+    <section id="dataSourcesView" class="data-sources-view">
       <div class="panel-header">
         <h2>Settings</h2>
       </div>
       <p class="muted">Select folders for each category. The app will never create folders automatically.</p>
       <div class="settings-row">
-        <label>
-          Username
+        <label class="settings-control">
+          <span>Username</span>
           <input id="settingsUserName" type="text" placeholder="Who is saving?" />
         </label>
-        <label>
-          Date Format
+        <label class="settings-control">
+          <span>Date Format</span>
           <select id="settingsDateFormat">
             <option value="en-GB">British (DD/MM/YYYY)</option>
             <option value="en-US">American (MM/DD/YYYY)</option>
           </select>
         </label>
-        <label class="ve-check">
-          Fast Mode
+        <label class="settings-toggle">
+          <span>Fast Mode</span>
           <input id="settingsFastMode" type="checkbox" />
         </label>
-        <label>
-          Auto Refresh
+        <label class="settings-toggle">
+          <span>Auto Refresh</span>
           <input id="settlementAutoRefreshEnabled" type="checkbox" checked />
         </label>
-        <label>
-          Refresh Interval
+        <label class="settings-control">
+          <span>Refresh Interval</span>
           <select id="settlementAutoRefreshInterval">
             <option value="5">5s</option>
             <option value="10">10s</option>
@@ -64,8 +76,8 @@
             <option value="30">30s</option>
           </select>
         </label>
-        <p class="muted">Saved into editedBy on survivor saves. When enabled, settlement refresh interval is capped to a faster cadence.</p>
       </div>
+      <p class="muted settings-hint">Saved into editedBy on survivor saves. When enabled, settlement refresh interval is capped to a faster cadence.</p>
       <div class="data-sources-grid">
         <div class="data-source-row">
           <span>Survivors</span>
@@ -319,14 +331,6 @@
     </section>
 
     <section id="showdownView" class="showdown-view hidden">
-      <div class="showdown-session-bar panel">
-        <p id="showdownSessionState" class="muted">Session not departed</p>
-        <div class="button-row showdown-session-actions">
-          <button id="refreshShowdownSurvivors" type="button" class="btn btn-secondary">Refresh Survivors</button>
-          <button id="departShowdown" type="button" class="btn btn-primary">Depart</button>
-          <button id="showdownOver" type="button" class="btn btn-danger hidden">End Showdown</button>
-        </div>
-      </div>
       <div class="showdown-grid">
         <article id="showdownCardA" class="panel showdown-card"></article>
         <article id="showdownCardB" class="panel showdown-card"></article>
@@ -334,7 +338,7 @@
     </section>
 
     <section id="settlementView" class="settlement-view hidden">
-      <article class="panel settlement-panel">
+      <article class="settlement-panel">
         <h2>Settlement View <span id="settlementAliveCount" class="muted">(Alive: 0)</span></h2>
         <div class="settlement-filters">
           <div class="settlement-filters-primary">

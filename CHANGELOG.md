@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-04-16
+
+### Added
+- Introduced two new themes, `Zen Day` and `Zen Night`, built around a softer bamboo-and-shoji inspired palette.
+- Added a scalable theme-switcher flow in the header so the app can support multiple visual systems cleanly.
+
+### Changed
+- Reframed the app’s visual direction around flatter, cleaner working surfaces with less decorative nesting and less unnecessary shell chrome.
+- Reworked the Showdown layout to use clearer survivor shells, roomier spacing, tighter vitals/proficiency controls, and header-based session actions.
+- Flattened the Settlement view by removing the outer page shell while keeping the table and filtering workflow intact.
+- Restored stronger in-panel color separation for knowledge content so sections are easier to scan at a glance across themes.
+
+### Fixed
+- Fixed Zen Day parity issues where some inherited dark surfaces, including parts of the Settlement table and modal-related utility areas, remained too dark against the light palette.
+- Corrected Showdown input and section presentation issues uncovered during the shell-reduction pass, including over-wrapped containers and inconsistent section readability.
+
 ## [1.5.5] - 2026-04-12
 
 ### Added

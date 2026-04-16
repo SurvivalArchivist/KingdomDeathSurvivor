@@ -1,14 +1,22 @@
-## KDM Survivors Console 1.5.6
+## KDM Survivors Console 2.0.0
 
-This patch release tightens a couple of Showdown quality-of-life edges and fixes a survivor-loading compatibility regression.
+This release marks a full UI-era shift for the app. The underlying workflows stay familiar, but the overall presentation is cleaner, calmer, and more deliberate across Showdown, Settlement, and the broader shell.
 
-### Patch Notes
-- Fixed survivor loading for older records whose `Tenet Knowledge` / `Knowledge` entries still carried legacy metadata fields such as `familyID`.
-- Added an `All +/-` armor control in Showdown so you can adjust every armor location together with one click.
-- Cleaned up the bulk armor control styling so it sits more quietly in the header.
-- Fixed the bulk armor buttons in light theme so they no longer keep a dark background.
-- Added a `Heavy` toggle alongside Showdown `Insanity` so that state can be tracked from the main vitals card.
-- Combined Showdown weapon proficiency type and rank into a tighter shared control to reduce header clutter.
+### Highlights
+- Added two new themes, `Zen Day` and `Zen Night`, with a bamboo-and-shoji inspired palette tuned for calmer contrast and softer surfaces.
+- Simplified the app’s visual structure by removing unnecessary outer shells and reducing nested container chrome across key views.
+- Refined Showdown into a cleaner two-survivor workspace with clearer separation, tighter controls, and less visual clutter.
+- Flattened Settlement so the table view feels more direct and less boxed-in.
+- Restored stronger visual distinction inside knowledge content so important sections are easier to scan again.
+
+### Detailed Patch Notes
+- Added `Zen Day` and `Zen Night` theme support to the global theme switcher.
+- Fixed Zen Day theme issues where some utility surfaces still rendered with dark inherited backgrounds.
+- Moved Showdown session actions into the main navigation for a cleaner, more consistent control location.
+- Tightened Showdown weapon proficiency controls to reduce wasted vertical space in the vitals area.
+- Reworked Showdown survivor shells and spacing to keep the two survivors visually distinct without over-constraining the workspace.
+- Removed the outer shell from Settlement while preserving the existing table, filters, and assignment workflow.
+- Tuned knowledge/tinted content blocks so `Observation`, `Rules`, and related meta sections read more clearly across themes.
 
 ### Downloads
 - Windows: use the `.exe` installer asset in this release.

@@ -26,6 +26,12 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Editable combat/session values
 - Depart/End Showdown session lifecycle
 
+## UI Direction
+- Prefer simple, efficient layouts over decorative nesting.
+- Keep the rough position of existing tools/workflows, but reduce wrapper layers and visual ceremony.
+- Do not default to rounded, pill-heavy, "safe" controls everywhere; squarer edges are acceptable and often preferred.
+- Settings and utility surfaces should read as infrastructure, not showcase cards.
+
 ## Showdown Session Rules
 - `Depart` locks survivor slots and keeps showdown state active across navigation.
 - After `Depart`, the `Depart` button hides and `End Showdown` appears in the showdown session bar.

@@ -58,9 +58,14 @@ class FakeEvent {
     this.type = String(type)
     this.target = init.target || null
     this.key = init.key
+    this.deltaX = Number(init.deltaX || 0)
+    this.deltaY = Number(init.deltaY || 0)
+    this.defaultPrevented = false
   }
 
-  preventDefault() {}
+  preventDefault() {
+    this.defaultPrevented = true
+  }
 
   stopPropagation() {}
 }
@@ -570,6 +575,37 @@ test('fullscreen nav button toggles window state and updates label', async t => 
   assert.equal(button.textContent, 'Exit Full Screen')
   assert.equal(button.getAttribute('aria-pressed'), 'true')
   assert.ok(harness.calls.some(call => call.name === 'toggleFullScreen'))
+})
+
+test('theme selector updates classes and persists preference', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const selector = harness.document.getElementById('themeSelect')
+
+  assert.equal(selector.value, 'dark')
+  assert.ok(harness.document.body.classList.contains('theme-dark'))
+  assert.equal(harness.document.body.dataset.theme, 'dark')
+
+  selector.value = 'zen-day'
+  selector.dispatchEvent(new FakeEvent('change', { target: selector }))
+  await harness.flush()
+
+  assert.equal(selector.value, 'zen-day')
+  assert.ok(harness.document.body.classList.contains('theme-zen-day'))
+  assert.equal(harness.document.body.dataset.theme, 'zen-day')
+  assert.equal(global.window.localStorage.getItem('kdm-theme'), 'zen-day')
+
+  selector.value = 'zen-night'
+  selector.dispatchEvent(new FakeEvent('change', { target: selector }))
+  await harness.flush()
+
+  assert.equal(selector.value, 'zen-night')
+  assert.ok(harness.document.body.classList.contains('theme-zen-night'))
+  assert.equal(harness.document.body.dataset.theme, 'zen-night')
+  assert.equal(global.window.localStorage.getItem('kdm-theme'), 'zen-night')
 })
 
 test('renderer persists app settings including date format', async t => {

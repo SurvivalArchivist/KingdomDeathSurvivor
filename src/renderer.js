@@ -52,9 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const navShowdownButton = document.getElementById('navShowdown')
   const navSettlementButton = document.getElementById('navSettlement')
   const navBulkUpdatesButton = document.getElementById('navBulkUpdates')
-  const navTechnicalButton = document.getElementById('navTechnical')
   const navFullscreenButton = document.getElementById('navFullscreen')
-  const themeToggleButton = document.getElementById('themeToggle')
+  const themeSelect = document.getElementById('themeSelect')
   const settlementNameSearch = document.getElementById('settlementNameSearch')
   const settlementTraitSearch = document.getElementById('settlementTraitSearch')
   const settlementToggleExtraFiltersButton = document.getElementById('settlementToggleExtraFilters')
@@ -239,9 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
     navShowdownButton,
     navSettlementButton,
     navBulkUpdatesButton,
-    navTechnicalButton,
     navFullscreenButton,
-    themeToggleButton,
+    themeSelect,
     settlementNameSearch,
     settlementTraitSearch,
     settlementToggleExtraFiltersButton,
@@ -421,6 +419,24 @@ document.addEventListener('DOMContentLoaded', () => {
   let busy = false
   const buttonFeedbackTimers = new WeakMap()
   const THEME_STORAGE_KEY = 'kdm-theme'
+  const THEME_OPTIONS = Object.freeze({
+    dark: {
+      bodyClass: 'theme-dark',
+      colorScheme: 'dark'
+    },
+    light: {
+      bodyClass: 'theme-light',
+      colorScheme: 'light'
+    },
+    'zen-day': {
+      bodyClass: 'theme-zen-day',
+      colorScheme: 'light'
+    },
+    'zen-night': {
+      bodyClass: 'theme-zen-night',
+      colorScheme: 'dark'
+    }
+  })
   let currentTheme = 'dark'
   let windowIsFullScreen = false
   let currentMarkdownDoc = null
@@ -806,6 +822,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return SHOWDOWN_PAGE_CONFIG.some(page => page.key === value) ? value : SHOWDOWN_DEFAULT_PAGE
   }
 
+  function stepShowdownPage(slot, direction) {
+    if (slot !== 'A' && slot !== 'B') return false
+    const normalizedDirection = direction > 0 ? 1 : direction < 0 ? -1 : 0
+    if (!normalizedDirection) return false
+    const current = normalizeShowdownPageKey(showdownPageBySlot[slot])
+    const currentIndex = SHOWDOWN_PAGE_CONFIG.findIndex(page => page.key === current)
+    if (currentIndex === -1) return false
+    const nextIndex = clamp(currentIndex + normalizedDirection, 0, SHOWDOWN_PAGE_CONFIG.length - 1)
+    if (nextIndex === currentIndex) return false
+    showdownPageBySlot[slot] = SHOWDOWN_PAGE_CONFIG[nextIndex].key
+    renderShowdownSlot(slot)
+    return true
+  }
+
   function getValueByPath(target, path) {
     const keys = String(path || '').split('.').filter(Boolean)
     let current = target
@@ -908,16 +938,23 @@ document.addEventListener('DOMContentLoaded', () => {
     else status.classList.add('is-neutral')
   }
 
+  function normalizeTheme(theme) {
+    return Object.prototype.hasOwnProperty.call(THEME_OPTIONS, theme) ? theme : 'dark'
+  }
+
   function applyTheme(theme) {
-    const nextTheme = theme === 'light' ? 'light' : 'dark'
+    const nextTheme = normalizeTheme(theme)
     currentTheme = nextTheme
-    document.body.classList.toggle('theme-light', nextTheme === 'light')
-    document.body.classList.toggle('theme-dark', nextTheme === 'dark')
-    if (document.documentElement?.style) {
-      document.documentElement.style.colorScheme = nextTheme
+    document.body.dataset.theme = nextTheme
+    for (const [themeKey, config] of Object.entries(THEME_OPTIONS)) {
+      document.body.classList.toggle(config.bodyClass, themeKey === nextTheme)
     }
-    themeToggleButton.textContent = nextTheme === 'light' ? 'Dark Mode' : 'Light Mode'
-    themeToggleButton.setAttribute('aria-pressed', nextTheme === 'light' ? 'true' : 'false')
+    if (document.documentElement?.style) {
+      document.documentElement.style.colorScheme = THEME_OPTIONS[nextTheme].colorScheme
+    }
+    if (themeSelect instanceof HTMLSelectElement) {
+      themeSelect.value = nextTheme
+    }
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme)
     } catch {
@@ -951,7 +988,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch {
       storedTheme = null
     }
-    applyTheme(storedTheme === 'light' ? 'light' : 'dark')
+    applyTheme(normalizeTheme(storedTheme))
   }
 
   function renderDataSources() {
@@ -1503,7 +1540,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     navDataSourcesButton.classList.toggle('is-active', nextPage === 'dataSources')
     navCreateButton.classList.toggle('is-active', nextPage === 'create')
-    navTechnicalButton.classList.toggle('is-active', nextPage === 'technical')
     navSettlementButton.classList.toggle('is-active', nextPage === 'settlement')
     navBulkUpdatesButton.classList.toggle('is-active', nextPage === 'bulkUpdates')
     navShowdownButton.classList.toggle('is-active', nextPage === 'showdown')
@@ -2958,7 +2994,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderProficiencyStepper = () => `
       <div class="showdown-stepper showdown-stepper-simple showdown-stepper-proficiency-combined">
-        <span class="showdown-stepper-label showdown-stepper-label-proficiency">${iconLabel('icon-stats', 'Weapon Prof')}</span>
+        <div class="showdown-proficiency-header">
+          <span class="showdown-stepper-label showdown-stepper-label-proficiency">${iconLabel('icon-stats', 'Weapon Prof')}</span>
+          <div class="showdown-stepper-controls showdown-stepper-controls-proficiency-rank">
+            <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="-1" aria-label="Decrease proficiency rank">-</button>
+            <strong class="showdown-static-value">${proficiencyLevel}</strong>
+            <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="1" aria-label="Increase proficiency rank">+</button>
+          </div>
+        </div>
         <div class="showdown-proficiency-inline">
           <input
             type="text"
@@ -2969,11 +3012,6 @@ document.addEventListener('DOMContentLoaded', () => {
             placeholder="Type"
             aria-label="Weapon proficiency type"
           />
-          <div class="showdown-stepper-controls showdown-stepper-controls-proficiency-rank">
-            <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="-1" aria-label="Decrease proficiency rank">-</button>
-            <strong class="showdown-static-value">${proficiencyLevel}</strong>
-            <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="1" aria-label="Increase proficiency rank">+</button>
-          </div>
         </div>
       </div>`
 
@@ -5109,17 +5147,6 @@ document.addEventListener('DOMContentLoaded', () => {
       setStatus(err.message || 'Failed to open bulk updates view', 'error')
     })
   })
-  navTechnicalButton.addEventListener('click', () => {
-    if (currentPage === 'technical') return
-    runBusy(async () => {
-      if (inShowdownMode) {
-        setStatus('Showdown session kept active while in Technical view.', 'neutral')
-      }
-      setPage('technical')
-    }).catch(err => {
-      setStatus(err.message || 'Failed to open technical view', 'error')
-    })
-  })
   navFullscreenButton.addEventListener('click', () => {
     if (typeof window.api.toggleFullScreen !== 'function') {
       setStatus('Full screen is unavailable in this build', 'error')
@@ -5133,8 +5160,8 @@ document.addEventListener('DOMContentLoaded', () => {
       setStatus(err.message || 'Failed to toggle full screen', 'error')
     })
   })
-  themeToggleButton.addEventListener('click', () => {
-    applyTheme(currentTheme === 'light' ? 'dark' : 'light')
+  themeSelect.addEventListener('change', () => {
+    applyTheme(themeSelect.value)
   })
   showdownView.addEventListener('click', event => {
     const rawTarget = event.target
