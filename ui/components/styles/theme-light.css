@@ -354,7 +354,8 @@ body.theme-light .modal-backdrop {
 body.theme-light .showdown-stepper-controls button,
 body.theme-light .showdown-stat-line .showdown-stepper-controls button,
 body.theme-light .showdown-inline-stepper button,
-body.theme-light .showdown-armor-stepper button {
+body.theme-light .showdown-armor-stepper button,
+body.theme-light .showdown-armor-bulk-stepper button {
   border-color: rgba(163, 149, 129, 0.68);
   background: rgba(239, 230, 216, 0.96);
   color: #2d251d;
@@ -363,7 +364,8 @@ body.theme-light .showdown-armor-stepper button {
 body.theme-light .showdown-stepper-controls button:hover,
 body.theme-light .showdown-stat-line .showdown-stepper-controls button:hover,
 body.theme-light .showdown-inline-stepper button:hover,
-body.theme-light .showdown-armor-stepper button:hover {
+body.theme-light .showdown-armor-stepper button:hover,
+body.theme-light .showdown-armor-bulk-stepper button:hover {
   background: rgba(229, 216, 198, 0.98);
 }
 

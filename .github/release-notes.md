@@ -1,12 +1,14 @@
-## KDM Survivors Console 1.5.5
+## KDM Survivors Console 1.5.6
 
-This patch release focuses on Showdown knowledge upgrade quality-of-life so blank next-level knowledge upgrades are easier to fill out and reuse.
+This patch release tightens a couple of Showdown quality-of-life edges and fixes a survivor-loading compatibility regression.
 
 ### Patch Notes
-- Upgrading a Showdown `Knowledge` or `Tenet Knowledge` with `No Template` now opens a write-in modal instead of replacing the entry with a blank card.
-- The new Showdown upgrade modal lets you fill in the upgraded knowledge immediately, including observation text, rules, requirement, level, and next-upgrade behavior.
-- Added an `Also save as reusable template` option to that modal so newly written upgraded knowledge can be stored in the template library during the same save.
-- Fixed the modal checkbox interaction so the new save-as-template toggle can actually be clicked reliably.
+- Fixed survivor loading for older records whose `Tenet Knowledge` / `Knowledge` entries still carried legacy metadata fields such as `familyID`.
+- Added an `All +/-` armor control in Showdown so you can adjust every armor location together with one click.
+- Cleaned up the bulk armor control styling so it sits more quietly in the header.
+- Fixed the bulk armor buttons in light theme so they no longer keep a dark background.
+- Added a `Heavy` toggle alongside Showdown `Insanity` so that state can be tracked from the main vitals card.
+- Combined Showdown weapon proficiency type and rank into a tighter shared control to reduce header clutter.
 
 ### Downloads
 - Windows: use the `.exe` installer asset in this release.

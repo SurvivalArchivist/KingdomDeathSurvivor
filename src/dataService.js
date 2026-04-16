@@ -61,7 +61,58 @@ function coerceSchemaVersion(value) {
   return Math.trunc(parsed)
 }
 
-function applyPersonSchemaCompatibility(person) {
+function sanitizeStoredKnowledgeEntry(type, entry) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry
+
+  const template =
+    entry.template && typeof entry.template === 'object' && !Array.isArray(entry.template) ? entry.template : null
+  const merged = template ? { ...template, ...entry } : entry
+  const next = {}
+
+  if (typeof merged.name !== 'undefined') {
+    next.name = merged.name
+  } else if (typeof merged.title !== 'undefined') {
+    next.name = merged.title
+  }
+  if (type === 'tenetKnowledge' && typeof merged.neurosis !== 'undefined') next.neurosis = merged.neurosis
+  if (type === 'tenetKnowledge' && typeof merged.tenet !== 'undefined') next.tenet = merged.tenet
+  if (typeof merged.observation !== 'undefined') next.observation = merged.observation
+  if (typeof merged.rules !== 'undefined') next.rules = merged.rules
+  if (typeof merged.observationRequirement !== 'undefined') next.observationRequirement = merged.observationRequirement
+  if (typeof merged.currentObservations !== 'undefined') {
+    next.currentObservations = merged.currentObservations
+  } else if (typeof merged.observations !== 'undefined') {
+    next.currentObservations = merged.observations
+  }
+  if (typeof merged.knowledgeLevel !== 'undefined') {
+    next.knowledgeLevel = merged.knowledgeLevel
+  } else if (typeof merged.level !== 'undefined') {
+    next.knowledgeLevel = merged.level
+  }
+  if (typeof merged.nextKnowledgeMode !== 'undefined') next.nextKnowledgeMode = merged.nextKnowledgeMode
+  if (typeof merged.nextKnowledgeTemplate !== 'undefined') next.nextKnowledgeTemplate = merged.nextKnowledgeTemplate
+  if (typeof merged.file !== 'undefined') {
+    next.file = merged.file
+  } else if (typeof merged.fileName !== 'undefined') {
+    next.file = merged.fileName
+  }
+
+  return next
+}
+
+function sanitizeStoredKnowledgeArrays(person) {
+  if (!person || typeof person !== 'object') return person
+  const next = { ...person }
+  if (Array.isArray(next.tenetKnowledge)) {
+    next.tenetKnowledge = next.tenetKnowledge.map(entry => sanitizeStoredKnowledgeEntry('tenetKnowledge', entry))
+  }
+  if (Array.isArray(next.knowledge)) {
+    next.knowledge = next.knowledge.map(entry => sanitizeStoredKnowledgeEntry('knowledge', entry))
+  }
+  return next
+}
+
+function applyPersonSchemaCompatibility(person, options = {}) {
   if (!person || typeof person !== 'object') return person
   const next = { ...person }
   const schemaVersion = coerceSchemaVersion(next.schemaVersion)
@@ -101,7 +152,7 @@ function applyPersonSchemaCompatibility(person) {
     next.editedBy = ''
   }
 
-  return next
+  return options.sanitizeStoredKnowledgeEntries ? sanitizeStoredKnowledgeArrays(next) : next
 }
 
 function getConfigPath(app) {
@@ -319,7 +370,7 @@ function loadPerson(basePath, fileName) {
   if (!fs.existsSync(fullPath)) throw new Error('Person file not found')
 
   const personRaw = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
-  const person = applyPersonSchemaCompatibility(personRaw)
+  const person = applyPersonSchemaCompatibility(personRaw, { sanitizeStoredKnowledgeEntries: true })
   if (!validatePerson(person)) {
     const errors = mapValidationErrors(validatePerson.errors || [])
     throw new ValidationError(`Stored person data is invalid: ${validationErrorSummary(errors)}`, errors)

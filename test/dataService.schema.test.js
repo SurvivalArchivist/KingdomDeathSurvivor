@@ -208,6 +208,89 @@ test('loadPerson handles legacy lastReturned values', () => {
   assert.equal(loaded.lastReturned, '2023-01-15T10:30:00.000Z')
 })
 
+test('loadPerson sanitizes legacy knowledge entry metadata before validation', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+  fs.mkdirSync(basePath, { recursive: true })
+
+  const person = dataService.createPersonTemplate('Legacy Knowledge Survivor')
+  person.tenetKnowledge = [
+    {
+      title: 'Abyssal Oath',
+      fileName: 'abyssal-oath.md',
+      observations: 2,
+      extraNote: 'legacy field',
+      template: {
+        observation: 'Watch the void.',
+        rules: 'Once per showdown.',
+        observationRequirement: 3,
+        knowledgeLevel: 2,
+        nextKnowledgeMode: 'existingTemplate',
+        nextKnowledgeTemplate: 'abyssal-oath-2.json'
+      }
+    }
+  ]
+  person.knowledge = [
+    {
+      name: 'Lantern Lore',
+      fileName: 'lantern-lore.md',
+      observation: 'Study the lantern.',
+      rules: 'Gain +1 understanding.',
+      observations: 1,
+      observationRequirement: 4,
+      knowledgeLevel: 2,
+      nextKnowledgeMode: 'noTemplate',
+      extra: true
+    },
+    {
+      title: 'Bone Smith',
+      template: {
+        observation: 'Catalog the fractures.',
+        rules: 'Craft with confidence.',
+        observationRequirement: 5,
+        knowledgeLevel: 3,
+        nextKnowledgeMode: 'maxLevel'
+      },
+      templateCategory: 'knowledges'
+    }
+  ]
+
+  const filePath = path.join(basePath, 'legacy-knowledge.json')
+  fs.writeFileSync(filePath, JSON.stringify(person), 'utf8')
+
+  const loaded = dataService.loadPerson(basePath, 'legacy-knowledge.json')
+
+  assert.deepEqual(loaded.tenetKnowledge[0], {
+    name: 'Abyssal Oath',
+    observation: 'Watch the void.',
+    rules: 'Once per showdown.',
+    observationRequirement: 3,
+    currentObservations: 2,
+    knowledgeLevel: 2,
+    nextKnowledgeMode: 'existingTemplate',
+    nextKnowledgeTemplate: 'abyssal-oath-2.json',
+    file: 'abyssal-oath.md'
+  })
+  assert.deepEqual(loaded.knowledge[0], {
+    name: 'Lantern Lore',
+    observation: 'Study the lantern.',
+    rules: 'Gain +1 understanding.',
+    observationRequirement: 4,
+    currentObservations: 1,
+    knowledgeLevel: 2,
+    nextKnowledgeMode: 'noTemplate',
+    file: 'lantern-lore.md'
+  })
+  assert.deepEqual(loaded.knowledge[1], {
+    name: 'Bone Smith',
+    observation: 'Catalog the fractures.',
+    rules: 'Craft with confidence.',
+    observationRequirement: 5,
+    knowledgeLevel: 3,
+    nextKnowledgeMode: 'maxLevel'
+  })
+})
+
 test('loadPerson auto-populates missing notes array', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')

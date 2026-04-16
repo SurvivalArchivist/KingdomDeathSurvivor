@@ -493,6 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
       waist: 0,
       legs: 0,
       bleedingTokens: 0,
+      insanityHeavy: false,
       headHeavy: false,
       bodyLight: false,
       bodyHeavy: false,
@@ -510,6 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
       waist: 0,
       legs: 0,
       bleedingTokens: 0,
+      insanityHeavy: false,
       headHeavy: false,
       bodyLight: false,
       bodyHeavy: false,
@@ -2855,12 +2857,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderBaseStepper = ([field, label, min, max, icon]) => {
       const base = coerceNumber(p[field], 0)
-      const extraClass = field === 'understanding' ? ' showdown-stepper-understanding' : ''
+      const extraClass =
+        field === 'understanding'
+          ? ' showdown-stepper-understanding'
+          : field === 'insanityPts'
+            ? ' showdown-stepper-insanity'
+            : ''
+      const insanityCheck =
+        field === 'insanityPts'
+          ? `<label class="showdown-insanity-check" title="Heavy"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="insanityHeavy" aria-label="Heavy insanity" ${
+              armor.insanityHeavy ? 'checked' : ''
+            } /></label>`
+          : ''
+      const controlsClass =
+        field === 'insanityPts'
+          ? 'showdown-stepper-controls showdown-stepper-controls-insanity'
+          : 'showdown-stepper-controls'
 
       return `
       <div class="showdown-stepper showdown-stepper-simple${extraClass}">
         <span class="showdown-stepper-label">${iconLabel(icon, label)}</span>
-        <div class="showdown-stepper-controls">
+        <div class="${controlsClass}">
           <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="-1" data-showdown-min="${
             min ?? ''
           }" data-showdown-max="${max ?? ''}">-</button>
@@ -2868,6 +2885,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="1" data-showdown-min="${
             min ?? ''
           }" data-showdown-max="${max ?? ''}">+</button>
+          ${insanityCheck}
         </div>
       </div>`
     }
@@ -2937,6 +2955,27 @@ document.addEventListener('DOMContentLoaded', () => {
         </select>
       </div>`
     }
+
+    const renderProficiencyStepper = () => `
+      <div class="showdown-stepper showdown-stepper-simple showdown-stepper-proficiency-combined">
+        <span class="showdown-stepper-label showdown-stepper-label-proficiency">${iconLabel('icon-stats', 'Weapon Prof')}</span>
+        <div class="showdown-proficiency-inline">
+          <input
+            type="text"
+            class="showdown-proficiency-type-input"
+            data-showdown-proficiency-slot="${slot}"
+            data-showdown-proficiency-field="type"
+            value="${String(proficiency.type || '')}"
+            placeholder="Type"
+            aria-label="Weapon proficiency type"
+          />
+          <div class="showdown-stepper-controls showdown-stepper-controls-proficiency-rank">
+            <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="-1" aria-label="Decrease proficiency rank">-</button>
+            <strong class="showdown-static-value">${proficiencyLevel}</strong>
+            <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="1" aria-label="Increase proficiency rank">+</button>
+          </div>
+        </div>
+      </div>`
 
     const renderShowdownKnowledgeCopy = (item, level, req, nextDisplay, headerControls) => `
       <div class="showdown-array-copy showdown-array-copy-knowledge">
@@ -3062,12 +3101,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <h4>${iconLabel('icon-vitals', 'Age / Survival / Insanity')}</h4>
           <div class="showdown-stats showdown-stats-vitals">
             ${vitalStats.map(renderBaseStepper).join('')}
-            <div class="showdown-stepper showdown-stepper-simple showdown-stepper-proficiency-type-card">
-              <span class="showdown-stepper-label">${iconLabel('icon-stats', 'Weapon Prof')}</span>
-              <input type="text" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="type" value="${String(
-                proficiency.type || ''
-              )}" placeholder="e.g. Sword" />
-            </div>
+            ${renderProficiencyStepper()}
           </div>
           <div class="showdown-stats showdown-stats-vitals showdown-stats-vitals-bleeding">
             <div class="showdown-stepper showdown-stepper-simple showdown-stepper-bleeding">
@@ -3076,14 +3110,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button type="button" data-showdown-slot="${slot}" data-showdown-part="bleedingTokens" data-showdown-delta="-1">-</button>
                 <strong class="showdown-static-value">${Math.max(0, coerceNumber(armor.bleedingTokens, 0))}</strong>
                 <button type="button" data-showdown-slot="${slot}" data-showdown-part="bleedingTokens" data-showdown-delta="1">+</button>
-              </div>
-            </div>
-            <div class="showdown-stepper showdown-stepper-simple showdown-stepper-proficiency-level">
-              <span class="showdown-stepper-label">${iconLabel('icon-stats', 'Prof Rank')}</span>
-              <div class="showdown-stepper-controls">
-                <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="-1">-</button>
-                <strong class="showdown-static-value">${proficiencyLevel}</strong>
-                <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="1">+</button>
               </div>
             </div>
           </div>
@@ -3096,7 +3122,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       <section class="showdown-page-panel" data-showdown-page-panel="armor"${activePage === 'armor' ? '' : ' hidden'}>
         <section class="showdown-group">
-          <h4>${iconLabel('icon-shield', 'Armor')}</h4>
+          <div class="showdown-armor-header">
+            <h4>${iconLabel('icon-shield', 'Armor')}</h4>
+            <div class="showdown-armor-bulk-stepper" aria-label="Adjust all armor">
+              <button type="button" data-showdown-slot="${slot}" data-showdown-bulk-armor-delta="-1" aria-label="Decrease all armor">-</button>
+              <strong class="showdown-static-value">All</strong>
+              <button type="button" data-showdown-slot="${slot}" data-showdown-bulk-armor-delta="1" aria-label="Increase all armor">+</button>
+            </div>
+          </div>
           <div class="showdown-armor-grid">
             ${[
               ['head', 'Head', 'icon-head'],
@@ -3424,6 +3457,7 @@ document.addEventListener('DOMContentLoaded', () => {
       waist: 0,
       legs: 0,
       bleedingTokens: 0,
+      insanityHeavy: false,
       headHeavy: false,
       bodyLight: false,
       bodyHeavy: false,
@@ -3473,6 +3507,7 @@ document.addEventListener('DOMContentLoaded', () => {
         waist: 0,
         legs: 0,
         bleedingTokens: 0,
+        insanityHeavy: false,
         headHeavy: false,
         bodyLight: false,
         bodyHeavy: false,
@@ -3490,6 +3525,7 @@ document.addEventListener('DOMContentLoaded', () => {
         waist: 0,
         legs: 0,
         bleedingTokens: 0,
+        insanityHeavy: false,
         headHeavy: false,
         bodyLight: false,
         bodyHeavy: false,
@@ -5313,6 +5349,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const current = coerceNumber(getShowdownModifier(slot, field)[kind], 0)
         mutateShowdownModifier(slot, field, kind, current + delta)
       }
+      return
+    }
+
+    if (target.dataset.showdownSlot && target.dataset.showdownBulkArmorDelta) {
+      const slot = target.dataset.showdownSlot
+      const delta = coerceNumber(target.dataset.showdownBulkArmorDelta, 0)
+      if (!showdownArmor[slot] || !delta) return
+
+      for (const part of ['head', 'arms', 'body', 'waist', 'legs']) {
+        if (!Object.prototype.hasOwnProperty.call(showdownArmor[slot], part)) continue
+        showdownArmor[slot][part] = Math.max(0, coerceNumber(showdownArmor[slot][part], 0) + delta)
+      }
+      renderShowdownSlot(slot)
       return
     }
 

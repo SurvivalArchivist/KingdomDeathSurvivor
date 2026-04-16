@@ -273,7 +273,27 @@ body.showdown-mode .showdown-card {
   justify-self: start;
 }
 
-.showdown-group-vitals .showdown-stepper-proficiency-type-card input {
+.showdown-group-vitals .showdown-stepper-controls-insanity {
+  grid-template-columns: 20px minmax(34px, 46px) 20px 14px;
+  gap: 0.12rem;
+  align-items: center;
+  justify-self: start;
+}
+
+.showdown-group-vitals .showdown-insanity-check {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+}
+
+.showdown-group-vitals .showdown-insanity-check input {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+}
+
+.showdown-group-vitals .showdown-stepper-proficiency-type-card input,
+.showdown-group-vitals .showdown-stepper-proficiency-combined input {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--outline);
@@ -283,6 +303,32 @@ body.showdown-mode .showdown-card {
   font: inherit;
   font-size: 0.74rem;
   padding: 0.16rem 0.26rem;
+}
+
+.showdown-group-vitals .showdown-stepper-proficiency-combined {
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 0.22rem;
+}
+
+.showdown-group-vitals .showdown-stepper-label-proficiency {
+  white-space: normal;
+  line-height: 1.05;
+}
+
+.showdown-group-vitals .showdown-proficiency-inline {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.18rem;
+  align-items: start;
+  min-width: 0;
+  width: 100%;
+}
+
+.showdown-group-vitals .showdown-proficiency-type-input {
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
 }
 
 .showdown-group-vitals .showdown-stepper-bleeding {
@@ -567,6 +613,20 @@ body.showdown-mode .showdown-card {
   gap: 0.1rem;
 }
 
+.showdown-group-vitals .showdown-stepper-simple .showdown-stepper-controls-insanity {
+  grid-template-columns: 20px minmax(34px, 46px) 20px 14px;
+  gap: 0.12rem;
+  align-items: center;
+  justify-self: start;
+}
+
+.showdown-group-vitals .showdown-stepper-simple .showdown-stepper-controls-proficiency-rank {
+  grid-template-columns: 20px minmax(34px, 40px) 20px;
+  gap: 0.1rem;
+  align-items: center;
+  justify-self: start;
+}
+
 .showdown-stepper-simple .showdown-stepper-controls button {
   width: 20px;
   height: 20px;
@@ -692,6 +752,47 @@ body.showdown-mode .showdown-card {
 .showdown-armor h4 {
   margin: 0 0 0.4rem;
   font-size: 0.95rem;
+}
+
+.showdown-armor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.showdown-armor-header h4 {
+  margin: 0;
+}
+
+.showdown-armor-bulk-stepper {
+  display: inline-grid;
+  grid-template-columns: 24px minmax(36px, auto) 24px;
+  align-items: center;
+  gap: 0.14rem;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.showdown-armor-bulk-stepper button {
+  border: 1px solid var(--outline);
+  background: rgba(34, 29, 26, 0.95);
+  color: var(--ink);
+  border-radius: 7px;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.86rem;
+}
+
+.showdown-armor-bulk-stepper strong {
+  min-width: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .showdown-armor-grid {
@@ -1276,5 +1377,10 @@ body.showdown-mode .showdown-card {
 
   .showdown-armor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .showdown-armor-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
