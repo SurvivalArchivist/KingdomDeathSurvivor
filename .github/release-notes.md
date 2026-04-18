@@ -1,22 +1,17 @@
-## KDM Survivors Console 2.0.0
+## KDM Survivors Console 2.1.0
 
-This release marks a full UI-era shift for the app. The underlying workflows stay familiar, but the overall presentation is cleaner, calmer, and more deliberate across Showdown, Settlement, and the broader shell.
+This release focuses on survivor data refresh behavior for shared-folder setups. Settlement now builds from batch survivor summaries instead of reloading full survivor records for the table, which reduces read churn while keeping create/edit and showdown flows on the existing full-record path.
 
 ### Highlights
-- Added two new themes, `Zen Day` and `Zen Night`, with a bamboo-and-shoji inspired palette tuned for calmer contrast and softer surfaces.
-- Simplified the app’s visual structure by removing unnecessary outer shells and reducing nested container chrome across key views.
-- Refined Showdown into a cleaner two-survivor workspace with clearer separation, tighter controls, and less visual clutter.
-- Flattened Settlement so the table view feels more direct and less boxed-in.
-- Restored stronger visual distinction inside knowledge content so important sections are easier to scan again.
+- Settlement refresh now uses batch survivor summaries for the table view.
+- Shared-folder sessions are more resilient when one or more survivor files are temporarily unreadable.
+- Full survivor editing and showdown save flows keep the existing validation and conflict protections.
 
 ### Detailed Patch Notes
-- Added `Zen Day` and `Zen Night` theme support to the global theme switcher.
-- Fixed Zen Day theme issues where some utility surfaces still rendered with dark inherited backgrounds.
-- Moved Showdown session actions into the main navigation for a cleaner, more consistent control location.
-- Tightened Showdown weapon proficiency controls to reduce wasted vertical space in the vitals area.
-- Reworked Showdown survivor shells and spacing to keep the two survivors visually distinct without over-constraining the workspace.
-- Removed the outer shell from Settlement while preserving the existing table, filters, and assignment workflow.
-- Tuned knowledge/tinted content blocks so `Observation`, `Rules`, and related meta sections read more clearly across themes.
+- Added a batch `listPeopleSummaries` read path for Settlement so the table can load from summary data instead of loading every survivor record individually.
+- Preserved full `loadPerson` behavior for edit, save, showdown, and other survivor workflows that require full records.
+- Settlement refresh now skips temporarily unreadable survivor files and reports them in the refresh result instead of failing the entire table load.
+- Added tests covering the new summary path across data service, IPC, and renderer smoke flows.
 
 ### Downloads
 - Windows: use the `.exe` installer asset in this release.

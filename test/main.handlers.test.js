@@ -140,6 +140,9 @@ function makeHarness(overrides = {}) {
     listPeople() {
       return []
     },
+    listPeopleSummaries() {
+      return { records: [], unreadableCount: 0, totalFiles: 0 }
+    },
     loadPerson() {
       return {}
     },
@@ -285,6 +288,26 @@ test('list-people handler returns people list', async t => {
   const handler = harness.handlers.get('list-people')
   const result = await handler()
   assert.deepEqual(result, ['alice.json', 'bob.json', 'carol.json'])
+})
+
+test('list-people-summaries handler returns settlement summaries', async t => {
+  const summaries = {
+    records: [{ fileName: 'alice.json', person: { name: 'Alice', isAlive: true }, canPonder: false, statsTotal: 5, traitSearchText: '' }],
+    unreadableCount: 1,
+    totalFiles: 2
+  }
+  const harness = makeHarness({
+    dataService: {
+      listPeopleSummaries() {
+        return summaries
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  const handler = harness.handlers.get('list-people-summaries')
+  const result = await handler()
+  assert.deepEqual(result, summaries)
 })
 
 test('load-person handler loads person from data folder', async t => {

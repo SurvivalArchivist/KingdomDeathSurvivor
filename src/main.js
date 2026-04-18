@@ -105,6 +105,11 @@ ipcMain.handle('list-people', () => {
   return dataService.listPeople(dataPath)
 })
 
+ipcMain.handle('list-people-summaries', () => {
+  const dataPath = dataService.ensureDataFolderConfigured(app)
+  return dataService.listPeopleSummaries(dataPath)
+})
+
 ipcMain.handle('load-person', (_event, fileName) => {
   const dataPath = dataService.ensureDataFolderConfigured(app)
   return dataService.loadPerson(dataPath, fileName)

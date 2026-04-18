@@ -34,6 +34,60 @@ test('save/load/list roundtrip with template', () => {
   assert.equal(loaded.age, 0)
 })
 
+test('listPeopleSummaries returns settlement-safe summaries and skips unreadable files', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+
+  const ava = dataService.createPersonTemplate('Ava')
+  ava.philosophy = 'Lantern'
+  ava.age = 3
+  ava.nextPhilosophyAgeThreshold = 2
+  ava.weaponProficiency.type = 'Sword'
+  ava.weaponProficiency.level = 2
+  ava.abilities = ['Dash']
+  ava.knowledge = [{ name: 'Lantern Math' }]
+  dataService.savePerson(basePath, ava)
+
+  fs.writeFileSync(path.join(basePath, 'broken.json'), '{not valid json', 'utf8')
+
+  const result = dataService.listPeopleSummaries(basePath)
+  assert.equal(result.totalFiles, 2)
+  assert.equal(result.unreadableCount, 1)
+  assert.equal(result.records.length, 1)
+  assert.deepEqual(result.records[0], {
+    fileName: 'ava.json',
+    person: {
+      name: 'Ava',
+      age: 3,
+      lumi: 0,
+      survivalPts: 0,
+      insanityPts: 0,
+      philosophy: 'Lantern',
+      philosophyRank: 0,
+      movement: 5,
+      speed: 0,
+      accuracy: 0,
+      strength: 0,
+      luck: 0,
+      evasion: 0,
+      courage: 0,
+      understanding: 0,
+      lastUpdated: result.records[0].person.lastUpdated,
+      lastReturned: null,
+      isAlive: true,
+      matchmaker: false,
+      tinker: false,
+      weaponProficiency: {
+        type: 'Sword',
+        level: 2
+      }
+    },
+    canPonder: true,
+    statsTotal: 5,
+    traitSearchText: 'dash lantern math'
+  })
+})
+
 test('deletePerson removes persisted file', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')

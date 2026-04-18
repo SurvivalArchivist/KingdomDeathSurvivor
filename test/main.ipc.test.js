@@ -135,6 +135,9 @@ function makeHarness(overrides = {}) {
     listPeople() {
       return []
     },
+    listPeopleSummaries() {
+      return { records: [], unreadableCount: 0, totalFiles: 0 }
+    },
     loadPerson() {
       return {}
     },
@@ -394,6 +397,26 @@ test('knowledge template handlers resolve primary and legacy folder paths', asyn
   assert.throws(() => saveHandler(null, 'knowledge', { name: 'Knowledge 2' }), /No Knowledges folder selected/)
   const listResult = await listHandler(null, 'knowledge')
   assert.deepEqual(listResult, [])
+})
+
+test('list-people-summaries handler returns summaries payload', async t => {
+  const summaries = {
+    records: [{ fileName: 'alice.json', person: { name: 'Alice', isAlive: true }, canPonder: true, statsTotal: 5, traitSearchText: 'dash' }],
+    unreadableCount: 0,
+    totalFiles: 1
+  }
+  const harness = makeHarness({
+    dataService: {
+      listPeopleSummaries() {
+        return summaries
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  const handler = harness.handlers.get('list-people-summaries')
+  const result = await handler()
+  assert.deepEqual(result, summaries)
 })
 
 test('app settings handlers load and persist app settings', async t => {

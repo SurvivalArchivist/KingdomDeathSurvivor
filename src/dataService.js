@@ -389,6 +389,103 @@ function listPeople(basePath) {
     .sort((a, b) => a.localeCompare(b))
 }
 
+function summarizeTraitSearchText(person) {
+  if (!person || typeof person !== 'object') return ''
+  const traitArrays = [
+    person.abilities,
+    person.impairments,
+    person.notes,
+    person.fightingArts,
+    person.secretFightingArts,
+    person.disorders,
+    person.tenetKnowledge,
+    person.knowledge
+  ]
+  return traitArrays
+    .flatMap(entry => (Array.isArray(entry) ? entry : []))
+    .map(item => {
+      if (typeof item === 'string') return item
+      if (!item || typeof item !== 'object') return ''
+      return String(item.name || '').trim()
+    })
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
+function summarizeCanPonder(person) {
+  if (!person || typeof person !== 'object') return false
+  const philosophy = String(person.philosophy || '').trim()
+  const age = Number(person.age)
+  const threshold = Number(person.nextPhilosophyAgeThreshold)
+  return philosophy.length > 0 && Number.isFinite(age) && Number.isFinite(threshold) && age >= threshold
+}
+
+function summarizeStatsTotal(person) {
+  const fields = ['movement', 'speed', 'accuracy', 'strength', 'luck', 'evasion', 'courage', 'understanding']
+  return fields.reduce((sum, field) => sum + (Number(person?.[field]) || 0), 0)
+}
+
+function createPersonSettlementSummary(fileName, person) {
+  const proficiency =
+    person && person.weaponProficiency && typeof person.weaponProficiency === 'object'
+      ? person.weaponProficiency
+      : {}
+  return {
+    fileName,
+    person: {
+      name: String(person?.name || ''),
+      age: Number(person?.age) || 0,
+      lumi: Number(person?.lumi) || 0,
+      survivalPts: Number(person?.survivalPts) || 0,
+      insanityPts: Number(person?.insanityPts) || 0,
+      philosophy: String(person?.philosophy || ''),
+      philosophyRank: Number(person?.philosophyRank) || 0,
+      movement: Number(person?.movement) || 0,
+      speed: Number(person?.speed) || 0,
+      accuracy: Number(person?.accuracy) || 0,
+      strength: Number(person?.strength) || 0,
+      luck: Number(person?.luck) || 0,
+      evasion: Number(person?.evasion) || 0,
+      courage: Number(person?.courage) || 0,
+      understanding: Number(person?.understanding) || 0,
+      lastUpdated: typeof person?.lastUpdated === 'string' ? person.lastUpdated : '',
+      lastReturned: typeof person?.lastReturned === 'string' || person?.lastReturned === null ? person.lastReturned : '',
+      isAlive: Boolean(person?.isAlive),
+      matchmaker: Boolean(person?.matchmaker),
+      tinker: Boolean(person?.tinker),
+      weaponProficiency: {
+        type: String(proficiency.type || ''),
+        level: Number(proficiency.level) || 0
+      }
+    },
+    canPonder: summarizeCanPonder(person),
+    statsTotal: summarizeStatsTotal(person),
+    traitSearchText: summarizeTraitSearchText(person)
+  }
+}
+
+function listPeopleSummaries(basePath) {
+  const fileNames = listPeople(basePath)
+  const records = []
+  let unreadableCount = 0
+
+  for (const fileName of fileNames) {
+    try {
+      const person = loadPerson(basePath, fileName)
+      records.push(createPersonSettlementSummary(fileName, person))
+    } catch {
+      unreadableCount += 1
+    }
+  }
+
+  return {
+    records,
+    unreadableCount,
+    totalFiles: fileNames.length
+  }
+}
+
 function deletePerson(basePath, fileName) {
   if (typeof fileName !== 'string' || !fileName.endsWith('.json')) {
     throw new Error('Invalid person filename')
@@ -822,6 +919,7 @@ module.exports = {
   savePerson,
   loadPerson,
   listPeople,
+  listPeopleSummaries,
   deletePerson,
   createPersonTemplate,
   saveDefaultCreateTemplate,

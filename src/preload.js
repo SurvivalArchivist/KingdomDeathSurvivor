@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('api', {
     }
   },
   listPeople: () => ipcRenderer.invoke('list-people'),
+  listPeopleSummaries: () => ipcRenderer.invoke('list-people-summaries'),
   loadPerson: fileName => ipcRenderer.invoke('load-person', fileName),
   savePerson: (person, options) => ipcRenderer.invoke('save-person', person, options),
   deletePerson: fileName => ipcRenderer.invoke('delete-person', fileName),

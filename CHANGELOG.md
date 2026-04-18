@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-04-18
+
+### Changed
+- Reworked Settlement refresh to use batch survivor summaries instead of loading every survivor record individually for the table view.
+- Kept Create/Edit, Showdown, and other full survivor flows on full-record loads so existing save and conflict behavior remains intact.
+
+### Fixed
+- Improved behavior for cloud-synced survivor folders by skipping temporarily unreadable survivor files during Settlement refresh instead of failing the whole refresh.
+- Reduced the amount of survivor read churn required for Settlement refreshes, which should make the view more dependable in multi-machine shared-folder setups.
+
 ## [2.0.0] - 2026-04-16
 
 ### Added

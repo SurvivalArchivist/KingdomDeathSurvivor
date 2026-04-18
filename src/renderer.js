@@ -2409,9 +2409,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return current
   }
 
-  function getSettlementSortValue(person, key) {
-    if (key === 'canPonder') return canSurvivorPonder(person) ? 1 : 0
-    if (key === 'statsTotal') return getSettlementStatsTotal(person)
+  function getSettlementSortValue(record, key) {
+    const person = record?.person || {}
+    if (key === 'canPonder') return record?.canPonder ? 1 : 0
+    if (key === 'statsTotal') return coerceNumber(record?.statsTotal, getSettlementStatsTotal(person))
     if (key === 'lastUpdated' || key === 'lastReturned') return getSettlementTimestampSortValue(person[key])
     const value = getNestedValue(person, key)
     if (key === 'name' || key === 'philosophy' || key === 'weaponProficiency.type') {
@@ -2475,7 +2476,9 @@ document.addEventListener('DOMContentLoaded', () => {
     return String(item.name || '').trim()
   }
 
-  function getSettlementTraitSearchText(person) {
+  function getSettlementTraitSearchText(record) {
+    if (record && typeof record.traitSearchText === 'string') return record.traitSearchText
+    const person = record?.person
     if (!person || typeof person !== 'object') return ''
     const traitArrays = [
       person.abilities,
@@ -2501,14 +2504,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtered = settlementRecords.filter(record => {
       const person = record.person || {}
       if (nameQuery && !String(person.name || '').toLowerCase().includes(nameQuery)) return false
-      if (traitQuery && !getSettlementTraitSearchText(person).includes(traitQuery)) return false
+      if (traitQuery && !getSettlementTraitSearchText(record).includes(traitQuery)) return false
 
       for (const filter of settlementBoolFilters) {
         const expected = filter.value
         if (expected === 'all') continue
         const value =
           filter.dataset.boolFilter === 'canPonder'
-            ? canSurvivorPonder(person)
+            ? Boolean(record.canPonder)
             : Boolean(getNestedValue(person, filter.dataset.boolFilter))
         if (expected === 'yes' && value !== true) return false
         if (expected === 'no' && value !== false) return false
@@ -2534,8 +2537,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const { key, direction } = settlementSort
     filtered.sort((a, b) => {
-      const left = getSettlementSortValue(a.person || {}, key)
-      const right = getSettlementSortValue(b.person || {}, key)
+      const left = getSettlementSortValue(a, key)
+      const right = getSettlementSortValue(b, key)
       let result = 0
 
       if (typeof left === 'string' || typeof right === 'string') {
@@ -2586,7 +2589,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { value: String(coerceNumber(person.insanityPts, 0)), column: '' },
         { value: person.philosophy || '-', column: '' },
         { value: String(coerceNumber(person.philosophyRank, 0)), column: '' },
-        { value: canSurvivorPonder(person) ? 'Ready' : '-', column: '' },
+        { value: record.canPonder ? 'Ready' : '-', column: '' },
         { value: String(coerceNumber(person.movement, 0)), column: 'movement' },
         { value: String(coerceNumber(person.speed, 0)), column: '' },
         { value: String(coerceNumber(person.accuracy, 0)), column: '' },
@@ -2599,7 +2602,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { value: String(normalizeProficiencyLevel(proficiency.level, 0)), column: 'profRank' },
         { value: formatSettlementTimestamp(person.lastUpdated), column: 'lastUpdated' },
         { value: formatSettlementTimestamp(person.lastReturned), column: 'lastReturned' },
-        { value: String(getSettlementStatsTotal(person)), column: 'statsTotal' }
+        { value: String(coerceNumber(record.statsTotal, getSettlementStatsTotal(person))), column: 'statsTotal' }
       ]
 
       const row = document.createElement('tr')
@@ -2719,23 +2722,15 @@ document.addEventListener('DOMContentLoaded', () => {
     )
   }
 
-  async function refreshSettlementData(files) {
-    if (!hasDataFolder || files.length === 0) {
+  async function refreshSettlementData(summaryPayload) {
+    const records = Array.isArray(summaryPayload?.records) ? summaryPayload.records : []
+    if (!hasDataFolder || records.length === 0) {
       settlementRecords = []
+      populateShowdownSelectors([])
+      applyShowdownLockSelections()
       renderSettlementTable()
       return
     }
-
-    const records = await Promise.all(
-      files.map(async fileName => {
-        try {
-          const person = await window.api.loadPerson(fileName)
-          return { fileName, person }
-        } catch {
-          return null
-        }
-      })
-    )
 
     settlementRecords = records.filter(Boolean)
     populateShowdownSelectors(getAliveShowdownFiles())
@@ -4579,11 +4574,21 @@ document.addEventListener('DOMContentLoaded', () => {
   async function refreshPeople(options = {}) {
     const silentStatus = Boolean(options.silentStatus)
     const updateRefreshTimestamp = options.updateRefreshTimestamp !== false
-    const files = await window.api.listPeople()
+    const [files, summaryPayload] = await Promise.all([
+      window.api.listPeople(),
+      window.api.listPeopleSummaries()
+    ])
     populatePeople(files)
-    await refreshSettlementData(files)
+    await refreshSettlementData(summaryPayload)
     if (updateRefreshTimestamp) updateSettlementLastRefreshed(new Date())
-    if (!silentStatus) setStatus(`Loaded ${files.length} people`, 'success')
+    const unreadableCount = coerceInt(summaryPayload?.unreadableCount, 0)
+    if (!silentStatus) {
+      if (unreadableCount > 0) {
+        setStatus(`Loaded ${files.length} people (${unreadableCount} skipped during settlement refresh)`, 'neutral')
+      } else {
+        setStatus(`Loaded ${files.length} people`, 'success')
+      }
+    }
   }
 
   async function refreshMarkdownFiles() {

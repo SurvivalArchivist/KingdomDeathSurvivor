@@ -424,6 +424,60 @@ function setupRendererHarness() {
       calls.push({ name: 'listPeople', args: [] })
       return Object.keys(db).sort((a, b) => a.localeCompare(b))
     },
+    async listPeopleSummaries() {
+      calls.push({ name: 'listPeopleSummaries', args: [] })
+      return {
+        records: Object.keys(db)
+          .sort((a, b) => a.localeCompare(b))
+          .map(fileName => {
+            const person = db[fileName]
+            return {
+              fileName,
+              person: {
+                name: person.name,
+                age: person.age,
+                lumi: person.lumi,
+                survivalPts: person.survivalPts,
+                insanityPts: person.insanityPts,
+                philosophy: person.philosophy,
+                philosophyRank: person.philosophyRank,
+                movement: person.movement,
+                speed: person.speed,
+                accuracy: person.accuracy,
+                strength: person.strength,
+                luck: person.luck,
+                evasion: person.evasion,
+                courage: person.courage,
+                understanding: person.understanding,
+                lastUpdated: person.lastUpdated,
+                lastReturned: person.lastReturned,
+                isAlive: person.isAlive,
+                matchmaker: person.matchmaker,
+                tinker: person.tinker,
+                weaponProficiency: {
+                  type: person.weaponProficiency?.type || '',
+                  level: person.weaponProficiency?.level || 0
+                }
+              },
+              canPonder:
+                String(person.philosophy || '').trim().length > 0 &&
+                Number(person.age) >= Number(person.nextPhilosophyAgeThreshold),
+              statsTotal:
+                Number(person.movement || 0) +
+                Number(person.speed || 0) +
+                Number(person.accuracy || 0) +
+                Number(person.strength || 0) +
+                Number(person.luck || 0) +
+                Number(person.evasion || 0) +
+                Number(person.courage || 0) +
+                Number(person.understanding || 0),
+              traitSearchText: ''
+            }
+          }),
+        unreadableCount: 0,
+        totalFiles: Object.keys(db).length
+      }
+    },
     async loadPerson(fileName) {
       calls.push({ name: 'loadPerson', args: [fileName] })
       if (!db[fileName]) throw new Error('Person not found')
