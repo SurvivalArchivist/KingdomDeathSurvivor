@@ -12,12 +12,17 @@ This document captures high-leverage follow-up work identified after reviewing t
 - Settlement name/trait search is now debounced, which removes the most obvious interactive rerender churn while typing.
 - Showdown end-save handling is now hardened against partial-save outcomes and keeps the departed session recoverable when only one survivor save succeeds.
 - Create/Edit/default-template flows now prompt before reset/back/navigation when the current form has unsaved changes, and the create action rail shows a lightweight unsaved indicator while the form is dirty.
+- Renderer workflow coverage now includes rename-without-duplicate handling, departed slot-lock behavior, and template-driven knowledge upgrades in both Create and Showdown.
+- Settlement workflow coverage now exercises newer/derived column sorting, combined filter behavior, row-button showdown assignment swapping, and settlement-to-showdown resume behavior.
+- Knowledge template and upgrade helper logic now has a browser-safe module boundary, loaded ahead of `renderer.js` from `index.html` without changing Electron security settings or adding a bundler.
+- Settlement filtering, sorting, and derived-value helpers now also live behind a browser-safe helper boundary, reducing renderer responsibility without moving settlement event wiring yet.
+- Settlement table rendering and settlement-specific event wiring now also live behind the settlement helper boundary, leaving the renderer responsible mainly for state ownership and cross-surface callbacks.
 - Further settlement optimization should now be driven by profiling and real survivor counts rather than assumed hot spots.
 - The largest structural pressure point remains renderer complexity.
 
 ## Recommended Order
-1. Split renderer responsibilities into smaller modules.
-2. Expand renderer workflow coverage with targeted tests.
+1. Expand remaining renderer workflow coverage where gaps still block refactor confidence.
+2. Continue extracting focused renderer seams incrementally using browser-safe helper files or other renderer-compatible patterns.
 3. Revisit deeper settlement filtering/render optimization only if profiling still shows pressure.
 4. Revisit secondary markdown and bulk-update ergonomics only if they become a clearer bottleneck.
 
@@ -61,6 +66,34 @@ Relevant shipped work:
 - Dirty-state snapshot and discard confirmation flow in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:672)
 - Create-view discard coverage in [test/renderer.smoke.test.js](/Users/mikehodges/Documents/Kingdom Death Survivors/test/renderer.smoke.test.js:736)
 
+## Recently Completed: Renderer Workflow Coverage Expansion
+Status:
+- Completed on 2026-04-19.
+- Renderer smoke coverage now exercises rename-without-duplicate behavior, departed slot locking, template-driven knowledge upgrades in both Create and Showdown, and key settlement sort/filter/assignment workflows.
+
+Relevant shipped work:
+- Added workflow smoke coverage in `test/renderer.smoke.test.js`
+
+## Recently Completed: Knowledge Template Helper Extraction
+Status:
+- Completed on 2026-04-19.
+- Reusable knowledge template and upgrade helper logic now lives in a browser-safe helper file loaded before `renderer.js`, preserving the live Electron boot path while creating a focused first renderer seam.
+
+Relevant shipped work:
+- Extracted helpers into `src/rendererKnowledgeTemplateHelpers.js`
+- Loaded helper before renderer in `ui/components/index.html`
+- Updated renderer smoke harness to mirror the browser load order in `test/renderer.smoke.test.js`
+
+## Recently Completed: Settlement Helper Extraction
+Status:
+- Completed on 2026-04-19.
+- Settlement filtering, sorting, timestamp ranking, derived totals, table rendering, and settlement-specific event wiring now live in a browser-safe helper file loaded before `renderer.js`.
+
+Relevant shipped work:
+- Extracted helpers into `src/rendererSettlementHelpers.js`
+- Loaded helper before renderer in `ui/components/index.html`
+- Updated renderer smoke harness to mirror the browser load order in `test/renderer.smoke.test.js`
+
 ## Priority 1: Renderer Decomposition
 Why it matters:
 - `src/renderer.js` is the biggest maintainability risk in the repo.
@@ -72,10 +105,9 @@ Current pressure points:
 Recommended change:
 - Split renderer code by responsibility rather than by micro-helper count.
 - Good first seams:
-- settlement state/render/events
 - showdown state/render/events
 - create/default-template state/render/events
-- markdown and knowledge-template modal flows
+- knowledge-template modal state/render glue building on the extracted browser-safe helper file
 - shared utilities and formatting helpers
 
 Expected benefit:
@@ -91,10 +123,9 @@ Current pressure points:
 - Renderer smoke suite in [test/renderer.smoke.test.js](/Users/mikehodges/Documents/Kingdom Death Survivors/test/renderer.smoke.test.js:1)
 
 Recommended next tests:
-- Departed showdown locks settlement slot reassignment.
-- Settlement filter and sort behavior for the newer columns and derived values.
-- Knowledge upgrade flows in Create and Showdown.
-- Regression test for "rename existing survivor does not duplicate" if not already covered at the desired level.
+- View-transition and resume behavior across Settlement/Create/Showdown.
+- Bulk update completion detail and any future per-survivor failure surfacing.
+- Settlement column-visibility toggles if that surface gets refactored.
 
 Expected benefit:
 - Safer refactors.

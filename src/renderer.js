@@ -3,6 +3,30 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('API bridge not available')
     return
   }
+  const knowledgeTemplateHelpers = window.KDMKnowledgeTemplateHelpers
+  const settlementHelpers = window.KDMSettlementHelpers
+  if (!knowledgeTemplateHelpers) {
+    console.error('Knowledge template helpers not available')
+    return
+  }
+  if (!settlementHelpers) {
+    console.error('Settlement helpers not available')
+    return
+  }
+  const {
+    buildBlankKnowledgeEntry,
+    buildUpgradedScratchKnowledge,
+    canUpgradeKnowledgeEntry,
+    getKnowledgeEntryTypeFromRowType,
+    getKnowledgeTemplateLabel,
+    getKnowledgeTypeFromArrayName,
+    normalizeKnowledgeTemplateForEntry
+  } = knowledgeTemplateHelpers
+  const {
+    createSettlementViewController,
+    getSettlementStatsTotal,
+    getSettlementTimestampSortValue
+  } = settlementHelpers
 
   const dataSourcesView = document.getElementById('dataSourcesView')
   const navDataSourcesButton = document.getElementById('navDataSources')
@@ -459,8 +483,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let settlementAutoRefreshIntervalSeconds = 20
   let settlementFastMode = false
   let settlementLastRefreshedAt = null
-  let settlementSearchRenderTimer = null
   let settlementExtraFiltersOpen = false
+  let settlementViewController = null
   let pendingSettlementEntryRefresh = false
   let appSettings = {
     userName: '',
@@ -1503,87 +1527,10 @@ document.addEventListener('DOMContentLoaded', () => {
     knowledgeTemplateModal.setAttribute('aria-hidden', 'false')
   }
 
-  function getKnowledgeTypeFromArrayName(arrayName) {
-    if (arrayName === 'tenetKnowledge') return 'tenetKnowledge'
-    if (arrayName === 'knowledge') return 'knowledge'
-    return null
-  }
-
-  function buildBlankKnowledgeEntry(type) {
-    if (type === 'tenetKnowledge') {
-      return {
-        name: '',
-        observation: '',
-        rules: '',
-        observationRequirement: 0,
-        currentObservations: 0,
-        knowledgeLevel: 1,
-        nextKnowledgeMode: 'noTemplate',
-        nextKnowledgeTemplate: ''
-      }
-    }
-    return {
-      name: '',
-      observation: '',
-      rules: '',
-      observationRequirement: 0,
-      currentObservations: 0,
-      knowledgeLevel: 1,
-      nextKnowledgeMode: 'noTemplate',
-      nextKnowledgeTemplate: ''
-    }
-  }
-
-  function normalizeKnowledgeTemplateForEntry(type, template) {
-    const base = buildBlankKnowledgeEntry(type)
-    base.name = String(template?.name || '').trim()
-    base.observation = String(template?.observation || '').trim()
-    base.rules = String(template?.rules || '').trim()
-    base.observationRequirement = Math.max(0, coerceNumber(template?.observationRequirement, 0))
-    base.knowledgeLevel = Math.max(1, coerceNumber(template?.knowledgeLevel, 1))
-    const mode = String(template?.nextKnowledgeMode || 'noTemplate')
-    base.nextKnowledgeMode =
-      mode === 'existingTemplate' || mode === 'maxLevel' || mode === 'noTemplate' ? mode : 'noTemplate'
-    base.nextKnowledgeTemplate =
-      base.nextKnowledgeMode === 'existingTemplate' ? String(template?.nextKnowledgeTemplate || '').trim() : ''
-    base.currentObservations = 0
-    return base
-  }
-
   function getNextKnowledgeModeLabel(mode) {
     if (mode === 'existingTemplate') return 'Existing Template'
     if (mode === 'maxLevel') return 'MAX LEVEL'
     return 'No Template'
-  }
-
-  function getTemplateLevel(template) {
-    return Math.max(1, coerceNumber(template?.template?.knowledgeLevel, template?.knowledgeLevel, 1))
-  }
-
-  function getKnowledgeTemplateLabel(entryType, template) {
-    const name = String(template?.name || '').trim() || 'Unnamed Template'
-    return `${name} (L${getTemplateLevel(template)})`
-  }
-
-  function resolveKnowledgeTemplateSelection(templates, fileName, sourceItem = null) {
-    if (!Array.isArray(templates) || templates.length === 0) return null
-    const reference = String(fileName || '').trim()
-    if (reference) {
-      const exact = templates.find(template => template.fileName === reference)
-      if (exact) return exact
-    }
-    const sourceName = String(sourceItem?.name || '').trim().toLowerCase()
-    const nextLevel = Math.max(1, coerceNumber(sourceItem?.knowledgeLevel, 1) + 1)
-    if (sourceName) {
-      const byNameAndLevel = templates.find(template => {
-        const templateName = String(template?.name || '').trim().toLowerCase()
-        return templateName === sourceName && getTemplateLevel(template) === nextLevel
-      })
-      if (byNameAndLevel) return byNameAndLevel
-      const byName = templates.find(template => String(template?.name || '').trim().toLowerCase() === sourceName)
-      if (byName) return byName
-    }
-    return null
   }
 
   async function refreshKnowledgeTemplateCache(type = null) {
@@ -1595,10 +1542,6 @@ document.addEventListener('DOMContentLoaded', () => {
         knowledgeTemplateCache[entryType] = []
       }
     }
-  }
-
-  function getKnowledgeEntryTypeFromRowType(type) {
-    return type === 'tenet' ? 'tenetKnowledge' : 'knowledge'
   }
 
   function resetShowdownModifiers() {
@@ -2088,14 +2031,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return true
   }
 
-  function buildUpgradedScratchKnowledge(type, sourceItem) {
-    const next = buildBlankKnowledgeEntry(type)
-    const currentLevel = Math.max(1, coerceNumber(sourceItem?.knowledgeLevel, 1))
-    next.knowledgeLevel = currentLevel + 1
-    next.name = String(sourceItem?.name || '').trim() || `Knowledge L${next.knowledgeLevel}`
-    return next
-  }
-
   function renderKnowledgeEntryNextTemplateOptions() {
     const entryType = getKnowledgeTypeFromArrayName(knowledgeTemplatePickerState.type)
     const templates = Array.isArray(knowledgeTemplatePickerState.templates) ? knowledgeTemplatePickerState.templates : []
@@ -2211,13 +2146,6 @@ document.addEventListener('DOMContentLoaded', () => {
       knowledgeEntryName.focus()
       knowledgeEntryName.select()
     })
-  }
-
-  function canUpgradeKnowledgeEntry(sourceItem) {
-    const req = Math.max(0, coerceNumber(sourceItem?.observationRequirement, 0))
-    const current = Math.max(0, coerceNumber(sourceItem?.currentObservations, coerceNumber(sourceItem?.observations, 0)))
-    const nextMode = String(sourceItem?.nextKnowledgeMode || 'noTemplate')
-    return current >= req && nextMode !== 'maxLevel'
   }
 
   async function applyKnowledgeTemplateSelection(useTemplate) {
@@ -2528,268 +2456,18 @@ document.addEventListener('DOMContentLoaded', () => {
     setPage('create')
   }
 
-  function getNestedValue(target, path) {
-    const keys = String(path || '').split('.').filter(Boolean)
-    let current = target
-    for (const key of keys) {
-      if (!current || typeof current !== 'object') return undefined
-      current = current[key]
-    }
-    return current
-  }
-
-  function getSettlementSortValue(record, key) {
-    const person = record?.person || {}
-    if (key === 'canPonder') return record?.canPonder ? 1 : 0
-    if (key === 'statsTotal') return coerceNumber(record?.statsTotal, getSettlementStatsTotal(person))
-    if (key === 'lastUpdated' || key === 'lastReturned') return getSettlementTimestampSortValue(person[key])
-    const value = getNestedValue(person, key)
-    if (key === 'name' || key === 'philosophy' || key === 'weaponProficiency.type') {
-      return String(value || '')
-    }
-    return coerceNumber(value, 0)
-  }
-
-  function getSettlementTimestampSortValue(value) {
-    if (typeof value !== 'string' || value.trim() === '') return Number.NEGATIVE_INFINITY
-    const parsed = Date.parse(value)
-    return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
-  }
-
   function formatSettlementTimestamp(value) {
     const timestamp = getSettlementTimestampSortValue(value)
     if (!Number.isFinite(timestamp)) return '-'
     return new Date(timestamp).toLocaleString(appSettings.dateFormat)
   }
 
-  function getSettlementStatsTotal(person) {
-    return SETTLEMENT_STATS_TOTAL_FIELDS.reduce((sum, field) => sum + coerceNumber(person?.[field], 0), 0)
-  }
-
-  function renderSettlementSortHeaders() {
-    for (const button of settlementSortButtons) {
-      const key = button.dataset.sortKey
-      const base = button.dataset.baseLabel || button.textContent.replace(/\s*[↑↓]$/, '')
-      button.dataset.baseLabel = base
-      if (key === settlementSort.key) {
-        button.textContent = `${base} ${settlementSort.direction === 'asc' ? '↑' : '↓'}`
-      } else {
-        button.textContent = base
-      }
-    }
-  }
-
-  function getHiddenSettlementColumns() {
-    const hidden = new Set()
-    if (!settlementToggleMovement.checked) hidden.add('movement')
-    if (!settlementToggleWeaponProficiency.checked) {
-      hidden.add('weaponProficiency')
-      hidden.add('profRank')
-    }
-    if (!settlementToggleLastUpdated.checked) hidden.add('lastUpdated')
-    if (!settlementToggleLastReturned.checked) hidden.add('lastReturned')
-    if (!settlementToggleStatsTotal.checked) hidden.add('statsTotal')
-    return hidden
-  }
-
-  function applySettlementColumnVisibility(hiddenColumns) {
-    for (const headerCell of document.querySelectorAll('.settlement-table thead th[data-settlement-col]')) {
-      const column = headerCell.dataset.settlementCol
-      headerCell.classList.toggle('settlement-col-hidden', Boolean(column && hiddenColumns.has(column)))
-    }
-  }
-
-  function getSearchableArrayEntryName(item) {
-    if (typeof item === 'string') return item
-    if (!item || typeof item !== 'object') return ''
-    return String(item.name || '').trim()
-  }
-
-  function getSettlementTraitSearchText(record) {
-    if (record && typeof record.traitSearchText === 'string') return record.traitSearchText
-    const person = record?.person
-    if (!person || typeof person !== 'object') return ''
-    const traitArrays = [
-      person.abilities,
-      person.impairments,
-      person.notes,
-      person.fightingArts,
-      person.secretFightingArts,
-      person.disorders,
-      person.tenetKnowledge,
-      person.knowledge
-    ]
-    return traitArrays
-      .flatMap(entry => (Array.isArray(entry) ? entry : []))
-      .map(getSearchableArrayEntryName)
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-  }
-
   function scheduleSettlementSearchRender() {
-    if (settlementSearchRenderTimer) window.clearTimeout(settlementSearchRenderTimer)
-    settlementSearchRenderTimer = window.setTimeout(() => {
-      settlementSearchRenderTimer = null
-      renderSettlementTable()
-    }, 150)
-  }
-
-  function getFilteredAndSortedSettlementRows() {
-    const nameQuery = settlementNameSearch.value.trim().toLowerCase()
-    const traitQuery = settlementTraitSearch.value.trim().toLowerCase()
-    const filtered = settlementRecords.filter(record => {
-      const person = record.person || {}
-      if (nameQuery && !String(person.name || '').toLowerCase().includes(nameQuery)) return false
-      if (traitQuery && !getSettlementTraitSearchText(record).includes(traitQuery)) return false
-
-      for (const filter of settlementBoolFilters) {
-        const expected = filter.value
-        if (expected === 'all') continue
-        const value =
-          filter.dataset.boolFilter === 'canPonder'
-            ? Boolean(record.canPonder)
-            : Boolean(getNestedValue(person, filter.dataset.boolFilter))
-        if (expected === 'yes' && value !== true) return false
-        if (expected === 'no' && value !== false) return false
-      }
-
-      for (const filter of settlementTriadFilters) {
-        const expected = String(filter.value || 'any')
-        if (expected === 'any') continue
-        const group = filter.dataset.triadFilter
-        if (group === 'courageGroup') {
-          const current = getSelectedMatchmakerGroup(person)
-          if (expected !== current) return false
-          continue
-        }
-        if (group === 'understandingGroup') {
-          const current = getSelectedTinkerGroup(person)
-          if (expected !== current) return false
-        }
-      }
-
-      return true
-    })
-
-    const { key, direction } = settlementSort
-    filtered.sort((a, b) => {
-      const left = getSettlementSortValue(a, key)
-      const right = getSettlementSortValue(b, key)
-      let result = 0
-
-      if (typeof left === 'string' || typeof right === 'string') {
-        result = String(left).localeCompare(String(right))
-      } else {
-        result = left - right
-      }
-
-      return direction === 'asc' ? result : -result
-    })
-
-    return filtered
+    if (settlementViewController) settlementViewController.scheduleSettlementSearchRender()
   }
 
   function renderSettlementTable() {
-    if (settlementSearchRenderTimer) {
-      window.clearTimeout(settlementSearchRenderTimer)
-      settlementSearchRenderTimer = null
-    }
-    renderSettlementSortHeaders()
-    const hiddenColumns = getHiddenSettlementColumns()
-    applySettlementColumnVisibility(hiddenColumns)
-    settlementTableBody.innerHTML = ''
-    const aliveCount = settlementRecords.filter(record => Boolean(record?.person?.isAlive)).length
-    settlementAliveCount.textContent = `(Alive: ${aliveCount})`
-
-    const rows = getFilteredAndSortedSettlementRows()
-    settlementCount.textContent = `${rows.length} of ${settlementRecords.length} survivors shown`
-
-    if (rows.length === 0) {
-      const row = document.createElement('tr')
-      const cell = document.createElement('td')
-      const visibleHeaderCount = document.querySelectorAll('.settlement-table thead th:not(.settlement-col-hidden)').length
-      cell.colSpan = Math.max(1, visibleHeaderCount)
-      cell.textContent = 'No survivors match the current filters.'
-      row.appendChild(cell)
-      settlementTableBody.appendChild(row)
-      return
-    }
-
-    for (const record of rows) {
-      const person = record.person || {}
-      const proficiency =
-        person.weaponProficiency && typeof person.weaponProficiency === 'object'
-          ? person.weaponProficiency
-          : { type: '', level: 0 }
-      const values = [
-        { value: person.name || '-', column: '' },
-        { value: String(coerceNumber(person.age, 0)), column: '' },
-        { value: String(coerceNumber(person.lumi, 0)), column: '' },
-        { value: String(coerceNumber(person.survivalPts, 0)), column: '' },
-        { value: String(coerceNumber(person.insanityPts, 0)), column: '' },
-        { value: person.philosophy || '-', column: '' },
-        { value: String(coerceNumber(person.philosophyRank, 0)), column: '' },
-        { value: record.canPonder ? 'Ready' : '-', column: '' },
-        { value: String(coerceNumber(person.movement, 0)), column: 'movement' },
-        { value: String(coerceNumber(person.speed, 0)), column: '' },
-        { value: String(coerceNumber(person.accuracy, 0)), column: '' },
-        { value: String(coerceNumber(person.strength, 0)), column: '' },
-        { value: String(coerceNumber(person.luck, 0)), column: '' },
-        { value: String(coerceNumber(person.evasion, 0)), column: '' },
-        { value: String(coerceNumber(person.courage, 0)), column: '' },
-        { value: String(coerceNumber(person.understanding, 0)), column: '' },
-        { value: String(proficiency.type || '-'), column: 'weaponProficiency' },
-        { value: String(normalizeProficiencyLevel(proficiency.level, 0)), column: 'profRank' },
-        { value: formatSettlementTimestamp(person.lastUpdated), column: 'lastUpdated' },
-        { value: formatSettlementTimestamp(person.lastReturned), column: 'lastReturned' },
-        { value: String(coerceNumber(record.statsTotal, getSettlementStatsTotal(person))), column: 'statsTotal' }
-      ]
-
-      const row = document.createElement('tr')
-      row.dataset.fileName = record.fileName
-      for (const entry of values) {
-        const cell = document.createElement('td')
-        if (entry.column) {
-          cell.dataset.settlementCol = entry.column
-          cell.classList.toggle('settlement-col-hidden', hiddenColumns.has(entry.column))
-        }
-        cell.textContent = entry.value
-        row.appendChild(cell)
-      }
-
-      const actionsCell = document.createElement('td')
-      const slotOneButton = document.createElement('button')
-      slotOneButton.type = 'button'
-      slotOneButton.className = 'btn btn-secondary settlement-slot-btn'
-      slotOneButton.textContent = '1'
-      slotOneButton.dataset.setShowdownSlot = 'A'
-      slotOneButton.dataset.fileName = record.fileName
-      const personAlive = Boolean(person.isAlive)
-      slotOneButton.disabled = showdownDeparted || !personAlive
-      if (showdownDeparted) slotOneButton.title = 'Locked while showdown is departed'
-      else if (!personAlive) slotOneButton.title = 'Dead survivors cannot enter showdown'
-      if (showdownSelectA.value === record.fileName) {
-        slotOneButton.classList.add('is-active')
-      }
-
-      const slotTwoButton = document.createElement('button')
-      slotTwoButton.type = 'button'
-      slotTwoButton.className = 'btn btn-secondary settlement-slot-btn'
-      slotTwoButton.textContent = '2'
-      slotTwoButton.dataset.setShowdownSlot = 'B'
-      slotTwoButton.dataset.fileName = record.fileName
-      slotTwoButton.disabled = showdownDeparted || !personAlive
-      if (showdownDeparted) slotTwoButton.title = 'Locked while showdown is departed'
-      else if (!personAlive) slotTwoButton.title = 'Dead survivors cannot enter showdown'
-      if (showdownSelectB.value === record.fileName) {
-        slotTwoButton.classList.add('is-active')
-      }
-
-      actionsCell.append(slotOneButton, slotTwoButton)
-      row.appendChild(actionsCell)
-      settlementTableBody.appendChild(row)
-    }
+    if (settlementViewController) settlementViewController.renderSettlementTable()
   }
 
   async function applySettlementBulkChange() {
@@ -5122,13 +4800,119 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   markdownSearch.addEventListener('input', renderMarkdownList)
-  settlementNameSearch.addEventListener('input', scheduleSettlementSearchRender)
-  settlementTraitSearch.addEventListener('input', scheduleSettlementSearchRender)
-  settlementToggleMovement.addEventListener('change', renderSettlementTable)
-  settlementToggleWeaponProficiency.addEventListener('change', renderSettlementTable)
-  settlementToggleLastUpdated.addEventListener('change', renderSettlementTable)
-  settlementToggleLastReturned.addEventListener('change', renderSettlementTable)
-  settlementToggleStatsTotal.addEventListener('change', renderSettlementTable)
+  settlementViewController = createSettlementViewController({
+    documentRef: document,
+    windowRef: window,
+    elements: {
+      settlementNameSearch,
+      settlementTraitSearch,
+      settlementToggleMovement,
+      settlementToggleWeaponProficiency,
+      settlementToggleLastUpdated,
+      settlementToggleLastReturned,
+      settlementToggleStatsTotal,
+      settlementTableBody,
+      settlementAliveCount,
+      settlementCount,
+      settlementBoolFilters,
+      settlementTriadFilters,
+      settlementSortButtons,
+      settlementToggleExtraFiltersButton,
+      settlementClearFiltersButton,
+      settlementAddBulkChangeButton,
+      settlementBulkRows,
+      settlementApplyBulkButton
+    },
+    getState: () => ({
+      settlementRecords,
+      settlementSort,
+      showdownDeparted,
+      showdownSelectAValue: showdownSelectA.value,
+      showdownSelectBValue: showdownSelectB.value,
+      statsFields: SETTLEMENT_STATS_TOTAL_FIELDS
+    }),
+    callbacks: {
+      openSurvivor(fileName) {
+        runBusy(() => openSurvivorInCreateView(fileName)).catch(err => {
+          setStatus(err.message || 'Failed to open survivor view', 'error')
+        })
+      },
+      assignShowdownSlot(slot, fileName) {
+        if (showdownDeparted) {
+          setStatus('Cannot change showdown slots while departed. End showdown first.', 'error')
+          return
+        }
+        const selectedRecord = settlementRecords.find(record => record.fileName === fileName)
+        if (selectedRecord && !selectedRecord.person?.isAlive) {
+          setStatus('Dead survivors cannot enter showdown', 'error')
+          return
+        }
+
+        const currentA = showdownSelectA.value
+        const currentB = showdownSelectB.value
+
+        if (slot === 'A') {
+          const shouldSwap = fileName === currentB && currentA && currentA !== fileName
+          showdownSelectA.value = fileName
+          if (shouldSwap) {
+            showdownSelectB.value = currentA
+          } else {
+            ensureDistinctShowdownSelection('A')
+          }
+        } else {
+          const shouldSwap = fileName === currentA && currentB && currentB !== fileName
+          showdownSelectB.value = fileName
+          if (shouldSwap) {
+            showdownSelectA.value = currentB
+          } else {
+            ensureDistinctShowdownSelection('B')
+          }
+        }
+        if (forceShowdownReselection) forceShowdownReselection = false
+        reconcileShowdownMemoryForSelectionChange()
+        syncControlState()
+        renderSettlementTable()
+        setStatus(`Assigned ${fileName} to Survivor ${slot}`, 'success')
+      },
+      toggleExtraFilters() {
+        settlementExtraFiltersOpen = !settlementExtraFiltersOpen
+        syncSettlementExtraFilters()
+      },
+      addBulkChange() {
+        collectSettlementBulkChangesFromDom()
+        settlementBulkChanges.push(createBulkEditChange())
+        renderSettlementBulkRows()
+        syncControlState()
+      },
+      removeBulkChange(index) {
+        collectSettlementBulkChangesFromDom()
+        if (settlementBulkChanges.length <= 1) return
+        settlementBulkChanges.splice(index, 1)
+        renderSettlementBulkRows()
+        syncControlState()
+      },
+      bulkRowsChanged() {
+        collectSettlementBulkChangesFromDom()
+        syncControlState()
+      },
+      applyBulkChange() {
+        runBusy(applySettlementBulkChange).catch(err => {
+          setStatus(err.message || 'Failed to apply bulk update', 'error')
+        })
+      },
+      setSort(nextSort) {
+        settlementSort = nextSort
+      }
+    },
+    helpers: {
+      coerceNumber,
+      formatSettlementTimestamp,
+      getMatchmakerGroup: getSelectedMatchmakerGroup,
+      getTinkerGroup: getSelectedTinkerGroup,
+      normalizeProficiencyLevel
+    }
+  })
+  settlementViewController.bindEvents()
   settingsUserName.addEventListener('change', () => {
     runBusy(persistAppSettingsFromUi).catch(err => {
       setStatus(err.message || 'Failed to save app settings', 'error')
@@ -5171,121 +4955,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('blur', () => {
     syncSettlementAutoRefresh()
   })
-  settlementTableBody.addEventListener('click', event => {
-    const rawTarget = event.target
-    if (!(rawTarget instanceof HTMLElement)) return
-    const target = rawTarget.closest('button[data-set-showdown-slot]')
-    if (!(target instanceof HTMLElement)) {
-      const row = rawTarget.closest('tr[data-file-name]')
-      if (!(row instanceof HTMLElement)) return
-      const fileName = row.dataset.fileName
-      if (!fileName) return
-      runBusy(() => openSurvivorInCreateView(fileName)).catch(err => {
-        setStatus(err.message || 'Failed to open survivor view', 'error')
-      })
-      return
-    }
-
-    const slot = target.dataset.setShowdownSlot
-    const fileName = target.dataset.fileName
-    if (!slot || !fileName) return
-    if (showdownDeparted) {
-      setStatus('Cannot change showdown slots while departed. End showdown first.', 'error')
-      return
-    }
-    const selectedRecord = settlementRecords.find(record => record.fileName === fileName)
-    if (selectedRecord && !selectedRecord.person?.isAlive) {
-      setStatus('Dead survivors cannot enter showdown', 'error')
-      return
-    }
-
-    const currentA = showdownSelectA.value
-    const currentB = showdownSelectB.value
-
-    if (slot === 'A') {
-      const shouldSwap = fileName === currentB && currentA && currentA !== fileName
-      showdownSelectA.value = fileName
-      if (shouldSwap) {
-        showdownSelectB.value = currentA
-      } else {
-        ensureDistinctShowdownSelection('A')
-      }
-    } else {
-      const shouldSwap = fileName === currentA && currentB && currentB !== fileName
-      showdownSelectB.value = fileName
-      if (shouldSwap) {
-        showdownSelectA.value = currentB
-      } else {
-        ensureDistinctShowdownSelection('B')
-      }
-    }
-    if (forceShowdownReselection) forceShowdownReselection = false
-    reconcileShowdownMemoryForSelectionChange()
-    syncControlState()
-    renderSettlementTable()
-    setStatus(`Assigned ${fileName} to Survivor ${slot}`, 'success')
-  })
-  settlementClearFiltersButton.addEventListener('click', () => {
-    settlementNameSearch.value = ''
-    settlementTraitSearch.value = ''
-    for (const filter of settlementBoolFilters) {
-      filter.value = filter.dataset.boolFilter === 'isAlive' ? 'yes' : 'all'
-    }
-    for (const filter of settlementTriadFilters) {
-      filter.value = 'any'
-    }
-    renderSettlementTable()
-  })
-  settlementToggleExtraFiltersButton.addEventListener('click', () => {
-    settlementExtraFiltersOpen = !settlementExtraFiltersOpen
-    syncSettlementExtraFilters()
-  })
-  settlementAddBulkChangeButton.addEventListener('click', () => {
-    collectSettlementBulkChangesFromDom()
-    settlementBulkChanges.push(createBulkEditChange())
-    renderSettlementBulkRows()
-    syncControlState()
-  })
-  settlementBulkRows.addEventListener('click', event => {
-    const target = event.target
-    if (!(target instanceof HTMLElement)) return
-    const removeButton = target.closest('button[data-remove-bulk-change]')
-    if (!(removeButton instanceof HTMLButtonElement)) return
-    const index = Number(removeButton.dataset.removeBulkChange)
-    if (Number.isNaN(index)) return
-    collectSettlementBulkChangesFromDom()
-    if (settlementBulkChanges.length <= 1) return
-    settlementBulkChanges.splice(index, 1)
-    renderSettlementBulkRows()
-    syncControlState()
-  })
-  settlementBulkRows.addEventListener('change', () => {
-    collectSettlementBulkChangesFromDom()
-    syncControlState()
-  })
-  settlementApplyBulkButton.addEventListener('click', () => {
-    runBusy(applySettlementBulkChange).catch(err => {
-      setStatus(err.message || 'Failed to apply bulk update', 'error')
-    })
-  })
-  for (const filter of settlementBoolFilters) {
-    filter.addEventListener('change', renderSettlementTable)
-  }
-  for (const filter of settlementTriadFilters) {
-    filter.addEventListener('change', renderSettlementTable)
-  }
-  for (const button of settlementSortButtons) {
-    button.addEventListener('click', () => {
-      const key = button.dataset.sortKey
-      if (!key) return
-      if (settlementSort.key === key) {
-        settlementSort.direction = settlementSort.direction === 'asc' ? 'desc' : 'asc'
-      } else {
-        settlementSort = { key, direction: 'desc' }
-      }
-      renderSettlementTable()
-    })
-  }
   showdownSelectA.addEventListener('change', () => {
     if (showdownDeparted) {
       applyShowdownLockSelections()

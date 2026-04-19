@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-04-19
+
+### Added
+- Expanded renderer smoke coverage around rename/edit, departed Showdown slot locking, knowledge upgrades, settlement sorting/filtering, showdown assignment swapping, and settlement-to-showdown resume behavior.
+
+### Changed
+- Extracted browser-safe renderer helper seams for knowledge-template flows and settlement filtering/rendering/event wiring so the next renderer cleanup pass can move more safely.
+- Refreshed the packaged application icons for macOS, Windows, and Linux with a rounded-corner treatment for a more modern platform fit.
+
 ## [2.2.0] - 2026-04-19
 
 ### Added

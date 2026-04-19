@@ -1,19 +1,17 @@
-## KDM Survivors Console 2.2.0
+## KDM Survivors Console 2.2.1
 
-This minor release focuses on safer editing and safer session completion. It reduces accidental data loss while editing survivors, smooths Settlement filtering, and hardens Showdown save completion so partial-save failures are much clearer and easier to recover from.
+This patch release focuses on safer renderer cleanup and a cleaner shipped presentation. It expands workflow coverage around the most refactor-sensitive Settlement and Showdown paths, moves more settlement and knowledge logic behind browser-safe helper seams, and refreshes the packaged app icons with a more modern rounded presentation.
 
 ### Highlights
-- Create, Edit, and default-template flows now warn before discarding unsaved work and show a lightweight `Unsaved changes` indicator while the form is dirty.
-- Settlement name and trait search now wait briefly before rerendering, which cuts down unnecessary table churn while typing.
-- `End Showdown` now reports per-survivor save outcomes and keeps the departed session recoverable if only one survivor save succeeds.
+- Renderer workflow coverage now protects more of the refactor-sensitive paths, including rename handling, knowledge upgrades, departed slot locking, and key Settlement workflows.
+- Settlement rendering and settlement-specific event wiring now live behind a browser-safe helper seam, reducing the surface area of `renderer.js`.
+- Packaged app icons have been refreshed with rounded corners for a cleaner, more native feel across macOS, Windows, and Linux.
 
 ### Detailed Release Notes
-- Added dirty-state protection for Create, Edit, and default-template flows, including prompts before reset, back, or page navigation that would discard form changes.
-- Added a small `Unsaved changes` indicator to the create action rail so edit state is visible before leaving the page.
-- Debounced Settlement name and trait search inputs so the table is no longer rebuilt on every keystroke.
-- Reworked showdown completion save handling to process each survivor result explicitly instead of assuming both saves succeed together.
-- Successful showdown saves are now synchronized back into in-memory showdown state so retrying after a partial failure does not immediately hit a stale-revision conflict on the survivor that already saved.
-- Conflict and generic showdown save failures now produce clearer survivor-specific recovery messaging while leaving the showdown session departed and retryable.
+- Expanded renderer smoke coverage around rename/edit cleanup, departed Showdown slot locking, knowledge upgrades, settlement sorting/filtering, row-button showdown assignment swapping, and in-memory Settlement-to-Showdown resume behavior.
+- Split reusable knowledge-template and settlement logic into browser-safe helper files loaded ahead of `renderer.js`, reducing renderer responsibility without changing Electron security settings or adding a bundler.
+- Extended the settlement helper seam to include settlement table rendering, search/sort/filter event wiring, row-click open behavior, showdown slot assignment buttons, and settlement bulk-row interactions.
+- Refreshed packaged app icons for macOS, Windows, and Linux using the new rounded master artwork.
 
 ### Downloads
 - Windows: use the `.exe` installer asset in this release.
