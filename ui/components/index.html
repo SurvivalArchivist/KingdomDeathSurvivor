@@ -711,10 +711,10 @@
         </select>
         <label for="knowledgeEntryNextTemplate">Next Template</label>
         <select id="knowledgeEntryNextTemplate" aria-label="Next knowledge template"></select>
-        <label class="knowledge-entry-checkbox" for="knowledgeEntrySaveTemplate">
-          <input id="knowledgeEntrySaveTemplate" type="checkbox" />
-          <span>Also save as reusable template</span>
-        </label>
+        <input id="knowledgeEntrySaveTemplate" class="hidden" type="checkbox" tabindex="-1" aria-hidden="true" />
+        <button id="knowledgeEntrySaveTemplateToggle" type="button" class="btn btn-secondary knowledge-entry-toggle" aria-pressed="false">
+          Also Save as Reusable Template: Off
+        </button>
       </div>
       <div class="button-row">
         <button id="knowledgeTemplateUse" type="button" class="btn btn-secondary">Use Selected Template</button>

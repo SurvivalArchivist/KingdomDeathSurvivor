@@ -235,7 +235,7 @@ body.showdown-mode .showdown-card {
 }
 
 .showdown-group-vitals .showdown-stepper-proficiency-type-card input,
-.showdown-group-vitals .showdown-stepper-proficiency-combined input {
+.showdown-group-vitals .showdown-stepper-proficiency-combined .showdown-proficiency-type-input {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--outline);
@@ -270,8 +270,10 @@ body.showdown-mode .showdown-card {
 }
 
 .showdown-group-vitals .showdown-proficiency-inline {
-  display: block;
-  align-items: start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 0.24rem;
   min-width: 0;
   width: 100%;
 }
@@ -280,6 +282,20 @@ body.showdown-mode .showdown-card {
   width: 100%;
   min-width: 0;
   justify-self: stretch;
+}
+
+.showdown-group-vitals .showdown-proficiency-reminder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.showdown-group-vitals .showdown-proficiency-reminder input {
+  width: 12px;
+  height: 12px;
+  margin: 0;
 }
 
 .showdown-group-vitals .showdown-stepper-bleeding {

@@ -743,6 +743,70 @@ textarea:focus-visible {
   margin-bottom: 0.3rem;
 }
 
+.modal-panel .knowledge-entry-checkbox {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+  margin-bottom: 0;
+  padding-top: 0.2rem;
+  clear: both;
+  cursor: pointer;
+}
+
+.modal-panel .knowledge-entry-checkbox input {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.knowledge-entry-toggle {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.65rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.knowledge-entry-toggle.is-active {
+  background: var(--status-success-bg);
+  border-color: var(--status-success-border);
+  color: var(--status-success-ink);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0);
+}
+
+.knowledge-entry-toggle.is-off {
+  background: var(--status-neutral-bg);
+  border-color: var(--status-neutral-border);
+  color: var(--status-neutral-ink);
+}
+
+.knowledge-entry-toggle .knowledge-entry-toggle-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.9rem;
+  padding: 0.14rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+}
+
+.knowledge-entry-toggle.is-active .knowledge-entry-toggle-state {
+  background: var(--status-success-border);
+  color: var(--status-success-ink);
+}
+
+.knowledge-entry-toggle.is-off .knowledge-entry-toggle-state {
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error-border);
+  color: var(--status-error-ink);
+}
+
 .markdown-list {
   display: grid;
   gap: 0.36rem;

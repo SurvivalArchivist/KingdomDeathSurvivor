@@ -147,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const knowledgeEntryNextMode = document.getElementById('knowledgeEntryNextMode')
   const knowledgeEntryNextTemplate = document.getElementById('knowledgeEntryNextTemplate')
   const knowledgeEntrySaveTemplate = document.getElementById('knowledgeEntrySaveTemplate')
+  const knowledgeEntrySaveTemplateToggle = document.getElementById('knowledgeEntrySaveTemplateToggle')
   const knowledgeTemplateUse = document.getElementById('knowledgeTemplateUse')
   const knowledgeTemplateScratch = document.getElementById('knowledgeTemplateScratch')
   const savePersonButton = document.getElementById('savePerson')
@@ -328,6 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     knowledgeEntryNextMode,
     knowledgeEntryNextTemplate,
     knowledgeEntrySaveTemplate,
+    knowledgeEntrySaveTemplateToggle,
     knowledgeTemplateUse,
     knowledgeTemplateScratch,
     savePersonButton,
@@ -509,6 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
       waist: 0,
       legs: 0,
       bleedingTokens: 0,
+      proficiencyReminder: false,
       insanityHeavy: false,
       headHeavy: false,
       bodyLight: false,
@@ -527,6 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
       waist: 0,
       legs: 0,
       bleedingTokens: 0,
+      proficiencyReminder: false,
       insanityHeavy: false,
       headHeavy: false,
       bodyLight: false,
@@ -1175,6 +1179,8 @@ document.addEventListener('DOMContentLoaded', () => {
       busy ||
       !knowledgeTemplatePickerState.scratchEditorActive ||
       knowledgeEntryNextMode.value !== 'existingTemplate'
+    knowledgeEntrySaveTemplate.disabled = busy || !knowledgeTemplatePickerState.scratchEditorActive
+    syncKnowledgeSaveTemplateToggle()
     newPersonTemplateButton.disabled = !hasDataFolder || busy
     savePersonButton.disabled = !hasDataFolder || busy
     loadJsonToVisualButton.disabled = busy
@@ -1504,7 +1510,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showdownModifiers = { A: {}, B: {} }
     for (const slot of ['A', 'B']) {
       for (const field of SHOWDOWN_FIELDS) {
-        showdownModifiers[slot][field] = { temporary: 0, tokens: 0 }
+        showdownModifiers[slot][field] = { temporary: 0, tokensPositive: 0, tokensNegative: 0 }
       }
     }
   }
@@ -1512,7 +1518,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function getShowdownModifier(slot, field) {
     if (!showdownModifiers[slot]) showdownModifiers[slot] = {}
     if (!showdownModifiers[slot][field]) {
-      showdownModifiers[slot][field] = { temporary: 0, tokens: 0 }
+      showdownModifiers[slot][field] = { temporary: 0, tokensPositive: 0, tokensNegative: 0 }
     }
     return showdownModifiers[slot][field]
   }
@@ -2008,6 +2014,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mode !== 'existingTemplate') knowledgeEntryNextTemplate.value = ''
   }
 
+  function syncKnowledgeSaveTemplateToggle() {
+    const enabled = !knowledgeEntrySaveTemplate.disabled
+    const checked = Boolean(knowledgeEntrySaveTemplate.checked)
+    knowledgeEntrySaveTemplateToggle.disabled = !enabled
+    knowledgeEntrySaveTemplateToggle.setAttribute('aria-pressed', checked ? 'true' : 'false')
+    knowledgeEntrySaveTemplateToggle.classList.toggle('is-active', checked)
+    knowledgeEntrySaveTemplateToggle.classList.toggle('is-off', !checked)
+    knowledgeEntrySaveTemplateToggle.innerHTML = checked
+      ? 'Save Upgraded Knowledge as Reusable Template <span class="knowledge-entry-toggle-state">ON</span>'
+      : 'Save Upgraded Knowledge as Reusable Template <span class="knowledge-entry-toggle-state">OFF</span>'
+  }
+
   function populateKnowledgeScratchEditor(entry) {
     const nextEntry = entry && typeof entry === 'object' ? entry : buildBlankKnowledgeEntry('knowledge')
     knowledgeEntryName.value = String(nextEntry.name || '')
@@ -2067,6 +2085,7 @@ document.addEventListener('DOMContentLoaded', () => {
     knowledgeEntryNextMode.disabled = busy || !scratchEditorActive
     knowledgeEntryNextTemplate.disabled = busy || !scratchEditorActive || knowledgeEntryNextMode.value !== 'existingTemplate'
     knowledgeEntrySaveTemplate.disabled = busy || !scratchEditorActive
+    syncKnowledgeSaveTemplateToggle()
   }
 
   function openKnowledgeScratchEditorForShowdownUpgrade() {
@@ -2925,8 +2944,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const base = coerceNumber(p[field], 0)
       const modifier = getShowdownModifier(slot, field)
       const temporary = coerceNumber(modifier.temporary, 0)
-      const tokens = coerceNumber(modifier.tokens, 0)
-      const total = base + temporary + tokens
+      const tokensPositive = coerceNumber(modifier.tokensPositive, 0)
+      const tokensNegative = coerceNumber(modifier.tokensNegative, 0)
+      const total = base + temporary + tokensPositive - tokensNegative
 
       return `
       <div class="showdown-stat-card">
@@ -2934,16 +2954,26 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="showdown-stat-name">${iconLabel(icon, label)}</div>
           <strong class="showdown-stat-total-value">${total}</strong>
         </div>
-        <div class="showdown-stat-line">
-          <span class="showdown-bucket-label">Base</span>
-          <div class="showdown-stepper-controls">
-            <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="-1" data-showdown-min="${
-              min ?? ''
-            }" data-showdown-max="${max ?? ''}">-</button>
-            <strong class="showdown-static-value">${base}</strong>
-            <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="1" data-showdown-min="${
-              min ?? ''
-            }" data-showdown-max="${max ?? ''}">+</button>
+        <div class="showdown-stat-line showdown-stat-line-pairs">
+          <div class="showdown-stat-pair">
+            <span class="showdown-bucket-label">Base</span>
+            <div class="showdown-stepper-controls">
+              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="-1" data-showdown-min="${
+                min ?? ''
+              }" data-showdown-max="${max ?? ''}">-</button>
+              <strong class="showdown-static-value">${base}</strong>
+              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="1" data-showdown-min="${
+                min ?? ''
+              }" data-showdown-max="${max ?? ''}">+</button>
+            </div>
+          </div>
+          <div class="showdown-stat-pair">
+            <span class="showdown-bucket-label">Tokens (+)</span>
+            <div class="showdown-stepper-controls">
+              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokensPositive" data-showdown-delta="-1">-</button>
+              <strong class="showdown-static-value">${tokensPositive}</strong>
+              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokensPositive" data-showdown-delta="1">+</button>
+            </div>
           </div>
         </div>
         <div class="showdown-stat-line showdown-stat-line-pairs">
@@ -2956,11 +2986,11 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </div>
           <div class="showdown-stat-pair">
-            <span class="showdown-bucket-label">Tokens</span>
+            <span class="showdown-bucket-label">Tokens (-)</span>
             <div class="showdown-stepper-controls">
-              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokens" data-showdown-delta="-1">-</button>
-              <strong class="showdown-static-value">${tokens}</strong>
-              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokens" data-showdown-delta="1">+</button>
+              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokensNegative" data-showdown-delta="-1">-</button>
+              <strong class="showdown-static-value">${tokensNegative}</strong>
+              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokensNegative" data-showdown-delta="1">+</button>
             </div>
           </div>
         </div>
@@ -3007,6 +3037,15 @@ document.addEventListener('DOMContentLoaded', () => {
             placeholder="Type"
             aria-label="Weapon proficiency type"
           />
+          <label class="showdown-proficiency-reminder" title="Temporary weapon proficiency reminder">
+            <input
+              type="checkbox"
+              data-showdown-slot="${slot}"
+              data-showdown-armor-check="proficiencyReminder"
+              aria-label="Weapon proficiency reminder"
+              ${armor.proficiencyReminder ? 'checked' : ''}
+            />
+          </label>
         </div>
       </div>`
 
@@ -3490,6 +3529,7 @@ document.addEventListener('DOMContentLoaded', () => {
       waist: 0,
       legs: 0,
       bleedingTokens: 0,
+      proficiencyReminder: false,
       insanityHeavy: false,
       headHeavy: false,
       bodyLight: false,
@@ -3503,7 +3543,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     showdownModifiers[slot] = {}
     for (const field of SHOWDOWN_FIELDS) {
-      showdownModifiers[slot][field] = { temporary: 0, tokens: 0 }
+      showdownModifiers[slot][field] = { temporary: 0, tokensPositive: 0, tokensNegative: 0 }
     }
     showdownTextDraftState[slot] = createEmptyShowdownTextDraftState()
   }
@@ -3540,6 +3580,7 @@ document.addEventListener('DOMContentLoaded', () => {
         waist: 0,
         legs: 0,
         bleedingTokens: 0,
+        proficiencyReminder: false,
         insanityHeavy: false,
         headHeavy: false,
         bodyLight: false,
@@ -3558,6 +3599,7 @@ document.addEventListener('DOMContentLoaded', () => {
         waist: 0,
         legs: 0,
         bleedingTokens: 0,
+        proficiencyReminder: false,
         insanityHeavy: false,
         headHeavy: false,
         bodyLight: false,
@@ -4713,9 +4755,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function mutateShowdownModifier(slot, field, kind, nextValue) {
     if (!showdownPeople[slot]) return
-    if (kind !== 'temporary' && kind !== 'tokens') return
+    if (kind !== 'temporary' && kind !== 'tokensPositive' && kind !== 'tokensNegative') return
     const modifier = getShowdownModifier(slot, field)
-    modifier[kind] = coerceNumber(nextValue, 0)
+    modifier[kind] = Math.max(0, coerceNumber(nextValue, 0))
     renderShowdownSlot(slot)
   }
 
@@ -4731,6 +4773,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (field === 'level') {
       proficiency.level = clamp(coerceInt(nextValue, 0), 0, 8)
       renderShowdownSlot(slot)
+    }
+  }
+
+  function updateShowdownWeaponProficiencyDraft(slot, field, nextValue) {
+    if (!showdownPeople[slot]) return
+    const person = showdownPeople[slot].person
+    const proficiency = ensureWeaponProficiency(person)
+    if (field === 'type') {
+      proficiency.type = String(nextValue || '')
     }
   }
 
@@ -5430,6 +5481,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const slot = target.dataset.showdownProficiencySlot
       const field = target.dataset.showdownProficiencyField
       if (!slot || !field) return
+      if (field === 'type') {
+        updateShowdownWeaponProficiencyDraft(slot, field, target.value)
+        return
+      }
       mutateShowdownWeaponProficiency(slot, field, target.value)
       return
     }
@@ -6012,6 +6067,11 @@ document.addEventListener('DOMContentLoaded', () => {
     runBusy(() => applyKnowledgeTemplateSelection(true)).catch(err => {
       setStatus(err.message || 'Failed to apply knowledge template', 'error')
     })
+  })
+  knowledgeEntrySaveTemplateToggle.addEventListener('click', () => {
+    if (knowledgeEntrySaveTemplate.disabled) return
+    knowledgeEntrySaveTemplate.checked = !knowledgeEntrySaveTemplate.checked
+    syncKnowledgeSaveTemplateToggle()
   })
   knowledgeTemplateScratch.addEventListener('click', () => {
     runBusy(() => applyKnowledgeTemplateSelection(false)).catch(err => {

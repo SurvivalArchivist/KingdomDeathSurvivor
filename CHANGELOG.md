@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-04-19
+
+### Changed
+- Split Showdown combat `Tokens` into separate showdown-only `Tokens (+)` and `Tokens (-)` buckets, with the top row now showing `Base` and `Tokens (+)` and the second row showing `Temp` and `Tokens (-)`.
+- Added a temporary Showdown weapon proficiency reminder control beside the proficiency type field and kept it in showdown-only slot state.
+
+### Fixed
+- Fixed Showdown weapon proficiency type editing so the text input no longer rerenders away after a single character.
+- Fixed the Showdown knowledge-upgrade scratch flow so the reusable-template option becomes available correctly after jumping straight into `Create From Scratch`.
+- Replaced the broken reusable-template checkbox interaction in the Showdown knowledge-upgrade editor with a reliable explicit toggle button and added clearer `ON` / `OFF` visual states.
+
 ## [2.1.1] - 2026-04-19
 
 ### Fixed
