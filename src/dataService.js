@@ -415,10 +415,9 @@ function summarizeTraitSearchText(person) {
 
 function summarizeCanPonder(person) {
   if (!person || typeof person !== 'object') return false
-  const philosophy = String(person.philosophy || '').trim()
   const age = Number(person.age)
   const threshold = Number(person.nextPhilosophyAgeThreshold)
-  return philosophy.length > 0 && Number.isFinite(age) && Number.isFinite(threshold) && age >= threshold
+  return Number.isFinite(age) && Number.isFinite(threshold) && threshold > 0 && age >= threshold
 }
 
 function summarizeStatsTotal(person) {

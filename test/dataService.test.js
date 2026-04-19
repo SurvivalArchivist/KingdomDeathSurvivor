@@ -88,6 +88,20 @@ test('listPeopleSummaries returns settlement-safe summaries and skips unreadable
   })
 })
 
+test('listPeopleSummaries marks ponder-ready survivors by age threshold even without philosophy text', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+
+  const ava = dataService.createPersonTemplate('Ava')
+  ava.age = 3
+  ava.nextPhilosophyAgeThreshold = 2
+  dataService.savePerson(basePath, ava)
+
+  const result = dataService.listPeopleSummaries(basePath)
+  assert.equal(result.records.length, 1)
+  assert.equal(result.records[0].canPonder, true)
+})
+
 test('deletePerson removes persisted file', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')

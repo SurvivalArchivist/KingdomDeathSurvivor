@@ -1,17 +1,16 @@
-## KDM Survivors Console 2.1.0
+## KDM Survivors Console 2.1.1
 
-This release focuses on survivor data refresh behavior for shared-folder setups. Settlement now builds from batch survivor summaries instead of reloading full survivor records for the table, which reduces read churn while keeping create/edit and showdown flows on the existing full-record path.
+This patch release fixes a Settlement `Ponder` regression introduced in `2.1.0`. Survivors who already showed `Ready to Ponder` in the survivor edit view will now be reported the same way in the Settlement table summary.
 
 ### Highlights
-- Settlement refresh now uses batch survivor summaries for the table view.
-- Shared-folder sessions are more resilient when one or more survivor files are temporarily unreadable.
-- Full survivor editing and showdown save flows keep the existing validation and conflict protections.
+- Settlement `Ponder` status now matches the survivor edit/detail view again.
+- Survivors meeting `nextPhilosophyAgeThreshold` no longer disappear from the table’s ready state because of summary-path drift.
+- Added regression coverage so the batch summary view stays aligned with the full survivor view.
 
 ### Detailed Patch Notes
-- Added a batch `listPeopleSummaries` read path for Settlement so the table can load from summary data instead of loading every survivor record individually.
-- Preserved full `loadPerson` behavior for edit, save, showdown, and other survivor workflows that require full records.
-- Settlement refresh now skips temporarily unreadable survivor files and reports them in the refresh result instead of failing the entire table load.
-- Added tests covering the new summary path across data service, IPC, and renderer smoke flows.
+- Fixed Settlement batch-summary `canPonder` logic so it now follows the same age-threshold rule used in survivor edit/detail views.
+- Removed the unintended requirement for non-empty philosophy text from the table-summary ready-state calculation.
+- Added an integration regression test covering threshold-ready survivors with blank philosophy fields.
 
 ### Downloads
 - Windows: use the `.exe` installer asset in this release.
