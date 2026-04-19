@@ -1,18 +1,19 @@
-## KDM Survivors Console 2.1.2
+## KDM Survivors Console 2.2.0
 
-This patch release focuses on Showdown polish and reliability. It tightens the temporary combat controls, fixes the knowledge-upgrade reusable-template flow, and makes the new template-save toggle much clearer to read during play.
+This minor release focuses on safer editing and safer session completion. It reduces accidental data loss while editing survivors, smooths Settlement filtering, and hardens Showdown save completion so partial-save failures are much clearer and easier to recover from.
 
 ### Highlights
-- Showdown combat stat cards now use separate `Tokens (+)` and `Tokens (-)` counters instead of a single shared token bucket.
-- Showdown weapon proficiency now includes a temporary reminder control and the type field no longer drops focus after one character.
-- The knowledge-upgrade reusable-template option now works reliably and has clearer `ON` / `OFF` visual states.
+- Create, Edit, and default-template flows now warn before discarding unsaved work and show a lightweight `Unsaved changes` indicator while the form is dirty.
+- Settlement name and trait search now wait briefly before rerendering, which cuts down unnecessary table churn while typing.
+- `End Showdown` now reports per-survivor save outcomes and keeps the departed session recoverable if only one survivor save succeeds.
 
-### Detailed Patch Notes
-- Split Showdown combat `Tokens` into showdown-only `Tokens (+)` and `Tokens (-)` buckets. `Tokens (+)` add to the displayed total, while `Tokens (-)` subtract from it; both clamp at zero and never persist to survivor files.
-- Added a showdown-only weapon proficiency reminder control beside the proficiency type field.
-- Fixed the weapon proficiency type input so it no longer exits editing after one typed character.
-- Fixed the Showdown knowledge-upgrade scratch flow so the reusable-template save option becomes enabled correctly after `Create From Scratch`.
-- Replaced the unreliable reusable-template checkbox in the upgrade editor with a dedicated toggle control and clearer state styling.
+### Detailed Release Notes
+- Added dirty-state protection for Create, Edit, and default-template flows, including prompts before reset, back, or page navigation that would discard form changes.
+- Added a small `Unsaved changes` indicator to the create action rail so edit state is visible before leaving the page.
+- Debounced Settlement name and trait search inputs so the table is no longer rebuilt on every keystroke.
+- Reworked showdown completion save handling to process each survivor result explicitly instead of assuming both saves succeed together.
+- Successful showdown saves are now synchronized back into in-memory showdown state so retrying after a partial failure does not immediately hit a stale-revision conflict on the survivor that already saved.
+- Conflict and generic showdown save failures now produce clearer survivor-specific recovery messaging while leaving the showdown session departed and retryable.
 
 ### Downloads
 - Windows: use the `.exe` installer asset in this release.

@@ -89,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const createSurvivorMatchmaker = document.getElementById('createSurvivorMatchmaker')
   const createSurvivorTinker = document.getElementById('createSurvivorTinker')
   const createPonderIndicator = document.getElementById('createPonderIndicator')
+  const createUnsavedIndicator = document.getElementById('createUnsavedIndicator')
   const createSurvivorTitle = document.getElementById('createSurvivorTitle')
   const createSurvivorHint = document.getElementById('createSurvivorHint')
   const createSurvivorBack = document.getElementById('createSurvivorBack')
@@ -273,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createSurvivorMatchmaker,
     createSurvivorTinker,
     createPonderIndicator,
+    createUnsavedIndicator,
     createSurvivorTitle,
     createSurvivorHint,
     createSurvivorBack,
@@ -457,6 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let settlementAutoRefreshIntervalSeconds = 20
   let settlementFastMode = false
   let settlementLastRefreshedAt = null
+  let settlementSearchRenderTimer = null
   let settlementExtraFiltersOpen = false
   let pendingSettlementEntryRefresh = false
   let appSettings = {
@@ -466,6 +469,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let createTemplateDefaults = null
   let createViewBase = null
   let createEditingFileName = null
+  let createDirty = false
+  let createDirtyBaseline = ''
   let createArrayState = {
     abilities: [],
     impairments: [],
@@ -662,6 +667,96 @@ document.addEventListener('DOMContentLoaded', () => {
     if (arrayName === 'impairments') return createImpairments
     if (arrayName === 'notes') return createNotes
     return null
+  }
+
+  function syncCreateTextDraftInputsFromDom() {
+    for (const arrayName of TEXT_ENTRY_ARRAYS) {
+      const container = getCreateTextContainer(arrayName)
+      if (!container) continue
+      for (const row of container.querySelectorAll('.ve-row')) {
+        updateCreateTextDraftFromRow(row)
+      }
+    }
+  }
+
+  function getCreateTextArraySnapshot(arrayName) {
+    const entries = Array.isArray(createTextDraftState[arrayName]) ? createTextDraftState[arrayName] : []
+    return entries
+      .map(entry => String(entry?.isEditing ? entry.draft ?? '' : entry?.text ?? '').trim())
+      .filter(Boolean)
+  }
+
+  function buildCreateDirtySnapshot() {
+    syncCreateTextDraftInputsFromDom()
+    const snapshot = {
+      name: createSurvivorName.value.trim(),
+      gender: createSurvivorGender.value === 'F' ? 'F' : 'M',
+      philosophy: createSurvivorPhilosophy.value.trim(),
+      philosophyNeurosis: createPhilosophyNeurosis.value.trim(),
+      philosophyNeurosisName: createNeurosisTemplateName.value.trim(),
+      isAlive: Boolean(createSurvivorAlive.checked),
+      lifetimeReroll: Boolean(createSurvivorLifetimeReroll.checked),
+      matchmaker: String(createSurvivorMatchmaker.value || 'none'),
+      tinker: String(createSurvivorTinker.value || 'none'),
+      abilities: getCreateTextArraySnapshot('abilities'),
+      impairments: getCreateTextArraySnapshot('impairments'),
+      notes: getCreateTextArraySnapshot('notes'),
+      fightingArts: collectVisualRows(createFightingArts, 'fightingArts'),
+      secretFightingArts: collectVisualRows(createSecretFightingArts, 'secretFightingArts'),
+      disorders: collectVisualRows(createDisorders, 'disorders'),
+      tenetKnowledge: collectVisualRows(createTenetKnowledge, 'tenet'),
+      knowledge: collectVisualRows(createKnowledge, 'knowledge')
+    }
+    setValueByPath(snapshot, 'weaponProficiency.type', createWeaponProficiencyType.value.trim())
+    for (const [inputId, config] of Object.entries(createNumericConfig)) {
+      const input = document.getElementById(inputId)
+      if (!input) continue
+      const current = coerceNumber(input.value, 0)
+      const value =
+        config.field === 'weaponProficiency.level'
+          ? normalizeProficiencyLevel(current, config.min ?? 0)
+          : clamp(current, config.min, config.max)
+      setValueByPath(snapshot, config.field, value)
+    }
+    return JSON.stringify(snapshot)
+  }
+
+  function syncCreateDirtyIndicator() {
+    if (!createUnsavedIndicator) return
+    createUnsavedIndicator.textContent = 'Unsaved changes'
+    createUnsavedIndicator.classList.toggle('hidden', !createDirty)
+  }
+
+  function snapshotCreateFormAsClean() {
+    createDirtyBaseline = buildCreateDirtySnapshot()
+    createDirty = false
+    syncCreateDirtyIndicator()
+  }
+
+  function syncCreateDirtyState() {
+    if (!createDirtyBaseline) {
+      createDirty = false
+      syncCreateDirtyIndicator()
+      return false
+    }
+    createDirty = buildCreateDirtySnapshot() !== createDirtyBaseline
+    syncCreateDirtyIndicator()
+    return createDirty
+  }
+
+  function hasUnsavedCreateChanges() {
+    return (currentPage === 'create' || currentPage === 'defaultTemplate') && Boolean(createDirty)
+  }
+
+  function confirmDiscardCreateChanges(actionLabel = 'continue') {
+    if (!hasUnsavedCreateChanges()) return true
+    const subject =
+      createViewMode === 'defaultTemplate'
+        ? 'the default new survivor template'
+        : createViewMode === 'edit'
+          ? 'this survivor'
+          : 'this new survivor'
+    return window.confirm(`You have unsaved changes in ${subject}. Discard them and ${actionLabel}?`)
   }
   const DATA_SOURCE_KEYS = [
     'survivors',
@@ -1584,6 +1679,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderPonderIndicator(createPonderIndicator, createViewBase)
     renderCreateArrayRows(source)
+    snapshotCreateFormAsClean()
   }
 
   function renderCreateArrayRows(source) {
@@ -1730,6 +1826,7 @@ document.addEventListener('DOMContentLoaded', () => {
         draft.draft = ''
       }
       renderCreateTextRows(container, createArrayState[type], type)
+      syncCreateDirtyState()
       return
     }
     if (type === 'fightingArts') {
@@ -1739,6 +1836,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       createArrayState.fightingArts.push({ name: '', file: '' })
       renderArrayRows(createFightingArts, createArrayState.fightingArts, 'fightingArts')
+      syncCreateDirtyState()
       return
     }
     if (type === 'secretFightingArts') {
@@ -1748,6 +1846,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       createArrayState.secretFightingArts.push({ name: '', file: '' })
       renderArrayRows(createSecretFightingArts, createArrayState.secretFightingArts, 'secretFightingArts')
+      syncCreateDirtyState()
       return
     }
     if (type === 'disorders') {
@@ -1757,6 +1856,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       createArrayState.disorders.push({ name: '', file: '' })
       renderArrayRows(createDisorders, createArrayState.disorders, 'disorders')
+      syncCreateDirtyState()
       return
     }
     if (type === 'tenetKnowledge') {
@@ -1775,6 +1875,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nextKnowledgeTemplate: ''
       })
       renderArrayRows(createTenetKnowledge, createArrayState.tenetKnowledge, 'tenet')
+      syncCreateDirtyState()
       return
     }
     if (type === 'knowledge') {
@@ -1793,6 +1894,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nextKnowledgeTemplate: ''
       })
       renderArrayRows(createKnowledge, createArrayState.knowledge, 'knowledge')
+      syncCreateDirtyState()
     }
   }
 
@@ -1814,6 +1916,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderArrayRows(createDisorders, createArrayState.disorders, 'disorders')
     renderArrayRows(createTenetKnowledge, createArrayState.tenetKnowledge, 'tenet')
     renderArrayRows(createKnowledge, createArrayState.knowledge, 'knowledge')
+    syncCreateDirtyState()
   }
 
   function editCreateTextRow(row) {
@@ -1828,6 +1931,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = getCreateTextContainer(type)
     if (!container) return
     renderCreateTextRows(container, createArrayState[type], type)
+    syncCreateDirtyState()
   }
 
   function commitCreateTextRow(row) {
@@ -1845,6 +1949,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = getCreateTextContainer(update.type)
     if (!container) return
     renderCreateTextRows(container, createArrayState[update.type], update.type)
+    syncCreateDirtyState()
   }
 
   async function saveKnowledgeTemplateFromRow(type, row) {
@@ -1907,6 +2012,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     await window.api.saveNeurosisTemplate({ name, neurosis })
     createNeurosisTemplateName.value = name
+    syncCreateDirtyState()
     setStatus(`Saved neurosis template: ${name}`, 'success')
     return true
   }
@@ -1940,6 +2046,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderArrayRows(createDisorders, createArrayState.disorders, 'disorders')
     renderArrayRows(createTenetKnowledge, createArrayState.tenetKnowledge, 'tenet')
     renderArrayRows(createKnowledge, createArrayState.knowledge, 'knowledge')
+    syncCreateDirtyState()
     return true
   }
 
@@ -1953,6 +2060,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderArrayRows(createDisorders, createArrayState.disorders, 'disorders')
     renderArrayRows(createTenetKnowledge, createArrayState.tenetKnowledge, 'tenet')
     renderArrayRows(createKnowledge, createArrayState.knowledge, 'knowledge')
+    syncCreateDirtyState()
     return true
   }
 
@@ -2132,6 +2240,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         createPhilosophyNeurosis.value = neurosis
         createNeurosisTemplateName.value = String(selected.name || '').trim()
+        syncCreateDirtyState()
       }
       closeKnowledgeTemplatePickerModal()
       setStatus(`Loaded neurosis template: ${selected.name || 'Unnamed'}`, 'success')
@@ -2408,6 +2517,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function openSurvivorInCreateView(fileName) {
+    if (!confirmDiscardCreateChanges(`open ${fileName}`)) return
     const person = await window.api.loadPerson(fileName)
     createViewMode = 'edit'
     createEditingFileName = fileName
@@ -2517,6 +2627,14 @@ document.addEventListener('DOMContentLoaded', () => {
       .toLowerCase()
   }
 
+  function scheduleSettlementSearchRender() {
+    if (settlementSearchRenderTimer) window.clearTimeout(settlementSearchRenderTimer)
+    settlementSearchRenderTimer = window.setTimeout(() => {
+      settlementSearchRenderTimer = null
+      renderSettlementTable()
+    }, 150)
+  }
+
   function getFilteredAndSortedSettlementRows() {
     const nameQuery = settlementNameSearch.value.trim().toLowerCase()
     const traitQuery = settlementTraitSearch.value.trim().toLowerCase()
@@ -2573,6 +2691,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderSettlementTable() {
+    if (settlementSearchRenderTimer) {
+      window.clearTimeout(settlementSearchRenderTimer)
+      settlementSearchRenderTimer = null
+    }
     renderSettlementSortHeaders()
     const hiddenColumns = getHiddenSettlementColumns()
     applySettlementColumnVisibility(hiddenColumns)
@@ -3485,23 +3607,93 @@ document.addEventListener('DOMContentLoaded', () => {
     renderShowdownSlot(slot)
   }
 
+  function getShowdownSurvivorLabel(slot) {
+    if (!slot || !showdownPeople[slot]) return `Survivor ${slot || '?'}`
+    return String(showdownPeople[slot].person?.name || showdownPeople[slot].fileName || `Survivor ${slot}`).trim()
+  }
+
+  async function syncSuccessfulShowdownSave(slot, saveResult, options = {}) {
+    if (!slot || !showdownPeople[slot]) return
+    const nextFileName = String(saveResult?.fileName || showdownPeople[slot].fileName || '').trim()
+    if (!nextFileName) return
+    try {
+      const latest = await window.api.loadPerson(nextFileName)
+      showdownPeople[slot] = {
+        fileName: nextFileName,
+        person: deepClone(latest)
+      }
+      syncShowdownTextDraftState(slot, showdownPeople[slot].person)
+      if (currentPage === 'showdown') renderShowdownSlot(slot)
+      return
+    } catch {
+      const stamp = new Date().toISOString()
+      showdownPeople[slot].fileName = nextFileName
+      showdownPeople[slot].person.revision = coerceInt(showdownPeople[slot].person?.revision, 0) + 1
+      showdownPeople[slot].person.updatedAt = stamp
+      showdownPeople[slot].person.lastUpdated = stamp
+      if (options.markReturned) showdownPeople[slot].person.lastReturned = stamp
+    }
+  }
+
+  function formatShowdownSaveFailureMessage(results) {
+    const successes = results.filter(result => result.ok)
+    const failures = results.filter(result => !result.ok)
+    const successMessage =
+      successes.length > 0 ? `Saved ${successes.map(result => result.label).join(' and ')}. ` : ''
+    const failureMessage = failures
+      .map(result => {
+        const conflictText = result.errorType === 'conflict' ? ' with a conflict' : ''
+        return `${result.label} failed${conflictText}: ${result.message}`
+      })
+      .join(' ')
+    return `Could not end showdown. ${successMessage}${failureMessage} Showdown remains departed so you can retry safely.`
+  }
+
   async function saveShowdownSurvivors(options = {}) {
     if (!showdownPeople.A || !showdownPeople.B) return
-    const results = await Promise.all([
-      window.api.savePerson(showdownPeople.A.person, {
-        expectedFileName: showdownPeople.A.fileName,
-        markReturned: Boolean(options.markReturned)
-      }),
-      window.api.savePerson(showdownPeople.B.person, {
-        expectedFileName: showdownPeople.B.fileName,
-        markReturned: Boolean(options.markReturned)
-      })
-    ])
-    for (const result of results) {
-      if (!result || result.ok === false) {
-        throw new Error(result?.message || 'Failed to save survivor while leaving showdown')
+    const slots = ['A', 'B']
+    const settledResults = await Promise.allSettled(
+      slots.map(slot =>
+        window.api.savePerson(showdownPeople[slot].person, {
+          expectedFileName: showdownPeople[slot].fileName,
+          markReturned: Boolean(options.markReturned)
+        })
+      )
+    )
+    const results = []
+    for (let index = 0; index < slots.length; index += 1) {
+      const slot = slots[index]
+      const settled = settledResults[index]
+      const label = getShowdownSurvivorLabel(slot)
+      if (settled.status === 'fulfilled' && settled.value && settled.value.ok !== false) {
+        await syncSuccessfulShowdownSave(slot, settled.value, options)
+        results.push({
+          slot,
+          label,
+          ok: true,
+          fileName: String(settled.value.fileName || showdownPeople[slot].fileName || '')
+        })
+        continue
       }
+      const message =
+        settled.status === 'rejected'
+          ? settled.reason?.message || 'Failed to save survivor while leaving showdown'
+          : settled.value?.message || 'Failed to save survivor while leaving showdown'
+      const errorType = settled.status === 'fulfilled' ? settled.value?.errorType || '' : ''
+      results.push({
+        slot,
+        label,
+        ok: false,
+        errorType,
+        message
+      })
     }
+    if (results.some(result => !result.ok)) {
+      const error = new Error(formatShowdownSaveFailureMessage(results))
+      error.showdownSaveResults = results
+      throw error
+    }
+    return results
   }
 
   function applyShowdownLockSelections() {
@@ -4467,6 +4659,7 @@ document.addEventListener('DOMContentLoaded', () => {
           renderArrayRows(createFightingArts, createArrayState.fightingArts, 'fightingArts')
           renderArrayRows(createSecretFightingArts, createArrayState.secretFightingArts, 'secretFightingArts')
           renderArrayRows(createDisorders, createArrayState.disorders, 'disorders')
+          syncCreateDirtyState()
           closeAddPickerModal()
           setStatus(`Added ${file.title} to ${getArrayLabel(arrayName)}`, 'success')
           return
@@ -4929,8 +5122,8 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   markdownSearch.addEventListener('input', renderMarkdownList)
-  settlementNameSearch.addEventListener('input', renderSettlementTable)
-  settlementTraitSearch.addEventListener('input', renderSettlementTable)
+  settlementNameSearch.addEventListener('input', scheduleSettlementSearchRender)
+  settlementTraitSearch.addEventListener('input', scheduleSettlementSearchRender)
   settlementToggleMovement.addEventListener('change', renderSettlementTable)
   settlementToggleWeaponProficiency.addEventListener('change', renderSettlementTable)
   settlementToggleLastUpdated.addEventListener('change', renderSettlementTable)
@@ -5124,6 +5317,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
   navShowdownButton.addEventListener('click', () => {
     if (currentPage === 'showdown') return
+    if (!confirmDiscardCreateChanges('open showdown')) return
     runBusy(async () => {
       if (showdownPeople.A && showdownPeople.B && !hasShowdownSelectionMismatch()) {
         setPage('showdown')
@@ -5143,10 +5337,12 @@ document.addEventListener('DOMContentLoaded', () => {
   })
   navDataSourcesButton.addEventListener('click', () => {
     if (currentPage === 'dataSources') return
+    if (!confirmDiscardCreateChanges('open settings')) return
     setPage('dataSources')
   })
   navCreateButton.addEventListener('click', () => {
     if (currentPage === 'create') return
+    if (!confirmDiscardCreateChanges('open Create Survivor')) return
     runBusy(async () => {
       createViewMode = 'create'
       if (inShowdownMode) {
@@ -5165,6 +5361,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
   const openDefaultTemplateEditor = () => {
     if (currentPage === 'defaultTemplate') return Promise.resolve()
+    if (!confirmDiscardCreateChanges('open the default template')) return Promise.resolve()
     runBusy(async () => {
       createViewMode = 'defaultTemplate'
       createEditingFileName = null
@@ -5183,6 +5380,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
   navSettlementButton.addEventListener('click', () => {
     if (currentPage === 'settlement') return
+    if (!confirmDiscardCreateChanges('open settlement')) return
     runBusy(async () => {
       if (inShowdownMode) {
         setStatus('Showdown session kept active while in Settlement view.', 'neutral')
@@ -5194,6 +5392,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
   navBulkUpdatesButton.addEventListener('click', () => {
     if (currentPage === 'bulkUpdates') return
+    if (!confirmDiscardCreateChanges('open Bulk Updates')) return
     runBusy(async () => {
       if (inShowdownMode) {
         setStatus('Showdown session kept active while in Bulk Updates view.', 'neutral')
@@ -5710,6 +5909,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const draft = buildCreateSurvivorPayload()
         if (draft) renderPonderIndicator(createPonderIndicator, draft)
       }
+      syncCreateDirtyState()
       return
     }
     if (target.dataset.action === 'removeRow') {
@@ -5814,14 +6014,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const draft = buildCreateSurvivorPayload()
       if (draft) renderPonderIndicator(createPonderIndicator, draft)
     }
+    syncCreateDirtyState()
   })
 
   createSurvivorView.addEventListener('input', event => {
     const target = event.target
     if (!(target instanceof HTMLElement)) return
-    if (target.id !== 'createSurvivorAge' && target.id !== 'createNextPhilosophyAgeThreshold') return
-    const draft = buildCreateSurvivorPayload()
-    if (draft) renderPonderIndicator(createPonderIndicator, draft)
+    if (target.id === 'createSurvivorAge' || target.id === 'createNextPhilosophyAgeThreshold') {
+      const draft = buildCreateSurvivorPayload()
+      if (draft) renderPonderIndicator(createPonderIndicator, draft)
+    }
+    syncCreateDirtyState()
   })
 
   createAddFightingArtButton.addEventListener('click', () => {
@@ -5864,6 +6067,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   resetCreateSurvivorButton.addEventListener('click', () => {
+    if (!confirmDiscardCreateChanges('reset the form')) return
     runBusy(async () => {
       await resetCreateSurvivorForm()
       if (createViewMode === 'defaultTemplate') {
@@ -5877,6 +6081,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   createSurvivorBack.addEventListener('click', () => {
+    if (!confirmDiscardCreateChanges(createViewMode === 'defaultTemplate' ? 'return to settings' : 'return to settlement')) return
     if (createViewMode === 'defaultTemplate') {
       setPage('dataSources')
       setStatus('Returned to settings view', 'neutral')
@@ -5901,6 +6106,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         await window.api.saveDefaultCreateTemplate(person)
         createTemplateDefaults = deepClone(person)
+        createViewBase = deepClone(person)
+        snapshotCreateFormAsClean()
         setStatus('Saved default template for new survivors', 'success')
         return
       }

@@ -1770,6 +1770,10 @@ textarea:focus-visible {
   gap: 0.45rem;
 }
 
+.create-unsaved-indicator {
+  justify-self: end;
+}
+
 .create-survivor-float .create-survivor-submit {
   min-height: 3rem;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);

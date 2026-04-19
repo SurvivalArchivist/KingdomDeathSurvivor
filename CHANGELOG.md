@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-04-19
+
+### Added
+- Added unsaved-change protection to Create, Edit, and default-template flows, including discard confirmations on reset/back/navigation and a lightweight `Unsaved changes` indicator in the create action rail.
+
+### Changed
+- Debounced Settlement name and trait search so active typing no longer rebuilds the full table on every keystroke.
+
+### Fixed
+- Hardened `End Showdown` so partial-save outcomes are handled explicitly, successful survivor saves are synchronized back into showdown memory, and failed saves leave the session recoverable for a safe retry.
+
 ## [2.1.2] - 2026-04-19
 
 ### Changed

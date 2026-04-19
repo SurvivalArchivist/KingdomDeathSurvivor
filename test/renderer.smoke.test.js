@@ -363,10 +363,12 @@ function slugify(value) {
     .replace(/^-+|-+$/g, '')
 }
 
-function setupRendererHarness() {
+function setupRendererHarness(options = {}) {
   const calls = []
+  const confirms = []
   let fullScreen = false
   const fullScreenListeners = new Set()
+  const alerts = []
   let appSettings = { userName: 'Lantern Mike', dateFormat: 'en-GB' }
   const db = {
     'alice.json': makePerson('Alice'),
@@ -547,6 +549,9 @@ function setupRendererHarness() {
       return []
     }
   }
+  if (typeof options.customizeApi === 'function') {
+    options.customizeApi(api, { calls, db })
+  }
 
   const assignedGlobalIds = new Set()
   const fakeDocument = new FakeDocument((id, element) => {
@@ -556,6 +561,16 @@ function setupRendererHarness() {
     assignedGlobalIds.add(id)
   })
   const fakeWindow = new FakeWindow(fakeDocument, api)
+  fakeWindow.confirm = message => {
+    confirms.push(String(message))
+    return true
+  }
+  fakeWindow.alert = message => {
+    alerts.push(String(message))
+  }
+  if (typeof options.customizeWindow === 'function') {
+    options.customizeWindow(fakeWindow, { alerts, calls, confirms, db })
+  }
 
   const previousGlobals = {
     window: global.window,
@@ -583,7 +598,9 @@ function setupRendererHarness() {
   fakeDocument.dispatchEvent(new FakeEvent('DOMContentLoaded', { target: fakeDocument }))
 
   return {
+    alerts,
     calls,
+    confirms,
     db,
     document: fakeDocument,
     async flush(times = 8) {
@@ -682,9 +699,311 @@ test('renderer persists app settings including date format', async t => {
   assert.deepEqual(saves[0].args[0], { userName: 'Lantern Mike Updated', dateFormat: 'en-US' })
 })
 
+test('settlement name search waits briefly before rerendering results', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const search = harness.document.getElementById('settlementNameSearch')
+  const count = harness.document.getElementById('settlementCount')
+
+  assert.equal(count.textContent, '2 of 2 survivors shown')
+
+  search.value = 'A'
+  search.dispatchEvent(new FakeEvent('input', { target: search }))
+  await harness.flush()
+
+  assert.equal(count.textContent, '2 of 2 survivors shown')
+
+  search.value = 'Alice'
+  search.dispatchEvent(new FakeEvent('input', { target: search }))
+  await new Promise(resolve => setTimeout(resolve, 75))
+  await harness.flush()
+
+  assert.equal(count.textContent, '2 of 2 survivors shown')
+
+  await new Promise(resolve => setTimeout(resolve, 120))
+  await harness.flush()
+
+  assert.equal(count.textContent, '1 of 2 survivors shown')
+})
+
+test('settlement trait search also waits briefly before rerendering results', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, context) {
+      api.listPeopleSummaries = async () => {
+        context.calls.push({ name: 'listPeopleSummaries', args: [] })
+        return {
+          records: [
+            {
+              fileName: 'alice.json',
+              person: { name: 'Alice', isAlive: true, weaponProficiency: { type: '', level: 0 } },
+              canPonder: false,
+              statsTotal: 0,
+              traitSearchText: 'dash lantern math'
+            },
+            {
+              fileName: 'bob.json',
+              person: { name: 'Bob', isAlive: true, weaponProficiency: { type: '', level: 0 } },
+              canPonder: false,
+              statsTotal: 0,
+              traitSearchText: 'gloom tooth'
+            }
+          ],
+          unreadableCount: 0,
+          totalFiles: 2
+        }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const search = harness.document.getElementById('settlementTraitSearch')
+  const count = harness.document.getElementById('settlementCount')
+
+  assert.equal(count.textContent, '2 of 2 survivors shown')
+
+  search.value = 'lan'
+  search.dispatchEvent(new FakeEvent('input', { target: search }))
+  await harness.flush()
+
+  assert.equal(count.textContent, '2 of 2 survivors shown')
+
+  await new Promise(resolve => setTimeout(resolve, 170))
+  await harness.flush()
+
+  assert.equal(count.textContent, '1 of 2 survivors shown')
+})
+
 function countCalls(calls, name) {
   return calls.filter(entry => entry.name === name).length
 }
+
+test('create view warns before discarding unsaved survivor changes', async t => {
+  const confirmResponses = [false, false, true]
+  const harness = setupRendererHarness({
+    customizeWindow(fakeWindow, context) {
+      fakeWindow.confirm = message => {
+        context.confirms.push(String(message))
+        return confirmResponses.shift() ?? true
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  harness.click('navCreate')
+  await harness.flush()
+
+  const createView = harness.document.getElementById('createSurvivorView')
+  const settlementView = harness.document.getElementById('settlementView')
+  const nameInput = harness.document.getElementById('createSurvivorName')
+  const unsavedIndicator = harness.document.getElementById('createUnsavedIndicator')
+
+  assert.ok(!createView.classList.contains('hidden'))
+  assert.ok(settlementView.classList.contains('hidden'))
+  assert.ok(unsavedIndicator.classList.contains('hidden'))
+
+  nameInput.value = 'Lantern Ava'
+  createView.dispatchEvent(new FakeEvent('input', { target: nameInput }))
+  await harness.flush()
+
+  assert.ok(!unsavedIndicator.classList.contains('hidden'))
+
+  harness.click('createSurvivorBack')
+  await harness.flush()
+
+  assert.ok(!createView.classList.contains('hidden'))
+  assert.ok(settlementView.classList.contains('hidden'))
+  assert.equal(nameInput.value, 'Lantern Ava')
+
+  harness.click('resetCreateSurvivor')
+  await harness.flush()
+
+  assert.equal(nameInput.value, 'Lantern Ava')
+  assert.ok(!unsavedIndicator.classList.contains('hidden'))
+  assert.equal(harness.confirms.length, 2)
+  assert.match(harness.confirms[0], /unsaved changes/i)
+  assert.match(harness.confirms[1], /reset the form/i)
+
+  harness.click('createSurvivorBack')
+  await harness.flush()
+
+  assert.ok(createView.classList.contains('hidden'))
+  assert.ok(!settlementView.classList.contains('hidden'))
+})
+
+test('default template unsaved state clears after save and no longer blocks navigation', async t => {
+  const confirmResponses = [false]
+  const harness = setupRendererHarness({
+    customizeWindow(fakeWindow, context) {
+      fakeWindow.confirm = message => {
+        context.confirms.push(String(message))
+        return confirmResponses.shift() ?? true
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  harness.click('navCreate')
+  await harness.flush()
+  harness.click('createOpenDefaultTemplate')
+  await harness.flush()
+
+  const createView = harness.document.getElementById('createSurvivorView')
+  const dataSourcesView = harness.document.getElementById('dataSourcesView')
+  const philosophyInput = harness.document.getElementById('createSurvivorPhilosophy')
+  const unsavedIndicator = harness.document.getElementById('createUnsavedIndicator')
+
+  philosophyInput.value = 'Lantern Code'
+  createView.dispatchEvent(new FakeEvent('input', { target: philosophyInput }))
+  await harness.flush()
+
+  assert.ok(!unsavedIndicator.classList.contains('hidden'))
+
+  harness.click('navDataSources')
+  await harness.flush()
+
+  assert.ok(createView.classList.contains('hidden') === false)
+  assert.ok(dataSourcesView.classList.contains('hidden'))
+  assert.equal(harness.confirms.length, 1)
+  assert.match(harness.confirms[0], /default new survivor template/i)
+
+  const saveBefore = countCalls(harness.calls, 'saveDefaultCreateTemplate')
+  harness.click('createSurvivorSubmit')
+  await harness.flush()
+
+  assert.equal(countCalls(harness.calls, 'saveDefaultCreateTemplate'), saveBefore + 1)
+  assert.ok(unsavedIndicator.classList.contains('hidden'))
+
+  harness.click('navDataSources')
+  await harness.flush()
+
+  assert.ok(!dataSourcesView.classList.contains('hidden'))
+  assert.equal(harness.confirms.length, 1)
+})
+
+test('showdown end failure keeps session recoverable after partial save', async t => {
+  let bobFailureInjected = false
+  const harness = setupRendererHarness({
+    customizeApi(api, context) {
+      api.savePerson = async (person, options) => {
+        context.calls.push({ name: 'savePerson', args: [deepClone(person), options ? deepClone(options) : undefined] })
+        const nextFileName = `${slugify(person?.name || '')}.json`
+        const expectedFileName = String(options?.expectedFileName || '')
+        const liveRecord = context.db[expectedFileName]
+
+        if (liveRecord && Number(person?.revision || 0) !== Number(liveRecord?.revision || 0)) {
+          return {
+            ok: false,
+            errorType: 'conflict',
+            message: 'Stale survivor revision'
+          }
+        }
+
+        if (expectedFileName === 'bob.json' && !bobFailureInjected) {
+          bobFailureInjected = true
+          return {
+            ok: false,
+            message: 'Simulated Bob failure'
+          }
+        }
+
+        const saved = deepClone({
+          ...person,
+          revision: Number(person?.revision || 0) + 1,
+          lastReturned: options?.markReturned ? new Date().toISOString() : person?.lastReturned || null
+        })
+        if (expectedFileName && expectedFileName !== nextFileName) delete context.db[expectedFileName]
+        context.db[nextFileName] = saved
+        return { ok: true, fileName: nextFileName }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const showdownSelectA = harness.document.getElementById('showdownSelectA')
+  const showdownSelectB = harness.document.getElementById('showdownSelectB')
+  const status = harness.document.getElementById('status')
+  const sessionState = harness.document.getElementById('showdownSessionState')
+
+  showdownSelectA.value = 'alice.json'
+  showdownSelectB.value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush()
+
+  harness.click('departShowdown')
+  await harness.flush()
+
+  harness.click('showdownOver')
+  await harness.flush(12)
+
+  assert.equal(sessionState.textContent, 'Session departed')
+  assert.match(status.innerText, /Could not end showdown\./)
+  assert.match(status.innerText, /Saved Alice\./)
+  assert.match(status.innerText, /Bob failed: Simulated Bob failure/)
+  assert.equal(harness.alerts.length, 1)
+  assert.match(harness.alerts[0], /Showdown remains departed so you can retry safely\./)
+
+  harness.click('showdownOver')
+  await harness.flush(12)
+
+  assert.equal(sessionState.textContent, 'Session not departed')
+  assert.doesNotMatch(status.innerText, /Could not end showdown\./)
+  assert.equal(harness.alerts.length, 1)
+  assert.equal(harness.db['alice.json'].revision, 3)
+  assert.equal(harness.db['bob.json'].revision, 2)
+})
+
+test('showdown end surfaces conflict-specific failure messaging and stays departed', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, context) {
+      api.savePerson = async (person, options) => {
+        context.calls.push({ name: 'savePerson', args: [deepClone(person), options ? deepClone(options) : undefined] })
+        const expectedFileName = String(options?.expectedFileName || '')
+        if (expectedFileName === 'bob.json') {
+          return {
+            ok: false,
+            errorType: 'conflict',
+            message: 'Stale survivor revision'
+          }
+        }
+        const nextFileName = `${slugify(person?.name || '')}.json`
+        context.db[nextFileName] = deepClone({
+          ...person,
+          revision: Number(person?.revision || 0) + 1
+        })
+        return { ok: true, fileName: nextFileName }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const showdownSelectA = harness.document.getElementById('showdownSelectA')
+  const showdownSelectB = harness.document.getElementById('showdownSelectB')
+  const status = harness.document.getElementById('status')
+  const sessionState = harness.document.getElementById('showdownSessionState')
+
+  showdownSelectA.value = 'alice.json'
+  showdownSelectB.value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush()
+  harness.click('departShowdown')
+  await harness.flush()
+
+  harness.click('showdownOver')
+  await harness.flush(12)
+
+  assert.equal(sessionState.textContent, 'Session departed')
+  assert.match(status.innerText, /Saved Alice\./)
+  assert.match(status.innerText, /Bob failed with a conflict: Stale survivor revision/)
+  assert.equal(harness.alerts.length, 1)
+})
 
 test('renderer smoke: load, save, create, and showdown flows invoke API contracts', async t => {
   const harness = setupRendererHarness()

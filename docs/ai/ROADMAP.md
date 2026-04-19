@@ -1,6 +1,6 @@
 # Engineering Roadmap
 
-Last updated: 2026-04-18
+Last updated: 2026-04-19
 
 ## Purpose
 This document captures high-leverage follow-up work identified after reviewing the current app, codebase structure, and recent delivery history. It is meant to be a practical roadmap we can revisit, not a commitment to implement every item immediately.
@@ -8,96 +8,60 @@ This document captures high-leverage follow-up work identified after reviewing t
 ## Current Read
 - The app baseline is healthy: standard verification passed cleanly at the time this roadmap was written.
 - The highest-value work now is less about fixing obvious breakage and more about improving scale, safety, and maintainability.
-- The largest pressure point is renderer complexity, followed by settlement data-loading/render cost as survivor counts grow.
+- Settlement summary loading has already landed, which removes the biggest recent data-fetch cost from settlement refreshes.
+- Settlement name/trait search is now debounced, which removes the most obvious interactive rerender churn while typing.
+- Showdown end-save handling is now hardened against partial-save outcomes and keeps the departed session recoverable when only one survivor save succeeds.
+- Create/Edit/default-template flows now prompt before reset/back/navigation when the current form has unsaved changes, and the create action rail shows a lightweight unsaved indicator while the form is dirty.
+- Further settlement optimization should now be driven by profiling and real survivor counts rather than assumed hot spots.
+- The largest structural pressure point remains renderer complexity.
 
 ## Recommended Order
-1. Add a batch settlement summary loading path.
-2. Harden showdown save completion against partial-save outcomes.
-3. Add dirty-state / unsaved-changes protection for Create and template editing.
-4. Split renderer responsibilities into smaller modules.
-5. Expand renderer workflow coverage with targeted tests.
+1. Split renderer responsibilities into smaller modules.
+2. Expand renderer workflow coverage with targeted tests.
+3. Revisit deeper settlement filtering/render optimization only if profiling still shows pressure.
+4. Revisit secondary markdown and bulk-update ergonomics only if they become a clearer bottleneck.
 
-## Priority 1: Settlement Summary Loading
-Why it matters:
-- Settlement refresh currently lists filenames, then loads every survivor individually.
-- This creates extra IPC chatter and repeated file reads for the most frequently visited screen.
-- As the survivor folder grows, this will likely become the most visible performance bottleneck.
+## Recently Completed: Settlement Summary Loading
+Status:
+- Completed on 2026-04-18.
+- Settlement refresh now uses `listPeopleSummaries`, which batches the read path and precomputes settlement-safe summary fields.
 
-Current pressure points:
-- Settlement refresh flow in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:4579)
-- Per-file settlement loading in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:2722)
-- Sync file-system access in [src/dataService.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/dataService.js:364) and [src/dataService.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/dataService.js:382)
+Relevant shipped work:
+- Batch settlement loading in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:4621)
+- Summary generation in [src/dataService.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/dataService.js:467)
 
-Recommended change:
-- Add a `listPeopleSummaries` IPC/data-service path that returns only settlement-needed fields in one pass.
-- Keep full `loadPerson` for editor/showdown entry, but stop using it for every settlement refresh.
-- Precompute lightweight summary data during the batch read so settlement sorting/filtering works without repeated deep object traversal.
+## Recently Completed: Showdown Save Hardening
+Status:
+- Completed on 2026-04-19.
+- Ending showdown now handles per-survivor save results explicitly, keeps the departed session intact on failure, and syncs successful saves back into showdown memory so retries do not immediately trip stale-revision conflicts.
 
-Expected benefit:
-- Faster settlement refresh.
-- Lower IPC overhead.
-- Better scaling for auto-refresh and larger survivor folders.
+Relevant shipped work:
+- Hardened showdown save flow in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:3501)
+- Renderer smoke coverage for recoverable partial-save behavior in [test/renderer.smoke.test.js](/Users/mikehodges/Documents/Kingdom Death Survivors/test/renderer.smoke.test.js:730)
 
-## Priority 2: Showdown Save Hardening
-Why it matters:
-- Ending showdown is treated like one logical action, but today it saves two survivors in parallel and then proceeds.
-- If one save succeeds and the other fails, the app can land in an awkward partial-persist state.
+## Recently Completed: Settlement Search Debounce
+Status:
+- Completed on 2026-04-19.
+- Settlement name and trait search now wait briefly before rerendering the table, while sort and non-text filters remain immediate.
 
-Current pressure points:
-- Parallel showdown save in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:3454)
-- End-showdown flow in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:3620)
+Relevant shipped work:
+- Debounced settlement search inputs in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:2521)
+- Renderer smoke coverage for delayed search rerendering in [test/renderer.smoke.test.js](/Users/mikehodges/Documents/Kingdom Death Survivors/test/renderer.smoke.test.js:685)
 
-Recommended change:
-- Replace the current all-or-nothing assumption with explicit `Promise.allSettled()` handling.
-- Surface per-survivor save results in the status/error flow.
-- Keep showdown state intact if either save fails so the user can retry safely.
-- Consider a dedicated recovery path for conflict errors versus generic save errors.
+Remaining follow-up:
+- If settlement still feels heavy with larger survivor folders, profile whether additional caching around sort/filter work is warranted.
+- Only consider row virtualization if measured survivor counts justify the extra complexity.
 
-Expected benefit:
-- Safer showdown completion.
-- Better user trust when saves fail.
-- Clearer recovery behavior in multi-user or stale-data scenarios.
+## Recently Completed: Unsaved Changes Protection
+Status:
+- Completed on 2026-04-19.
+- Create/Edit/default-template flows now track dirty form state, prompt before reset/back/navigation discards, and show a lightweight unsaved indicator near the main action rail.
 
-## Priority 3: Unsaved Changes Protection
-Why it matters:
-- Create, edit, and default-template flows now contain enough data entry that accidental navigation/reset can be costly.
-- The current UX allows back/reset/navigation without a dirty-form confirmation layer.
+Relevant shipped work:
+- Dirty-state snapshot and discard confirmation flow in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:672)
+- Create-view discard coverage in [test/renderer.smoke.test.js](/Users/mikehodges/Documents/Kingdom Death Survivors/test/renderer.smoke.test.js:736)
 
-Current pressure points:
-- Create navigation in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:5092) and [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:5128)
-- Reset and back actions in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:5806) and [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:5819)
-
-Recommended change:
-- Track dirty state for Create/Edit and default-template modes.
-- Prompt before reset, back, or page navigation when there are unsaved changes.
-- Optionally add a lightweight "unsaved" status indicator near the save action.
-
-Expected benefit:
-- Less accidental data loss.
-- Better confidence when editing larger survivor records or templates.
-
-## Priority 4: Settlement Render Optimization
-Why it matters:
-- Settlement filtering and sorting are recomputed on every relevant input event.
-- Search inputs trigger a full table rerender on each keystroke.
-- Derived values like trait-search text and stats totals are recalculated repeatedly.
-
-Current pressure points:
-- Filter/sort work in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:2498)
-- Table rebuild in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:2553)
-- Immediate input rerenders in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:4875)
-
-Recommended change:
-- Debounce settlement name/trait search inputs.
-- Cache derived settlement values when records are refreshed.
-- Avoid recalculating trait-search strings and sort values during every render pass.
-- Only consider row virtualization if survivor counts become large enough to justify the complexity.
-
-Expected benefit:
-- Smoother filtering on larger datasets.
-- Lower unnecessary work during active typing.
-
-## Priority 5: Renderer Decomposition
+## Priority 1: Renderer Decomposition
 Why it matters:
 - `src/renderer.js` is the biggest maintainability risk in the repo.
 - It currently mixes page state, view rendering, event delegation, modal logic, showdown state, settlement behavior, and create/edit workflows in one large file.
@@ -119,7 +83,7 @@ Expected benefit:
 - Lower regression risk.
 - Better readability for debugging and onboarding.
 
-## Priority 6: Test Expansion
+## Priority 2: Test Expansion
 Why it matters:
 - Data-service and IPC coverage are strong, but renderer coverage is still relatively thin compared with the amount of UI logic in the app.
 
@@ -128,10 +92,8 @@ Current pressure points:
 
 Recommended next tests:
 - Departed showdown locks settlement slot reassignment.
-- End-showdown failure keeps session state recoverable.
 - Settlement filter and sort behavior for the newer columns and derived values.
 - Knowledge upgrade flows in Create and Showdown.
-- Dirty-state prompts on navigation/reset.
 - Regression test for "rename existing survivor does not duplicate" if not already covered at the desired level.
 
 Expected benefit:
