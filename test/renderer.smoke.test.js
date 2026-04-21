@@ -1636,6 +1636,7 @@ test('renderer smoke: load, save, create, and showdown flows invoke API contract
   const createSurvivorName = harness.document.getElementById('createSurvivorName')
   const showdownSelectA = harness.document.getElementById('showdownSelectA')
   const showdownSelectB = harness.document.getElementById('showdownSelectB')
+  const showdownView = harness.document.getElementById('showdownView')
 
   const loadBefore = countCalls(harness.calls, 'loadPerson')
   peopleList.value = 'alice.json'
@@ -1668,6 +1669,15 @@ test('renderer smoke: load, save, create, and showdown flows invoke API contract
   assert.ok(showdownLoads.some(entry => entry.args[0] === 'bob.json'))
 
   const showdownSaveBaseline = harness.calls.length
+  const lumiButton = harness.document.createElement('button')
+  lumiButton.dataset.showdownSlot = 'A'
+  lumiButton.dataset.showdownField = 'lumi'
+  lumiButton.dataset.showdownKind = 'base'
+  lumiButton.dataset.showdownDelta = '1'
+  lumiButton.dataset.showdownMin = '0'
+  lumiButton.dataset.showdownMax = ''
+  showdownView.dispatchEvent(new FakeEvent('click', { target: lumiButton }))
+  await harness.flush()
   harness.click('departShowdown')
   await harness.flush()
   harness.click('showdownOver')
@@ -1684,4 +1694,5 @@ test('renderer smoke: load, save, create, and showdown flows invoke API contract
   assert.ok(showdownSaves.some(entry => entry.args[1].expectedFileName === 'alice.json'))
   assert.ok(showdownSaves.some(entry => entry.args[1].expectedFileName === 'bob.json'))
   assert.ok(showdownSaves.every(entry => entry.args[1].markReturned === true))
+  assert.equal(showdownSaves.find(entry => entry.args[1].expectedFileName === 'alice.json')?.args[0]?.lumi, 1)
 })

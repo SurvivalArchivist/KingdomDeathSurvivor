@@ -281,6 +281,13 @@ body:is(.theme-zen-day, .theme-zen-night) .showdown-header-inline-select {
   caret-color: var(--field-ink);
 }
 
+body:is(.theme-zen-day, .theme-zen-night) .showdown-group-vitals .showdown-stepper-proficiency-combined .showdown-proficiency-type-input {
+  border-color: var(--field-border);
+  background: var(--field-bg);
+  color: var(--field-ink);
+  caret-color: var(--field-ink);
+}
+
 body:is(.theme-zen-day, .theme-zen-night) #addMarkdownModal label,
 body:is(.theme-zen-day, .theme-zen-night) #knowledgeTemplateModal label {
   color: var(--muted);

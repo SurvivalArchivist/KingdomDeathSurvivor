@@ -129,6 +129,13 @@ body.theme-light textarea {
   caret-color: var(--field-ink);
 }
 
+body.theme-light .showdown-group-vitals .showdown-stepper-proficiency-combined .showdown-proficiency-type-input {
+  border-color: var(--field-border);
+  background: var(--field-bg);
+  color: var(--field-ink);
+  caret-color: var(--field-ink);
+}
+
 body.theme-light .settings-row select,
 body.theme-light .ve-grid select,
 body.theme-light .ve-row select,

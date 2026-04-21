@@ -37,6 +37,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - After `Depart`, the `Depart` button hides and `End Showdown` appears in the showdown session bar.
 - There is no global departed indicator pill.
 - `End Showdown` confirms, then writes persistent survivor updates.
+- Showdown Lumi is a persistent survivor stat and saves through the same base-stat path as Survival.
 - Temporary combat modifiers, armor, `Tokens (+)`, `Tokens (-)`, bleeding tokens, and weapon proficiency reminder controls are non-persistent.
 
 ## Multi-User Safety (Current)

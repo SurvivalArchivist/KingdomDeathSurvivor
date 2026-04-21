@@ -513,6 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const TEXT_ENTRY_ARRAYS = ['abilities', 'impairments', 'notes']
   const SHOWDOWN_FIELDS = [
     'age',
+    'lumi',
     'survivalPts',
     'insanityPts',
     'courage',
@@ -2976,6 +2977,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${renderProficiencyStepper()}
           </div>
           <div class="showdown-stats showdown-stats-vitals showdown-stats-vitals-bleeding">
+            ${renderBaseStepper(['lumi', 'Lumi', 0, null, 'icon-vitals'])}
             <div class="showdown-stepper showdown-stepper-simple showdown-stepper-bleeding">
               <span class="showdown-stepper-label">${iconLabel('icon-bleeding', 'Bleeding Tokens')}</span>
               <div class="showdown-stepper-controls">

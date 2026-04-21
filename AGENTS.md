@@ -42,6 +42,7 @@ Before making significant changes, check:
 - Showdown session behavior is important and should remain intact:
   - `Depart` locks survivor slots and keeps showdown state active across navigation.
   - `End Showdown` confirms and writes persistent survivor updates.
+  - Lumi in Showdown is a persistent survivor stat and should save like Survival.
   - Temporary combat modifiers, armor, and bleeding tokens are non-persistent.
 - The app should never create data folders automatically from Settings selections.
 
