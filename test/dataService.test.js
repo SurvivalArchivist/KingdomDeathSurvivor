@@ -42,6 +42,7 @@ test('listPeopleSummaries returns settlement-safe summaries and skips unreadable
   ava.philosophy = 'Lantern'
   ava.age = 3
   ava.nextPhilosophyAgeThreshold = 2
+  ava.lifetimeReroll = true
   ava.weaponProficiency.type = 'Sword'
   ava.weaponProficiency.level = 2
   ava.abilities = ['Dash']
@@ -75,6 +76,7 @@ test('listPeopleSummaries returns settlement-safe summaries and skips unreadable
       lastUpdated: result.records[0].person.lastUpdated,
       lastReturned: null,
       isAlive: true,
+      lifetimeReroll: true,
       matchmaker: false,
       tinker: false,
       weaponProficiency: {

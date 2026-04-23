@@ -1,6 +1,8 @@
 # Model Handoff Log
 
 ## Current State Snapshot
+- Settlement Lifetime Reroll filtering depends on `listPeopleSummaries` including `person.lifetimeReroll`; renderer smoke coverage mirrors the settlement summary shape so future extraction changes should keep that field.
+- Project/package version is now `2.2.3` for the Settlement Lifetime Reroll filter patch release.
 - Repo-level `AGENTS.md` has been restored as the primary working brief for future agents, consolidating current UI direction, workflow guardrails, and documentation expectations from the active handoff/context docs.
 - `macOS Package` and `Windows Package` workflows are now manual-only (`workflow_dispatch`) so routine `main`/PR changes run validation without duplicate packaging; cross-platform packaging for public binaries is centralized in `Release Publish`.
 - Release publish workflow now checks out repo content before artifact downloads in the publish job, preventing downloaded `.dmg`/`.zip`/`.exe` artifacts from being removed before `action-gh-release` uploads them.
@@ -53,6 +55,8 @@
 - Survivor saves now use optimistic concurrency (`revision`, `updatedAt`) and atomic file writes.
 
 ## Recent Changes
+- 2026-04-23: Fixed Settlement `Lifetime Reroll` extra filter by adding `person.lifetimeReroll` to the settlement-safe summary payload and updated data-service/renderer smoke coverage so the filter stays wired to the survivor checkbox-backed field; files: `src/dataService.js`, `test/dataService.test.js`, `test/renderer.smoke.test.js`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/rendererSettlementHelpers.js src/renderer.js`, `node --test test/dataService.test.js test/renderer.smoke.test.js`, `npm test`.
+- 2026-04-23: Prepared `v2.2.3` release metadata and brief patch notes for the Settlement Lifetime Reroll filter fix and tracked `.DS_Store` cleanup; files: `package.json`, `package-lock.json`, `CHANGELOG.md`, `.github/release-notes.md`, `docs/ai/MODEL_HANDOFF.md`, `release/mac-arm64/.DS_Store`; verification: `npm run verify`.
 - 2026-04-16: Prepared `v2.0.0` release metadata and release notes to package the current UI refresh as a major version, including the new `Zen Day` / `Zen Night` themes, flattened Settlement shell, Showdown shell/layout cleanup, and restored knowledge color separation; files: `package.json`, `package-lock.json`, `CHANGELOG.md`, `.github/release-notes.md`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-04-16: Increased the horizontal gap between the two Showdown survivor shells so the paired columns read as more clearly separated working areas without changing their internal layout or mobile stacking behavior; files: `ui/components/styles/showdown.css`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.
 - 2026-04-16: Removed the outer Settlement view shell by dropping the shared `panel` wrapper from the main settlement container, keeping the table/filer sub-structures intact while flattening the page-level chrome; files: `ui/components/index.html`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`.

@@ -451,6 +451,7 @@ function createPersonSettlementSummary(fileName, person) {
       lastUpdated: typeof person?.lastUpdated === 'string' ? person.lastUpdated : '',
       lastReturned: typeof person?.lastReturned === 'string' || person?.lastReturned === null ? person.lastReturned : '',
       isAlive: Boolean(person?.isAlive),
+      lifetimeReroll: Boolean(person?.lifetimeReroll),
       matchmaker: Boolean(person?.matchmaker),
       tinker: Boolean(person?.tinker),
       weaponProficiency: {

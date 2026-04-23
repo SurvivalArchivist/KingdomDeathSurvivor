@@ -647,11 +647,7 @@ function setupRendererHarness(options = {}) {
                 lastReturned: person.lastReturned,
                 isAlive: person.isAlive,
                 lifetimeReroll: person.lifetimeReroll,
-                stalwart: person.stalwart,
-                prepared: person.prepared,
                 matchmaker: person.matchmaker,
-                analyze: person.analyze,
-                explore: person.explore,
                 tinker: person.tinker,
                 weaponProficiency: {
                   type: person.weaponProficiency?.type || '',

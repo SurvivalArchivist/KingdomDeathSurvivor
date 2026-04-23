@@ -1,18 +1,15 @@
-## KDM Survivors Console 2.2.2
+## KDM Survivors Console 2.2.3
 
-This patch release polishes the latest Showdown and packaging work: Lumi is now available directly in Showdown, light themes handle the weapon proficiency field correctly, and the packaged app icons no longer carry the baked outer shadow/fringe.
+This patch release fixes the Settlement `Lifetime Reroll` extra filter and removes a stray macOS metadata file from tracked release output.
 
 ### Highlights
-- Showdown now has a persistent Lumi counter beside Bleeding Tokens.
-- The Showdown weapon proficiency type box is readable again in Light and Zen Day themes.
-- Packaged app icons have been regenerated without the baked outer shadow/fringe.
+- Settlement `Lifetime Reroll` filtering now follows the survivor checkbox-backed field.
+- Release output no longer tracks `release/mac-arm64/.DS_Store`.
 
 ### Detailed Release Notes
-- Added Lumi to the Showdown vitals area using the existing base-stat stepper behavior, so `End Showdown` saves Lumi like Survival.
-- Kept Bleeding Tokens temporary while documenting the persistence difference for future Showdown changes.
-- Fixed the newer Showdown weapon proficiency input class in light theme layers so the dark base field surface no longer leaks through.
-- Cleaned the runtime icon master and regenerated macOS, Windows, Linux, and iconset outputs from the shadowless master.
-- Added renderer smoke coverage that increments Showdown Lumi and verifies it persists through the Showdown save path.
+- Added `lifetimeReroll` to the settlement-safe survivor summary payload used by the Settlement table.
+- Updated data-service and renderer smoke coverage so future summary extraction changes keep the filter wired correctly.
+- Kept `.DS_Store` ignored and removed the previously tracked copy from release artifacts.
 
 ### Downloads
 - Windows: use the `.exe` installer asset in this release.
