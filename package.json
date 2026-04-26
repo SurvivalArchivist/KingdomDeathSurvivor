@@ -1,6 +1,6 @@
 {
   "name": "kingdom-death-survivors",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "description": "Desktop companion app for Kingdom Death survivor management.",
   "main": "src/main.js",
   "scripts": {
@@ -82,11 +82,11 @@
     }
   },
   "devDependencies": {
-    "electron": "^40.6.0",
-    "electron-builder": "^24.13.3"
+    "electron": "^40.9.2",
+    "electron-builder": "^26.8.1"
   },
   "dependencies": {
-    "ajv": "^8.18.0",
+    "ajv": "^8.20.0",
     "markdown-it": "^14.1.1"
   }
 }
