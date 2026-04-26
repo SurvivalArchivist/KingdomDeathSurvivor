@@ -391,7 +391,7 @@
     },
     "knowledge": {
       "type": "array",
-      "maxItems": 2,
+      "maxItems": 5,
       "items": {
         "type": "object",
         "additionalProperties": false,

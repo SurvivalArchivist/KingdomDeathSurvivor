@@ -59,7 +59,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Migration stub exists in `src/dataService.js` for future schema upgrades.
 - Philosophy metadata includes optional `philosophyNeurosisName` (template/source label) and `philosophyNeurosis` text.
 - Tenet Knowledge max: 1
-- Knowledge max: 2
+- Knowledge max: 5
 - Both support:
   - `observationRequirement`
   - `currentObservations`

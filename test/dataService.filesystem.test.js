@@ -411,7 +411,7 @@ test('savePerson rejects too many tenet knowledge entries', () => {
   )
 })
 
-test('savePerson rejects too many knowledge entries', () => {
+test('savePerson accepts five knowledge entries', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')
 
@@ -419,7 +419,29 @@ test('savePerson rejects too many knowledge entries', () => {
   person.knowledge = [
     { name: 'Knowledge 1', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 },
     { name: 'Knowledge 2', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 },
-    { name: 'Knowledge 3', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 } // Too many
+    { name: 'Knowledge 3', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 },
+    { name: 'Knowledge 4', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 },
+    { name: 'Knowledge 5', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 }
+  ]
+
+  const fileName = dataService.savePerson(basePath, person)
+  const loaded = dataService.loadPerson(basePath, fileName)
+
+  assert.equal(loaded.knowledge.length, 5)
+})
+
+test('savePerson rejects more than five knowledge entries', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+
+  const person = dataService.createPersonTemplate('Test')
+  person.knowledge = [
+    { name: 'Knowledge 1', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 },
+    { name: 'Knowledge 2', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 },
+    { name: 'Knowledge 3', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 },
+    { name: 'Knowledge 4', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 },
+    { name: 'Knowledge 5', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 },
+    { name: 'Knowledge 6', observation: '', rules: '', observationRequirement: 0, knowledgeLevel: 1 } // Too many
   ]
 
   assert.throws(

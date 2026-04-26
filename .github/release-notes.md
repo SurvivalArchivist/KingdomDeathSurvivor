@@ -1,15 +1,15 @@
-## KDM Survivors Console 2.2.3
+## KDM Survivors Console 2.2.4
 
-This patch release fixes the Settlement `Lifetime Reroll` extra filter and removes a stray macOS metadata file from tracked release output.
+This patch release raises the survivor Knowledge entry limit from 2 to 5.
 
 ### Highlights
-- Settlement `Lifetime Reroll` filtering now follows the survivor checkbox-backed field.
-- Release output no longer tracks `release/mac-arm64/.DS_Store`.
+- Survivors can now carry up to 5 Knowledge entries.
+- Create/View Survivor, Showdown, and template insertion flows all use the same updated limit.
 
 ### Detailed Release Notes
-- Added `lifetimeReroll` to the settlement-safe survivor summary payload used by the Settlement table.
-- Updated data-service and renderer smoke coverage so future summary extraction changes keep the filter wired correctly.
-- Kept `.DS_Store` ignored and removed the previously tracked copy from release artifacts.
+- Updated survivor schema validation so records with up to 5 Knowledge entries save and load normally.
+- Updated renderer add guards for Create Survivor, View/Edit Survivor, Showdown, and markdown/template insertion.
+- Added validation coverage for accepting exactly 5 Knowledge entries and rejecting more than 5.
 
 ### Downloads
 - Windows: use the `.exe` installer asset in this release.

@@ -27,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
     getSettlementStatsTotal,
     getSettlementTimestampSortValue
   } = settlementHelpers
+  const TENET_KNOWLEDGE_LIMIT = 1
+  const KNOWLEDGE_LIMIT = 5
 
   const dataSourcesView = document.getElementById('dataSourcesView')
   const navDataSourcesButton = document.getElementById('navDataSources')
@@ -1804,8 +1806,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
     if (type === 'tenetKnowledge') {
-      if (createArrayState.tenetKnowledge.length >= 1) {
-        setStatus('tenetKnowledge can only contain 1 entry', 'error')
+      if (createArrayState.tenetKnowledge.length >= TENET_KNOWLEDGE_LIMIT) {
+        setStatus(`tenetKnowledge can only contain ${TENET_KNOWLEDGE_LIMIT} entry`, 'error')
         return
       }
       createArrayState.tenetKnowledge.push({
@@ -1823,8 +1825,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
     if (type === 'knowledge') {
-      if (createArrayState.knowledge.length >= 2) {
-        setStatus('knowledge can only contain 2 entries', 'error')
+      if (createArrayState.knowledge.length >= KNOWLEDGE_LIMIT) {
+        setStatus(`knowledge can only contain ${KNOWLEDGE_LIMIT} entries`, 'error')
         return
       }
       createArrayState.knowledge.push({
@@ -1965,7 +1967,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const parsed = parseEditorJson()
     if (!parsed) return false
     if (!Array.isArray(parsed[arrayName])) parsed[arrayName] = []
-    const max = arrayName === 'tenetKnowledge' ? 1 : 2
+    const max = arrayName === 'tenetKnowledge' ? TENET_KNOWLEDGE_LIMIT : KNOWLEDGE_LIMIT
     if (parsed[arrayName].length >= max) {
       setStatus(`${arrayName} can only contain ${max} entr${max === 1 ? 'y' : 'ies'}`, 'error')
       return false
@@ -1979,7 +1981,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function insertKnowledgeEntryIntoCreate(arrayName, entry) {
     syncCreateArraysFromDom()
-    const max = arrayName === 'tenetKnowledge' ? 1 : 2
+    const max = arrayName === 'tenetKnowledge' ? TENET_KNOWLEDGE_LIMIT : KNOWLEDGE_LIMIT
     if (!Array.isArray(createArrayState[arrayName])) createArrayState[arrayName] = []
     if (createArrayState[arrayName].length >= max) {
       setStatus(`${arrayName} can only contain ${max} entr${max === 1 ? 'y' : 'ies'}`, 'error')
@@ -2012,7 +2014,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!slot || !showdownPeople[slot]) return false
     const person = showdownPeople[slot].person
     if (!Array.isArray(person[arrayName])) person[arrayName] = []
-    const max = arrayName === 'tenetKnowledge' ? 1 : 2
+    const max = arrayName === 'tenetKnowledge' ? TENET_KNOWLEDGE_LIMIT : KNOWLEDGE_LIMIT
     if (person[arrayName].length >= max) {
       setStatus(`${arrayName} can only contain ${max} entr${max === 1 ? 'y' : 'ies'}`, 'error')
       return false
@@ -4059,8 +4061,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (type === 'tenet') {
       if (!Array.isArray(parsed.tenetKnowledge)) parsed.tenetKnowledge = []
-      if (parsed.tenetKnowledge.length >= 1) {
-        setStatus('tenetKnowledge can only contain 1 entry', 'error')
+      if (parsed.tenetKnowledge.length >= TENET_KNOWLEDGE_LIMIT) {
+        setStatus(`tenetKnowledge can only contain ${TENET_KNOWLEDGE_LIMIT} entry`, 'error')
         return
       }
       parsed.tenetKnowledge.push({
@@ -4075,8 +4077,8 @@ document.addEventListener('DOMContentLoaded', () => {
       })
     } else if (type === 'knowledge') {
       if (!Array.isArray(parsed.knowledge)) parsed.knowledge = []
-      if (parsed.knowledge.length >= 2) {
-        setStatus('knowledge can only contain 2 entries', 'error')
+      if (parsed.knowledge.length >= KNOWLEDGE_LIMIT) {
+        setStatus(`knowledge can only contain ${KNOWLEDGE_LIMIT} entries`, 'error')
         return
       }
       parsed.knowledge.push({
@@ -4123,7 +4125,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (normalized.includes('tenets')) {
       return {
         field: 'tenetKnowledge',
-        max: 1,
+        max: TENET_KNOWLEDGE_LIMIT,
         build: doc => ({
           name: doc.title,
           observation: '',
@@ -4140,7 +4142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (normalized.includes('knowledges')) {
       return {
         field: 'knowledge',
-        max: 2,
+        max: KNOWLEDGE_LIMIT,
         build: doc => ({
           name: doc.title,
           observation: '',
@@ -4171,7 +4173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (category === 'tenetKnowledges') {
       return {
         field: 'tenetKnowledge',
-        max: 1,
+        max: TENET_KNOWLEDGE_LIMIT,
         build: doc => ({
           name: doc.title,
           observation: '',
@@ -4188,7 +4190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (category === 'knowledges') {
       return {
         field: 'knowledge',
-        max: 2,
+        max: KNOWLEDGE_LIMIT,
         build: doc => ({
           name: doc.title,
           observation: '',
