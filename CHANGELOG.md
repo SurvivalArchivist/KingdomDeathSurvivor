@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.6] - 2026-04-30
+
+### Fixed
+- Restored the Windows packaged runtime/build chain to the known-good 2.2.4 versions after the 2.2.5 Electron/toolchain refresh caused Windows white-screen startup failures.
+- Gave Windows setup and portable builds distinct artifact names so the portable executable can no longer overwrite the installer in release output.
+
 ## [2.2.5] - 2026-04-26
 
 ### Changed
