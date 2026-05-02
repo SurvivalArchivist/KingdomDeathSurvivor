@@ -421,7 +421,7 @@ function summarizeCanPonder(person) {
 }
 
 function summarizeStatsTotal(person) {
-  const fields = ['movement', 'speed', 'accuracy', 'strength', 'luck', 'evasion', 'courage', 'understanding']
+  const fields = ['movement', 'speed', 'accuracy', 'strength', 'luck', 'evasion']
   return fields.reduce((sum, field) => sum + (Number(person?.[field]) || 0), 0)
 }
 

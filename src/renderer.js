@@ -605,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const BULK_EDIT_DEFAULT_FIELD = 'strength'
   const BULK_EDIT_DEFAULT_DELTA = 1
   let settlementBulkChanges = [createBulkEditChange()]
-  const SETTLEMENT_STATS_TOTAL_FIELDS = ['strength', 'speed', 'evasion', 'luck', 'accuracy']
+  const SETTLEMENT_STATS_TOTAL_FIELDS = ['movement', 'speed', 'accuracy', 'strength', 'luck', 'evasion']
   let showdownPeople = {
     A: null,
     B: null

@@ -1,15 +1,10 @@
-## KDM Survivors Console 2.2.6
+## KDM Survivors Console 2.2.7
 
-This patch release fixes the Windows startup regression seen in 2.2.5.
+This patch release corrects the Settlement `Stats Total` calculation.
 
 ### Highlights
-- Restores the Windows packaged runtime/build chain to the known-good 2.2.4 versions.
-- Publishes separate Windows setup and portable artifacts so one build cannot overwrite the other.
-
-### Detailed Release Notes
-- 2.2.5 changed only the Electron/runtime dependency tree, not app renderer code.
-- The Windows release output also used the same `.exe` filename for NSIS setup and portable builds, allowing the portable target to overwrite the installer.
-- 2.2.6 pins Electron/electron-builder/AJV back to the 2.2.4 versions and names Windows artifacts as `setup` or `portable` explicitly.
+- Stats Total now sums only Movement, Speed, Accuracy, Strength, Luck, and Evasion.
+- Courage and Understanding still appear as their own Settlement columns and can still be sorted independently.
 
 ### Downloads
 - Windows: use the `setup.exe` asset for installation, or `portable.exe` if you specifically want the portable build.

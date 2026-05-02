@@ -41,6 +41,8 @@ test('listPeopleSummaries returns settlement-safe summaries and skips unreadable
   const ava = dataService.createPersonTemplate('Ava')
   ava.philosophy = 'Lantern'
   ava.age = 3
+  ava.courage = 4
+  ava.understanding = 3
   ava.nextPhilosophyAgeThreshold = 2
   ava.lifetimeReroll = true
   ava.weaponProficiency.type = 'Sword'
@@ -71,8 +73,8 @@ test('listPeopleSummaries returns settlement-safe summaries and skips unreadable
       strength: 0,
       luck: 0,
       evasion: 0,
-      courage: 0,
-      understanding: 0,
+      courage: 4,
+      understanding: 3,
       lastUpdated: result.records[0].person.lastUpdated,
       lastReturned: null,
       isAlive: true,

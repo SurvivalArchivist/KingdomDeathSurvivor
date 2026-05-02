@@ -661,9 +661,7 @@ function setupRendererHarness(options = {}) {
                 Number(person.accuracy || 0) +
                 Number(person.strength || 0) +
                 Number(person.luck || 0) +
-                Number(person.evasion || 0) +
-                Number(person.courage || 0) +
-                Number(person.understanding || 0),
+                Number(person.evasion || 0),
               traitSearchText: ''
             }
           }),
@@ -1199,8 +1197,8 @@ test('settlement sort covers newer and derived columns', async t => {
         strength: 0,
         luck: 0,
         evasion: 0,
-        courage: 0,
-        understanding: 0,
+        courage: 9,
+        understanding: 9,
         weaponProficiency: { type: 'Axe', level: 1, isSpecialist: false, isMaster: false }
       })
       context.db['cara.json'] = makePerson('Cara', {
