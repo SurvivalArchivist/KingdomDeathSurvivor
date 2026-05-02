@@ -1320,6 +1320,43 @@ test('settlement filters combine alive, can ponder, and ability group rules', as
   assert.equal(settlementCount.textContent, '0 of 3 survivors shown')
 })
 
+test('bulk updates can apply lumi to living survivors', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, context) {
+      context.db['alice.json'] = makePerson('Alice', {
+        isAlive: true,
+        lumi: 1
+      })
+      context.db['bob.json'] = makePerson('Bob', {
+        isAlive: false,
+        lumi: 7
+      })
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush(12)
+
+  const rows = harness.document.getElementById('settlementBulkRows')
+  rows.innerHTML = ''
+  const row = harness.document.createElement('div')
+  row.className = 'settlement-bulk-row'
+  const field = harness.document.createElement('select')
+  field.dataset.bulkField = ''
+  field.value = 'lumi'
+  const delta = harness.document.createElement('input')
+  delta.dataset.bulkDelta = ''
+  delta.value = '2'
+  row.append(field, delta)
+  rows.appendChild(row)
+
+  harness.click('settlementApplyBulk')
+  await harness.flush(16)
+
+  assert.equal(harness.db['alice.json'].lumi, 3)
+  assert.equal(harness.db['bob.json'].lumi, 7)
+  assert.match(harness.confirms[0], /Apply \+2 Lumi to all 1 living survivors/)
+})
+
 test('settlement row showdown assignment swaps the other slot when needed', async t => {
   const harness = setupRendererHarness({
     customizeApi(api, context) {

@@ -1,10 +1,11 @@
-## KDM Survivors Console 2.2.7
+## KDM Survivors Console 2.2.8
 
-This patch release corrects the Settlement `Stats Total` calculation.
+This patch release adds Lumi to Settlement Bulk Updates.
 
 ### Highlights
-- Stats Total now sums only Movement, Speed, Accuracy, Strength, Luck, and Evasion.
-- Courage and Understanding still appear as their own Settlement columns and can still be sorted independently.
+- Bulk Updates can now apply Lumi changes to all living survivors.
+- Lumi bulk updates clamp at zero, matching the existing nonnegative stat behavior.
+- Dead survivors are still skipped by the bulk update flow.
 
 ### Downloads
 - Windows: use the `setup.exe` asset for installation, or `portable.exe` if you specifically want the portable build.

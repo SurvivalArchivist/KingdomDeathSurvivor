@@ -593,6 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'Whip'
   ]
   const BULK_EDIT_FIELD_CONFIG = {
+    lumi: { label: 'Lumi', min: 0 },
     movement: { label: 'Movement', min: 1 },
     speed: { label: 'Speed' },
     accuracy: { label: 'Accuracy' },
