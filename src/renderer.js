@@ -4633,7 +4633,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!showdownPeople[slot]) return
     if (kind !== 'temporary' && kind !== 'tokensPositive' && kind !== 'tokensNegative') return
     const modifier = getShowdownModifier(slot, field)
-    modifier[kind] = Math.max(0, coerceNumber(nextValue, 0))
+    const normalizedValue = coerceNumber(nextValue, 0)
+    modifier[kind] = kind === 'temporary' ? normalizedValue : Math.max(0, normalizedValue)
     renderShowdownSlot(slot)
   }
 

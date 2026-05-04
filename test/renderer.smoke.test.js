@@ -1041,6 +1041,43 @@ test('departed showdown keeps locked slot selections when selectors change', asy
   assert.match(status.innerText, /Showdown slots are locked while departed/)
 })
 
+test('showdown temp combat modifiers can go negative while tokens clamp at zero', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const showdownSelectA = harness.document.getElementById('showdownSelectA')
+  const showdownSelectB = harness.document.getElementById('showdownSelectB')
+  const showdownView = harness.document.getElementById('showdownView')
+  const showdownCardA = harness.document.getElementById('showdownCardA')
+
+  showdownSelectA.value = 'alice.json'
+  showdownSelectB.value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush()
+
+  const tempButton = harness.document.createElement('button')
+  tempButton.dataset.showdownSlot = 'A'
+  tempButton.dataset.showdownField = 'strength'
+  tempButton.dataset.showdownKind = 'temporary'
+  tempButton.dataset.showdownDelta = '-1'
+  showdownView.dispatchEvent(new FakeEvent('click', { target: tempButton }))
+  await harness.flush()
+
+  assert.match(showdownCardA.innerHTML, /showdown-stat-total-value">-1</)
+  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Temp<\/span>[\s\S]*showdown-static-value">-1</)
+
+  const tokenButton = harness.document.createElement('button')
+  tokenButton.dataset.showdownSlot = 'A'
+  tokenButton.dataset.showdownField = 'strength'
+  tokenButton.dataset.showdownKind = 'tokensPositive'
+  tokenButton.dataset.showdownDelta = '-1'
+  showdownView.dispatchEvent(new FakeEvent('click', { target: tokenButton }))
+  await harness.flush()
+
+  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Tokens \(\+\)<\/span>[\s\S]*showdown-static-value">0</)
+})
+
 test('create knowledge upgrade applies the configured next template', async t => {
   const harness = setupRendererHarness({
     customizeApi(api) {

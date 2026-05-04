@@ -1,11 +1,11 @@
-## KDM Survivors Console 2.2.8
+## KDM Survivors Console 2.2.9
 
-This patch release adds Lumi to Settlement Bulk Updates.
+This patch release fixes Showdown combat temporary stat modifiers.
 
 ### Highlights
-- Bulk Updates can now apply Lumi changes to all living survivors.
-- Lumi bulk updates clamp at zero, matching the existing nonnegative stat behavior.
-- Dead survivors are still skipped by the bulk update flow.
+- Showdown combat `Temp` modifiers can now be negative as well as positive.
+- `Tokens (+)` and `Tokens (-)` still clamp at zero.
+- Temporary combat modifiers and tokens remain showdown-only and are not saved to survivor files.
 
 ### Downloads
 - Windows: use the `setup.exe` asset for installation, or `portable.exe` if you specifically want the portable build.

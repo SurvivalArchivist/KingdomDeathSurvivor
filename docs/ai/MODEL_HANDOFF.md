@@ -1,7 +1,8 @@
 # Model Handoff Log
 
 ## Current State Snapshot
-- Project/package version is now `2.2.8` for the Settlement Bulk Updates Lumi field addition.
+- Showdown combat Temp modifiers can be positive or negative; token buckets still clamp at zero and remain temporary/non-persistent.
+- Project/package version is now `2.2.9` for the Showdown combat Temp modifier clamp fix.
 - Settlement Lifetime Reroll filtering depends on `listPeopleSummaries` including `person.lifetimeReroll`; renderer smoke coverage mirrors the settlement summary shape so future extraction changes should keep that field.
 - Project/package version is now `2.2.4` for the Knowledge limit patch release.
 - Repo-level `AGENTS.md` has been restored as the primary working brief for future agents, consolidating current UI direction, workflow guardrails, and documentation expectations from the active handoff/context docs.
@@ -56,6 +57,8 @@
 - Survivor saves now use optimistic concurrency (`revision`, `updatedAt`) and atomic file writes.
 
 ## Recent Changes
+- 2026-05-04: Prepared `v2.2.9` release metadata and patch notes for the Showdown combat Temp modifier clamp fix; files: `package.json`, `package-lock.json`, `CHANGELOG.md`, `.github/release-notes.md`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/rendererKnowledgeTemplateHelpers.js src/rendererSettlementHelpers.js src/renderer.js`, `npm test`, `npm run verify`.
+- 2026-05-04: Fixed Showdown combat Temp modifiers so they can step below zero while keeping `Tokens (+)` / `Tokens (-)` clamped at zero; added renderer smoke coverage for negative Temp with token clamping; files: `src/renderer.js`, `test/renderer.smoke.test.js`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/rendererKnowledgeTemplateHelpers.js src/rendererSettlementHelpers.js src/renderer.js`, `node --test test/renderer.smoke.test.js`, `npm test`.
 - 2026-05-02: Added `Lumi` to Settlement Bulk Updates with nonnegative clamping so it can be applied to all living survivors alongside the existing stat fields; files: `src/renderer.js`, `test/renderer.smoke.test.js`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/rendererKnowledgeTemplateHelpers.js src/rendererSettlementHelpers.js src/renderer.js`, `node --test test/renderer.smoke.test.js`, `npm test`.
 - 2026-05-02: Prepared `v2.2.8` release metadata and patch notes for the Settlement Bulk Updates `Lumi` field addition; files: `package.json`, `package-lock.json`, `CHANGELOG.md`, `.github/release-notes.md`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/rendererKnowledgeTemplateHelpers.js src/rendererSettlementHelpers.js src/renderer.js`, `npm test`.
 - 2026-05-02: Fixed Settlement `Stats Total` so it sums only Movement, Speed, Accuracy, Strength, Luck, and Evasion; Courage and Understanding remain visible/sortable on their own but no longer inflate the total column; files: `src/dataService.js`, `src/renderer.js`, `test/dataService.test.js`, `test/renderer.smoke.test.js`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/rendererKnowledgeTemplateHelpers.js src/rendererSettlementHelpers.js src/renderer.js`, `node --test test/dataService.test.js test/renderer.smoke.test.js`, `npm test`.
