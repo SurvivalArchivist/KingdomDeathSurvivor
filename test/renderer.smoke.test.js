@@ -444,9 +444,11 @@ function deepClone(value) {
 
 function makePerson(name, overrides = {}) {
   return {
+    id: `survivor-${slugify(name)}`,
     name,
-    schemaVersion: 3,
+    schemaVersion: 5,
     revision: 1,
+    createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     lastUpdated: new Date().toISOString(),
     lastReturned: null,
@@ -501,6 +503,16 @@ function slugify(value) {
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+function personFileName(person) {
+  const id = slugify(person?.id || '')
+  const name = slugify(person?.name || '')
+  return id && name ? `${id}_${name}.json` : `${name}.json`
+}
+
+function findDbPersonByName(db, name) {
+  return Object.values(db).find(person => person?.name === name)
 }
 
 function seedRendererQueryElements(document) {
@@ -676,7 +688,7 @@ function setupRendererHarness(options = {}) {
     },
     async savePerson(person, options) {
       calls.push({ name: 'savePerson', args: [deepClone(person), options ? deepClone(options) : undefined] })
-      const nextFileName = `${slugify(person?.name || '')}.json`
+      const nextFileName = personFileName(person)
       if (!nextFileName || nextFileName === '.json') {
         return { ok: false, message: 'Invalid survivor name' }
       }
@@ -1008,9 +1020,10 @@ test('editing an existing survivor rename removes the old settlement record', as
   await harness.flush(16)
 
   assert.equal(harness.db['alice.json'], undefined)
-  assert.equal(harness.db['alicia.json']?.name, 'Alicia')
-  assert.equal(peopleList.value, 'alicia.json')
-  assert.ok(harness.calls.some(call => call.name === 'deletePerson' && call.args[0] === 'alice.json'))
+  const renamed = findDbPersonByName(harness.db, 'Alicia')
+  assert.equal(renamed?.name, 'Alicia')
+  assert.equal(peopleList.value, personFileName(renamed))
+  assert.ok(!harness.calls.some(call => call.name === 'deletePerson' && call.args[0] === 'alice.json'))
 })
 
 test('departed showdown keeps locked slot selections when selectors change', async t => {
@@ -1208,9 +1221,10 @@ test('showdown knowledge upgrade applies the configured next template before sav
   harness.click('showdownOver')
   await harness.flush(16)
 
-  assert.equal(harness.db['alice.json']?.knowledge?.[0]?.name, 'Inner Lantern II')
-  assert.equal(harness.db['alice.json']?.knowledge?.[0]?.knowledgeLevel, 2)
-  assert.equal(harness.db['alice.json']?.knowledge?.[0]?.currentObservations, 0)
+  const alice = findDbPersonByName(harness.db, 'Alice')
+  assert.equal(alice?.knowledge?.[0]?.name, 'Inner Lantern II')
+  assert.equal(alice?.knowledge?.[0]?.knowledgeLevel, 2)
+  assert.equal(alice?.knowledge?.[0]?.currentObservations, 0)
 })
 
 test('settlement sort covers newer and derived columns', async t => {
@@ -1389,7 +1403,7 @@ test('bulk updates can apply lumi to living survivors', async t => {
   harness.click('settlementApplyBulk')
   await harness.flush(16)
 
-  assert.equal(harness.db['alice.json'].lumi, 3)
+  assert.equal(findDbPersonByName(harness.db, 'Alice').lumi, 3)
   assert.equal(harness.db['bob.json'].lumi, 7)
   assert.match(harness.confirms[0], /Apply \+2 Lumi to all 1 living survivors/)
 })
@@ -1581,7 +1595,7 @@ test('showdown end failure keeps session recoverable after partial save', async 
     customizeApi(api, context) {
       api.savePerson = async (person, options) => {
         context.calls.push({ name: 'savePerson', args: [deepClone(person), options ? deepClone(options) : undefined] })
-        const nextFileName = `${slugify(person?.name || '')}.json`
+        const nextFileName = personFileName(person)
         const expectedFileName = String(options?.expectedFileName || '')
         const liveRecord = context.db[expectedFileName]
 
@@ -1644,8 +1658,8 @@ test('showdown end failure keeps session recoverable after partial save', async 
   assert.equal(sessionState.textContent, 'Session not departed')
   assert.doesNotMatch(status.innerText, /Could not end showdown\./)
   assert.equal(harness.alerts.length, 1)
-  assert.equal(harness.db['alice.json'].revision, 3)
-  assert.equal(harness.db['bob.json'].revision, 2)
+  assert.equal(findDbPersonByName(harness.db, 'Alice').revision, 3)
+  assert.equal(findDbPersonByName(harness.db, 'Bob').revision, 2)
 })
 
 test('showdown end surfaces conflict-specific failure messaging and stays departed', async t => {
@@ -1661,7 +1675,7 @@ test('showdown end surfaces conflict-specific failure messaging and stays depart
             message: 'Stale survivor revision'
           }
         }
-        const nextFileName = `${slugify(person?.name || '')}.json`
+        const nextFileName = personFileName(person)
         context.db[nextFileName] = deepClone({
           ...person,
           revision: Number(person?.revision || 0) + 1

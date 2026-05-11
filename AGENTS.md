@@ -47,7 +47,8 @@ Before making significant changes, check:
 - The app should never create data folders automatically from Settings selections.
 
 ## Data and Domain Guardrails
-- Survivor records use `schemaVersion` and are normalized on load/save.
+- Survivor records use stable `id`, `createdAt`, and `schemaVersion` and are normalized on load/save.
+- Survivor filenames are `{survivor-id}_{name-slug}.json`; the display name can change without changing identity, and history should key by `id`.
 - Template-backed systems include knowledge, tenet knowledge, and neuroses; preserve current compatibility behavior when changing related UI.
 - Multi-user safety is optimistic, not lock-based: avoid introducing save flows that silently overwrite stale data.
 

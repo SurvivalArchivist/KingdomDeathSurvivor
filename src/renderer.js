@@ -5509,9 +5509,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const person = await window.api.createPersonTemplate(survivorName)
-      const result = await window.api.savePerson(person, {
-        expectedFileName: wasEditingExisting ? previousEditingFile : undefined
-      })
+      const result = await window.api.savePerson(person)
       if (!result || result.ok === false) {
         const errors = Array.isArray(result?.errors) ? result.errors : []
         if (errors.length > 0) {
@@ -5795,7 +5793,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const previousEditingFile = createEditingFileName
       const wasEditingExisting = Boolean(previousEditingFile)
 
-      const result = await window.api.savePerson(person)
+      const result = await window.api.savePerson(person, {
+        expectedFileName: wasEditingExisting ? previousEditingFile : undefined
+      })
       if (!result || result.ok === false) {
         const errors = Array.isArray(result?.errors) ? result.errors : []
         if (errors.length > 0) {
@@ -5804,10 +5804,6 @@ document.addEventListener('DOMContentLoaded', () => {
           setStatus(result?.message || 'Failed to create survivor', 'error')
         }
         return
-      }
-
-      if (wasEditingExisting && previousEditingFile && previousEditingFile !== result.fileName) {
-        await window.api.deletePerson(previousEditingFile)
       }
 
       await refreshPeople()

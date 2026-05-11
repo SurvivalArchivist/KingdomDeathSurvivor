@@ -73,7 +73,7 @@ test('save/load default create template roundtrip and null when missing', () => 
   assert.equal(loaded.name, 'Default Survivor')
   assert.equal(loaded.age, 4)
   assert.equal(loaded.philosophy, 'Skylore')
-  assert.equal(loaded.schemaVersion, 3)
+  assert.equal(loaded.schemaVersion, 5)
   assert.deepEqual(loaded.notes, [])
   assert.equal(typeof loaded.lastUpdated, 'string')
   assert.equal(loaded.lastReturned, null)

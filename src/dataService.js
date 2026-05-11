@@ -1,5 +1,6 @@
 const fs = require('fs')
 const path = require('path')
+const crypto = require('crypto')
 const Ajv2020 = require('ajv/dist/2020')
 
 const KNOWLEDGE_TEMPLATE_TYPE_FOLDERS = {
@@ -21,6 +22,8 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
   dateFormat: 'en-GB'
 })
 const DEFAULT_CREATE_TEMPLATE_FILE_NAME = 'default-new-survivor.json'
+const HISTORY_FOLDER_NAME = 'history'
+const SURVIVOR_ID_PREFIX = 'survivor'
 const MARKDOWN_SOURCE_LABELS = {
   fightingArts: 'Fighting Arts',
   secretFightingArts: 'Secret Fighting Arts',
@@ -38,7 +41,7 @@ const schemaPath = path.join(__dirname, 'validation', 'person.schema.json')
 const personSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'))
 const ajv = new Ajv2020({ allErrors: true, strict: false })
 const validatePerson = ajv.compile(personSchema)
-const CURRENT_PERSON_SCHEMA_VERSION = 3
+const CURRENT_PERSON_SCHEMA_VERSION = 5
 
 class ValidationError extends Error {
   constructor(message, errors) {
@@ -143,6 +146,15 @@ function applyPersonSchemaCompatibility(person, options = {}) {
   if (typeof next.lastUpdated !== 'string') {
     next.lastUpdated = typeof next.updatedAt === 'string' ? next.updatedAt : ''
   }
+  if (typeof next.createdAt !== 'string') {
+    if (typeof next.updatedAt === 'string' && next.updatedAt) {
+      next.createdAt = next.updatedAt
+    } else if (typeof next.lastUpdated === 'string' && next.lastUpdated) {
+      next.createdAt = next.lastUpdated
+    } else {
+      next.createdAt = new Date().toISOString()
+    }
+  }
   if (typeof next.lastReturned === 'undefined') {
     next.lastReturned = null
   } else if (next.lastReturned !== null && typeof next.lastReturned !== 'string') {
@@ -150,6 +162,12 @@ function applyPersonSchemaCompatibility(person, options = {}) {
   }
   if (typeof next.editedBy !== 'string') {
     next.editedBy = ''
+  }
+  if (typeof next.id !== 'string' || !next.id.trim()) {
+    next.id =
+      typeof options.legacySurvivorId === 'string' && options.legacySurvivorId.trim()
+        ? options.legacySurvivorId.trim()
+        : createSurvivorId()
   }
 
   return options.sanitizeStoredKnowledgeEntries ? sanitizeStoredKnowledgeArrays(next) : next
@@ -252,10 +270,13 @@ function ensureDataFolderConfigured(app) {
   return dataPath
 }
 
-function personPath(basePath, personName) {
+function personPath(basePath, person) {
+  const survivorId = normalizeSurvivorId(person?.id)
+  if (!survivorId) throw new Error('Survivor id is required')
+  const personName = person?.name
   const safeName = slugify(personName)
   if (!safeName) throw new Error('Person name must include letters or numbers')
-  return path.join(basePath, `${safeName}.json`)
+  return path.join(basePath, `${survivorId}_${safeName}.json`)
 }
 
 function slugify(value) {
@@ -265,6 +286,26 @@ function slugify(value) {
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+function normalizeSurvivorId(value) {
+  if (typeof value !== 'string') return ''
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function createSurvivorId() {
+  const randomId =
+    typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex')
+  return `${SURVIVOR_ID_PREFIX}-${randomId.toLowerCase()}`
+}
+
+function legacySurvivorIdFromFileName(fileName) {
+  const slug = slugify(String(fileName || '').replace(/\.json$/i, ''))
+  return slug ? `${SURVIVOR_ID_PREFIX}-legacy-${slug}` : ''
 }
 
 function mapValidationErrors(errors = []) {
@@ -284,6 +325,25 @@ function readJsonIfExists(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
 }
 
+function findPersonFileById(basePath, survivorId, excludedFileName = '') {
+  const normalizedId = normalizeSurvivorId(survivorId)
+  if (!normalizedId || !fs.existsSync(basePath) || !fs.statSync(basePath).isDirectory()) return null
+  const excluded = path.basename(excludedFileName || '')
+  for (const fileName of listPeople(basePath)) {
+    if (excluded && fileName === excluded) continue
+    const fullPath = path.join(basePath, fileName)
+    try {
+      const raw = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
+      const rawId = normalizeSurvivorId(raw?.id)
+      const legacyId = rawId ? '' : legacySurvivorIdFromFileName(fileName)
+      if (rawId === normalizedId || legacyId === normalizedId) return fileName
+    } catch {
+      continue
+    }
+  }
+  return null
+}
+
 function atomicWriteJson(filePath, data) {
   const tmpPath = `${filePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`
   try {
@@ -292,6 +352,40 @@ function atomicWriteJson(filePath, data) {
   } finally {
     if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath)
   }
+}
+
+function createHistorySnapshotId() {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const randomId = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : crypto.randomBytes(8).toString('hex')
+  return `${timestamp}_${randomId}`
+}
+
+function writeSurvivorHistorySnapshot(basePath, snapshot, details = {}) {
+  if (!snapshot || typeof snapshot !== 'object') return null
+  const survivorName = String(snapshot.name || '').trim()
+  const sourceFileName = typeof details.sourceFileName === 'string' ? path.basename(details.sourceFileName) : ''
+  const survivorId =
+    normalizeSurvivorId(snapshot.id) || legacySurvivorIdFromFileName(sourceFileName) || 'unknown-survivor'
+  const historyFolder = path.join(basePath, HISTORY_FOLDER_NAME, 'survivors', survivorId)
+  const snapshotId = createHistorySnapshotId()
+  const historyRecord = {
+    type: 'survivor_snapshot_before_save',
+    id: snapshotId,
+    createdAt: new Date().toISOString(),
+    survivorId,
+    survivorName,
+    sourceFileName,
+    targetFileName: typeof details.targetFileName === 'string' ? path.basename(details.targetFileName) : '',
+    editorName: typeof details.editorName === 'string' ? details.editorName : '',
+    snapshot
+  }
+
+  fs.mkdirSync(historyFolder, { recursive: true })
+  const historyPath = path.join(historyFolder, `${snapshotId}_before-save.json`)
+  atomicWriteJson(historyPath, historyRecord)
+  return path.relative(basePath, historyPath)
 }
 
 function resolveIncomingRevision(person) {
@@ -303,6 +397,7 @@ function resolveIncomingRevision(person) {
 function savePerson(basePath, person, options = {}) {
   fs.mkdirSync(basePath, { recursive: true })
   const normalizedPerson = applyPersonSchemaCompatibility(person)
+  normalizedPerson.id = normalizeSurvivorId(normalizedPerson.id)
   const editorName = typeof options.editorName === 'string' ? options.editorName.trim() : ''
   const markReturned = Boolean(options.markReturned)
   if (!validatePerson(normalizedPerson)) {
@@ -310,18 +405,25 @@ function savePerson(basePath, person, options = {}) {
     throw new ValidationError(`Invalid person data: ${validationErrorSummary(errors)}`, errors)
   }
 
-  const targetPath = personPath(basePath, normalizedPerson.name)
+  const targetPath = personPath(basePath, normalizedPerson)
+  const targetFileName = path.basename(targetPath)
   const incomingRevision = resolveIncomingRevision(normalizedPerson)
   const expectedFileName =
     typeof options.expectedFileName === 'string' && options.expectedFileName.endsWith('.json')
       ? path.basename(options.expectedFileName)
       : null
-  const expectedPath = expectedFileName ? path.join(basePath, expectedFileName) : null
+  const discoveredFileName =
+    expectedFileName && expectedFileName !== targetFileName
+      ? null
+      : findPersonFileById(basePath, normalizedPerson.id, targetFileName)
+  const sourceFileName = expectedFileName || discoveredFileName
+  const expectedPath = sourceFileName ? path.join(basePath, sourceFileName) : null
 
   let baselineRevision = null
+  let expectedExisting = null
 
   if (expectedPath && expectedPath !== targetPath) {
-    const expectedExisting = readJsonIfExists(expectedPath)
+    expectedExisting = readJsonIfExists(expectedPath)
     if (!expectedExisting) {
       throw new ConflictError('Original survivor file no longer exists. Refresh before saving.')
     }
@@ -346,6 +448,7 @@ function savePerson(basePath, person, options = {}) {
   const personToSave = {
     ...normalizedPerson,
     revision: nextRevision,
+    createdAt: normalizedPerson.createdAt,
     updatedAt: savedAt,
     lastUpdated: savedAt,
     lastReturned: markReturned ? savedAt : normalizedPerson.lastReturned ?? null,
@@ -357,8 +460,32 @@ function savePerson(basePath, person, options = {}) {
     throw new ValidationError(`Invalid person data: ${validationErrorSummary(errors)}`, errors)
   }
 
+  const historySnapshots = []
+  if (expectedExisting && expectedPath !== targetPath) {
+    historySnapshots.push({ snapshot: expectedExisting, sourceFileName })
+  }
+  if (targetExisting) {
+    historySnapshots.push({ snapshot: targetExisting, sourceFileName: path.basename(targetPath) })
+  }
+
+  for (const historySnapshot of historySnapshots) {
+    try {
+      writeSurvivorHistorySnapshot(basePath, historySnapshot.snapshot, {
+        sourceFileName: historySnapshot.sourceFileName,
+        targetFileName: path.basename(targetPath),
+        editorName
+      })
+    } catch {
+      // History is useful for recovery and settlement-wide hindsight, but a
+      // history write failure should not block the primary survivor save.
+    }
+  }
+
   atomicWriteJson(targetPath, personToSave)
-  return path.basename(targetPath)
+  if (expectedPath && expectedPath !== targetPath && fs.existsSync(expectedPath)) {
+    fs.unlinkSync(expectedPath)
+  }
+  return targetFileName
 }
 
 function loadPerson(basePath, fileName) {
@@ -370,7 +497,11 @@ function loadPerson(basePath, fileName) {
   if (!fs.existsSync(fullPath)) throw new Error('Person file not found')
 
   const personRaw = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
-  const person = applyPersonSchemaCompatibility(personRaw, { sanitizeStoredKnowledgeEntries: true })
+  const person = applyPersonSchemaCompatibility(personRaw, {
+    legacySurvivorId: legacySurvivorIdFromFileName(path.basename(fileName)),
+    sanitizeStoredKnowledgeEntries: true
+  })
+  person.id = normalizeSurvivorId(person.id)
   if (!validatePerson(person)) {
     const errors = mapValidationErrors(validatePerson.errors || [])
     throw new ValidationError(`Stored person data is invalid: ${validationErrorSummary(errors)}`, errors)
@@ -500,9 +631,11 @@ function deletePerson(basePath, fileName) {
 function createPersonTemplate(name = 'New Survivor') {
   const createdAt = new Date().toISOString()
   return {
+    id: createSurvivorId(),
     name,
     schemaVersion: CURRENT_PERSON_SCHEMA_VERSION,
     revision: 0,
+    createdAt,
     updatedAt: createdAt,
     lastUpdated: createdAt,
     lastReturned: null,

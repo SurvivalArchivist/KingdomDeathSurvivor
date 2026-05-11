@@ -24,6 +24,7 @@ test('loadPerson handles schema version 0 (legacy) by migrating', () => {
   legacyPerson.schemaVersion = 0
   // Remove properties that would be auto-populated
   delete legacyPerson.notes
+  delete legacyPerson.createdAt
   delete legacyPerson.lastUpdated
   delete legacyPerson.lastReturned
   delete legacyPerson.editedBy
@@ -34,10 +35,12 @@ test('loadPerson handles schema version 0 (legacy) by migrating', () => {
   const loaded = dataService.loadPerson(basePath, 'legacy.json')
 
   // Schema version should be migrated
-  assert.equal(loaded.schemaVersion, 3)
+  assert.equal(loaded.schemaVersion, 5)
 
   // Missing fields should be populated
   assert.deepEqual(loaded.notes, [])
+  assert.equal(typeof loaded.createdAt, 'string')
+  assert.equal(loaded.createdAt, loaded.updatedAt)
   assert.equal(typeof loaded.lastUpdated, 'string')
   assert.equal(loaded.lastUpdated, loaded.updatedAt)
   assert.equal(loaded.lastReturned, null)
@@ -62,7 +65,7 @@ test('loadPerson handles schema version 1 by migrating', () => {
 
   const loaded = dataService.loadPerson(basePath, 'v1.json')
 
-  assert.equal(loaded.schemaVersion, 3)
+  assert.equal(loaded.schemaVersion, 5)
   assert.deepEqual(loaded.notes, [])
 })
 
@@ -79,7 +82,7 @@ test('loadPerson handles schema version 2 by migrating', () => {
 
   const loaded = dataService.loadPerson(basePath, 'v2.json')
 
-  assert.equal(loaded.schemaVersion, 3)
+  assert.equal(loaded.schemaVersion, 5)
 })
 
 test('loadPerson handles schema version at boundary (current version)', () => {
@@ -94,7 +97,7 @@ test('loadPerson handles schema version at boundary (current version)', () => {
   fs.writeFileSync(filePath, JSON.stringify(currentPerson), 'utf8')
 
   const loaded = dataService.loadPerson(basePath, 'current.json')
-  assert.equal(loaded.schemaVersion, 3)
+  assert.equal(loaded.schemaVersion, 5)
 })
 
 test('loadPerson rejects unsupported future schema', () => {
@@ -103,7 +106,7 @@ test('loadPerson rejects unsupported future schema', () => {
   fs.mkdirSync(basePath, { recursive: true })
 
   const futurePerson = dataService.createPersonTemplate('Future Survivor')
-  futurePerson.schemaVersion = 4 // One above current
+  futurePerson.schemaVersion = 6 // One above current
 
   const filePath = path.join(basePath, 'future.json')
   fs.writeFileSync(filePath, JSON.stringify(futurePerson), 'utf8')
@@ -113,7 +116,7 @@ test('loadPerson rejects unsupported future schema', () => {
     err => {
       assert.equal(err instanceof dataService.ValidationError, true)
       assert.ok(err.message.includes('Unsupported person schemaVersion'))
-      assert.ok(err.message.includes('4'))
+      assert.ok(err.message.includes('6'))
       return true
     }
   )
@@ -180,6 +183,24 @@ test('loadPerson migrates updatedAt to lastUpdated', () => {
   const loaded = dataService.loadPerson(basePath, 'updated-at.json')
 
   assert.equal(loaded.lastUpdated, '2023-01-15T10:30:00.000Z')
+})
+
+test('loadPerson migrates missing createdAt from existing timestamps', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+  fs.mkdirSync(basePath, { recursive: true })
+
+  const person = dataService.createPersonTemplate('CreatedAt Test')
+  person.schemaVersion = 0
+  person.updatedAt = '2023-02-03T04:05:06.000Z'
+  person.lastUpdated = '2023-03-04T05:06:07.000Z'
+  delete person.createdAt
+
+  const filePath = path.join(basePath, 'created-at.json')
+  fs.writeFileSync(filePath, JSON.stringify(person), 'utf8')
+
+  const loaded = dataService.loadPerson(basePath, 'created-at.json')
+  assert.equal(loaded.createdAt, '2023-02-03T04:05:06.000Z')
 })
 
 test('loadPerson handles legacy lastReturned values', () => {
@@ -339,7 +360,7 @@ test('loadPerson handles missing schemaVersion entirely (defaults to 0)', () => 
   const loaded = dataService.loadPerson(basePath, 'no-schema.json')
 
   // Should be migrated to current version
-  assert.equal(loaded.schemaVersion, 3)
+  assert.equal(loaded.schemaVersion, 5)
 })
 
 test('savePerson increments revision correctly on each save', () => {
@@ -367,7 +388,7 @@ test('savePerson increments revision correctly on each save', () => {
   assert.equal(loaded.revision, 3)
 })
 
-test('savePerson sets updatedAt and lastUpdated on each save', () => {
+test('savePerson sets updatedAt and lastUpdated on each save while preserving createdAt', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')
 
@@ -376,13 +397,21 @@ test('savePerson sets updatedAt and lastUpdated on each save', () => {
 
   const loaded = dataService.loadPerson(basePath, fileName)
 
+  assert.equal(typeof loaded.createdAt, 'string')
   assert.equal(typeof loaded.updatedAt, 'string')
   assert.equal(typeof loaded.lastUpdated, 'string')
   assert.equal(loaded.updatedAt, loaded.lastUpdated)
+  assert.equal(loaded.createdAt, person.createdAt)
 
   // Both should be valid ISO timestamps
   const updatedAtDate = new Date(loaded.updatedAt)
   assert.ok(!Number.isNaN(updatedAtDate.getTime()))
+
+  loaded.age = 1
+  const secondFileName = dataService.savePerson(basePath, loaded)
+  const second = dataService.loadPerson(basePath, secondFileName)
+  assert.equal(second.createdAt, loaded.createdAt)
+  assert.equal(second.lastUpdated, second.updatedAt)
 })
 
 test('savePerson marks lastReturned when markReturned option is true', () => {

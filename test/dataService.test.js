@@ -26,10 +26,11 @@ test('save/load/list roundtrip with template', () => {
   const person = dataService.createPersonTemplate('Ava')
   const fileName = dataService.savePerson(basePath, person)
 
-  assert.equal(fileName, 'ava.json')
-  assert.deepEqual(dataService.listPeople(basePath), ['ava.json'])
+  assert.equal(fileName, `${person.id}_ava.json`)
+  assert.deepEqual(dataService.listPeople(basePath), [fileName])
 
   const loaded = dataService.loadPerson(basePath, fileName)
+  assert.equal(loaded.id, person.id)
   assert.equal(loaded.name, 'Ava')
   assert.equal(loaded.age, 0)
 })
@@ -49,7 +50,7 @@ test('listPeopleSummaries returns settlement-safe summaries and skips unreadable
   ava.weaponProficiency.level = 2
   ava.abilities = ['Dash']
   ava.knowledge = [{ name: 'Lantern Math' }]
-  dataService.savePerson(basePath, ava)
+  const avaFileName = dataService.savePerson(basePath, ava)
 
   fs.writeFileSync(path.join(basePath, 'broken.json'), '{not valid json', 'utf8')
 
@@ -58,7 +59,7 @@ test('listPeopleSummaries returns settlement-safe summaries and skips unreadable
   assert.equal(result.unreadableCount, 1)
   assert.equal(result.records.length, 1)
   assert.deepEqual(result.records[0], {
-    fileName: 'ava.json',
+    fileName: avaFileName,
     person: {
       name: 'Ava',
       age: 3,
@@ -388,8 +389,10 @@ test('savePerson manages revision and updatedAt metadata', () => {
   const fileName = dataService.savePerson(basePath, person, { editorName: 'Archivist' })
   const first = dataService.loadPerson(basePath, fileName)
   assert.equal(first.revision, 1)
+  assert.equal(typeof first.createdAt, 'string')
   assert.equal(typeof first.updatedAt, 'string')
   assert.equal(Number.isNaN(Date.parse(first.updatedAt)), false)
+  assert.equal(first.createdAt, person.createdAt)
   assert.equal(first.lastUpdated, first.updatedAt)
   assert.equal(first.lastReturned, null)
   assert.equal(first.editedBy, 'Archivist')
@@ -398,10 +401,128 @@ test('savePerson manages revision and updatedAt metadata', () => {
   const fileName2 = dataService.savePerson(basePath, first, { editorName: 'Chronicler', markReturned: true })
   const second = dataService.loadPerson(basePath, fileName2)
   assert.equal(second.revision, 2)
+  assert.equal(second.createdAt, first.createdAt)
   assert.equal(second.lastUpdated, second.updatedAt)
   assert.equal(typeof second.lastReturned, 'string')
   assert.equal(Number.isNaN(Date.parse(second.lastReturned)), false)
   assert.equal(second.editedBy, 'Chronicler')
+})
+
+test('savePerson writes survivor history snapshot before replacing existing file', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+  const person = dataService.createPersonTemplate('History Keeper')
+
+  const fileName = dataService.savePerson(basePath, person, { editorName: 'Archivist' })
+  const historyRoot = path.join(basePath, 'history')
+  assert.equal(fs.existsSync(historyRoot), false)
+
+  const first = dataService.loadPerson(basePath, fileName)
+  first.knowledge = [{ name: 'Lantern Math' }]
+  dataService.savePerson(basePath, first, { editorName: 'Chronicler' })
+
+  const survivorHistoryFolder = path.join(historyRoot, 'survivors', first.id)
+  const files = fs.readdirSync(survivorHistoryFolder)
+  assert.equal(files.length, 1)
+  assert.match(files[0], /_before-save\.json$/)
+
+  const historyRecord = JSON.parse(fs.readFileSync(path.join(survivorHistoryFolder, files[0]), 'utf8'))
+  assert.equal(historyRecord.type, 'survivor_snapshot_before_save')
+  assert.equal(historyRecord.survivorId, first.id)
+  assert.equal(historyRecord.survivorName, 'History Keeper')
+  assert.equal(historyRecord.sourceFileName, fileName)
+  assert.equal(historyRecord.targetFileName, fileName)
+  assert.equal(historyRecord.editorName, 'Chronicler')
+  assert.deepEqual(historyRecord.snapshot.knowledge, [])
+  assert.equal(historyRecord.snapshot.revision, 1)
+})
+
+test('savePerson does not write history snapshot when conflict rejects save', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+  const person = dataService.createPersonTemplate('History Conflict')
+  const fileName = dataService.savePerson(basePath, person)
+
+  const sessionA = dataService.loadPerson(basePath, fileName)
+  const sessionB = dataService.loadPerson(basePath, fileName)
+  sessionA.philosophy = 'A changes'
+  dataService.savePerson(basePath, sessionA)
+
+  const historyFolder = path.join(basePath, 'history', 'survivors', sessionA.id)
+  const historyCountBefore = fs.readdirSync(historyFolder).length
+
+  sessionB.philosophy = 'B stale changes'
+  assert.throws(
+    () => dataService.savePerson(basePath, sessionB),
+    err => err instanceof dataService.ConflictError
+  )
+  assert.equal(fs.readdirSync(historyFolder).length, historyCountBefore)
+})
+
+test('savePerson archives expected source file when renaming survivor', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+  const person = dataService.createPersonTemplate('Old Name')
+  const originalFile = dataService.savePerson(basePath, person)
+
+  const loaded = dataService.loadPerson(basePath, originalFile)
+  loaded.name = 'New Name'
+  const renamedFile = dataService.savePerson(basePath, loaded, { expectedFileName: originalFile, editorName: 'Renamer' })
+  assert.equal(renamedFile, `${loaded.id}_new-name.json`)
+  assert.equal(fs.existsSync(path.join(basePath, originalFile)), false)
+
+  const historyFolder = path.join(basePath, 'history', 'survivors', loaded.id)
+  const files = fs.readdirSync(historyFolder)
+  assert.equal(files.length, 1)
+
+  const historyRecord = JSON.parse(fs.readFileSync(path.join(historyFolder, files[0]), 'utf8'))
+  assert.equal(historyRecord.sourceFileName, originalFile)
+  assert.equal(historyRecord.targetFileName, renamedFile)
+  assert.equal(historyRecord.editorName, 'Renamer')
+  assert.equal(historyRecord.snapshot.name, 'Old Name')
+})
+
+test('loadPerson assigns deterministic id to legacy name-only survivor files', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+  fs.mkdirSync(basePath, { recursive: true })
+
+  const legacy = dataService.createPersonTemplate('Legacy Named')
+  delete legacy.id
+  legacy.schemaVersion = 3
+  fs.writeFileSync(path.join(basePath, 'legacy-named.json'), JSON.stringify(legacy, null, 2), 'utf8')
+
+  const loadedA = dataService.loadPerson(basePath, 'legacy-named.json')
+  const loadedB = dataService.loadPerson(basePath, 'legacy-named.json')
+  assert.equal(loadedA.id, 'survivor-legacy-legacy-named')
+  assert.equal(loadedB.id, loadedA.id)
+
+  const migratedFile = dataService.savePerson(basePath, loadedA, { expectedFileName: 'legacy-named.json' })
+  assert.equal(migratedFile, 'survivor-legacy-legacy-named_legacy-named.json')
+  assert.equal(fs.existsSync(path.join(basePath, 'legacy-named.json')), false)
+})
+
+test('savePerson discovers existing survivor by id when name changes without expected filename', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+  const person = dataService.createPersonTemplate('Raw Name')
+  const originalFile = dataService.savePerson(basePath, person)
+
+  const loaded = dataService.loadPerson(basePath, originalFile)
+  loaded.name = 'Raw Rename'
+  const renamedFile = dataService.savePerson(basePath, loaded)
+
+  assert.equal(renamedFile, `${loaded.id}_raw-rename.json`)
+  assert.equal(fs.existsSync(path.join(basePath, originalFile)), false)
+  assert.equal(fs.existsSync(path.join(basePath, renamedFile)), true)
+
+  const historyFolder = path.join(basePath, 'history', 'survivors', loaded.id)
+  const files = fs.readdirSync(historyFolder)
+  assert.equal(files.length, 1)
+  const historyRecord = JSON.parse(fs.readFileSync(path.join(historyFolder, files[0]), 'utf8'))
+  assert.equal(historyRecord.sourceFileName, originalFile)
+  assert.equal(historyRecord.targetFileName, renamedFile)
+  assert.equal(historyRecord.snapshot.name, 'Raw Name')
 })
 
 test('savePerson throws ConflictError on stale revision', () => {
@@ -452,7 +573,7 @@ test('loadPerson auto-populates missing schemaVersion for legacy records', () =>
   fs.writeFileSync(filePath, JSON.stringify(person, null, 2), 'utf8')
 
   const loaded = dataService.loadPerson(basePath, 'legacy-survivor.json')
-  assert.equal(loaded.schemaVersion, 3)
+  assert.equal(loaded.schemaVersion, 5)
   assert.deepEqual(loaded.notes, [])
   assert.equal(loaded.lastUpdated, loaded.updatedAt)
   assert.equal(loaded.lastReturned, null)

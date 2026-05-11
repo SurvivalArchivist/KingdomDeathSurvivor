@@ -42,18 +42,24 @@ Electron desktop companion app for Kingdom Death survivor management with:
 
 ## Multi-User Safety (Current)
 - Optimistic concurrency is implemented for survivor saves:
-  - each survivor stores `revision` and `updatedAt`
+  - each survivor stores a stable `id` that remains fixed when `name` changes
+  - each survivor stores `createdAt`, `revision`, and `updatedAt`
   - save operations reject stale data with conflict errors
 - Saves are atomic (temp write + rename) to reduce partial-write risk.
+- Survivor filenames use `{survivor-id}_{name-slug}.json`; name-only legacy files still load and migrate on save.
+- Existing survivor saves write a best-effort pre-save snapshot under `history/survivors/{survivor-id}/` inside the configured survivor data folder before replacing the current survivor file.
 - Rename during edit can pass expected source filename to detect stale-origin conflicts.
+- Saves can also discover an existing survivor file by `id`, which keeps raw/technical name edits from leaving duplicate old-name files.
 - This does not provide distributed locking; concurrent edits still require coordination, but stale overwrite risk is reduced.
 
 ## Knowledge / Tenet Knowledge Rules
 
 ## Schema Compatibility Policy
-- Survivor records now include `schemaVersion` (current: `1`).
+- Survivor records now include stable `id`, `createdAt`, and `schemaVersion` (current: `5`).
 - `loadPerson` applies compatibility normalization:
   - missing/invalid `schemaVersion` is treated as legacy and normalized to current version
+  - missing `id` on legacy name-only files is normalized to a deterministic `survivor-legacy-{filename-slug}` id
+  - missing `createdAt` is migrated from `updatedAt`, then `lastUpdated`, then the current timestamp
   - future unsupported versions are rejected with a validation error
 - `savePerson` normalizes incoming records to current `schemaVersion` before validation/write.
 - Migration stub exists in `src/dataService.js` for future schema upgrades.

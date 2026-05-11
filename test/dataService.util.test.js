@@ -28,8 +28,11 @@ test('createPersonTemplate generates valid default template', () => {
 
   // Required fields exist
   assert.equal(template.name, 'New Survivor')
-  assert.equal(template.schemaVersion, 3)
+  assert.equal(template.schemaVersion, 5)
   assert.equal(template.revision, 0)
+  assert.equal(typeof template.createdAt, 'string')
+  assert.equal(template.updatedAt, template.createdAt)
+  assert.equal(template.lastUpdated, template.createdAt)
   assert.equal(template.gender, 'M')
   assert.equal(template.age, 0)
   assert.equal(template.isAlive, true)
@@ -72,11 +75,11 @@ test('savePerson generates correct filename from name', () => {
 
   const person = dataService.createPersonTemplate('Alice')
   const fileName = dataService.savePerson(basePath, person)
-  assert.equal(fileName, 'alice.json')
+  assert.equal(fileName, `${person.id}_alice.json`)
 
   const person2 = dataService.createPersonTemplate('Bob Smith')
   const fileName2 = dataService.savePerson(basePath, person2)
-  assert.equal(fileName2, 'bob-smith.json')
+  assert.equal(fileName2, `${person2.id}_bob-smith.json`)
 })
 
 test('savePerson generates filename with special characters', () => {
@@ -86,7 +89,7 @@ test('savePerson generates filename with special characters', () => {
   const person = dataService.createPersonTemplate("Alice O'Brien")
   const fileName = dataService.savePerson(basePath, person)
   // Apostrophe is replaced with dash in slugify
-  assert.equal(fileName, 'alice-o-brien.json')
+  assert.equal(fileName, `${person.id}_alice-o-brien.json`)
 })
 
 test('listPeople returns empty array for missing directory', () => {
@@ -356,7 +359,7 @@ test('savePerson persists and loads person correctly', () => {
   assert.equal(loaded.name, 'Test Survivor')
   assert.equal(loaded.age, 5)
   assert.equal(loaded.philosophy, 'Test Philosophy')
-  assert.equal(loaded.schemaVersion, 3)
+  assert.equal(loaded.schemaVersion, 5)
 })
 
 test('savePerson throws ValidationError for invalid data', () => {

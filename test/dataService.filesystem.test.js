@@ -125,10 +125,10 @@ test('savePerson handles directory creation failure', () => {
   // Even though mkdirSync should succeed, let's test with a mock that fails
   // For actual testing, we rely on the atomic write behavior
   const result = dataService.savePerson(basePath, person)
-  assert.equal(result, 'test.json')
+  assert.equal(result, `${person.id}_test.json`)
 
   // File should exist
-  const filePath = path.join(basePath, 'test.json')
+  const filePath = path.join(basePath, result)
   assert.equal(fs.existsSync(filePath), true)
 })
 
