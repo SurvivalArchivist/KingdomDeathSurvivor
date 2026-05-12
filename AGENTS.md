@@ -30,6 +30,8 @@ Before making significant changes, check:
 - Header/navigation should remain thin, single-row, full-width, and consistent across sections.
 - The header is for navigation and global controls only. It should stay clean, stable, and out of the way.
 - Theme selection belongs in the header and should use a dropdown/switcher pattern that can scale to future themes.
+- Survivor data mode belongs in Settings under the compact `Survivor Data` section; keep connection setup/actions there rather than adding controls to the header.
+- The navbar survivor-data indicator is status-only and opens Settings; do not turn it into connection controls.
 - Do not let Showdown or any other view drift into a different navbar/header treatment without an explicit product decision.
 - Settings and other utility surfaces should read as infrastructure, not showcase cards.
 - Do not default to rounded, pill-heavy, "safe" styling. Squarer edges are welcome when they make the interface feel cleaner and more confident.
@@ -45,6 +47,8 @@ Before making significant changes, check:
   - Lumi in Showdown is a persistent survivor stat and should save like Survival.
   - Temporary combat modifiers, armor, and bleeding tokens are non-persistent.
 - The app should never create data folders automatically from Settings selections.
+- LAN Host uses the selected Survivors folder as authoritative local storage; LAN Client routes survivor CRUD to the configured host and should not require or show the local Survivors folder picker.
+- LAN Client disconnect should preserve the configured host address via `lanClientConnected`; do not treat disconnect as clearing settings unless explicitly requested.
 
 ## Data and Domain Guardrails
 - Survivor records use stable `id`, `createdAt`, and `schemaVersion` and are normalized on load/save.

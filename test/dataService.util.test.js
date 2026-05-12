@@ -10,6 +10,16 @@ const path = require('path')
 
 const dataService = require('../src/dataService')
 
+const DEFAULT_LAN_SETTINGS = {
+  survivorDataMode: 'local',
+  lanDisplayName: '',
+  lanHostAddress: '',
+  lanPort: 3765,
+  lanAutoReconnect: true,
+  lanClientConnected: true,
+  lanHostEnabled: false
+}
+
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'kdm-util-test-'))
 }
@@ -227,10 +237,23 @@ test('normalizeAppSettings handles username trimming', () => {
   const saved = dataService.saveAppSettings(app, { userName: '  Mike  ', dateFormat: 'en-US' })
   assert.equal(saved.userName, 'Mike')
   assert.equal(saved.dateFormat, 'en-US')
+  assert.deepEqual(
+    {
+      survivorDataMode: saved.survivorDataMode,
+      lanDisplayName: saved.lanDisplayName,
+      lanHostAddress: saved.lanHostAddress,
+      lanPort: saved.lanPort,
+      lanAutoReconnect: saved.lanAutoReconnect,
+      lanClientConnected: saved.lanClientConnected,
+      lanHostEnabled: saved.lanHostEnabled
+    },
+    DEFAULT_LAN_SETTINGS
+  )
 
   const loaded = dataService.getSavedAppSettings(app)
   assert.equal(loaded.userName, 'Mike')
   assert.equal(loaded.dateFormat, 'en-US')
+  assert.equal(loaded.survivorDataMode, 'local')
 })
 
 test('normalizeAppSettings handles empty username', () => {
@@ -256,6 +279,51 @@ test('normalizeAppSettings falls back to british date format for invalid input',
 
   const loaded = dataService.getSavedAppSettings(app)
   assert.equal(loaded.dateFormat, 'en-GB')
+})
+
+test('normalizeAppSettings persists LAN survivor mode fields', () => {
+  const root = makeTempDir()
+  const app = makeApp(root)
+
+  const saved = dataService.saveAppSettings(app, {
+    userName: 'Host',
+    dateFormat: 'en-US',
+    survivorDataMode: 'lan-host',
+    lanDisplayName: 'Lantern Host',
+    lanHostAddress: '  192.168.1.44  ',
+    lanPort: 4567,
+    lanAutoReconnect: false,
+    lanClientConnected: false,
+    lanHostEnabled: true
+  })
+
+  assert.deepEqual(saved, {
+    userName: 'Host',
+    dateFormat: 'en-US',
+    survivorDataMode: 'lan-host',
+    lanDisplayName: 'Lantern Host',
+    lanHostAddress: '192.168.1.44',
+    lanPort: 4567,
+    lanAutoReconnect: false,
+    lanClientConnected: false,
+    lanHostEnabled: true
+  })
+  assert.deepEqual(dataService.getSavedAppSettings(app), saved)
+})
+
+test('normalizeAppSettings clamps invalid LAN survivor mode fields to defaults', () => {
+  const root = makeTempDir()
+  const app = makeApp(root)
+
+  const saved = dataService.saveAppSettings(app, {
+    survivorDataMode: 'internet-space-magic',
+    lanPort: 80,
+    lanAutoReconnect: 'yes',
+    lanClientConnected: 'sometimes',
+    lanHostEnabled: 'no'
+  })
+
+  assert.deepEqual(saved, { userName: '', dateFormat: 'en-GB', ...DEFAULT_LAN_SETTINGS })
 })
 
 test('saveConfig and getSavedDataSources roundtrip', () => {

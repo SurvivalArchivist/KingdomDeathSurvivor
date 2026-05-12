@@ -572,8 +572,21 @@ function setupRendererHarness(options = {}) {
   const confirms = []
   let fullScreen = false
   const fullScreenListeners = new Set()
+  const lanConnectionStatusListeners = new Set()
+  const lanSurvivorDataListeners = new Set()
+  const lanDiscoveredHostsListeners = new Set()
   const alerts = []
-  let appSettings = { userName: 'Lantern Mike', dateFormat: 'en-GB' }
+  let appSettings = {
+    userName: 'Lantern Mike',
+    dateFormat: 'en-GB',
+    survivorDataMode: 'lan-client',
+    lanDisplayName: 'Remote Player',
+    lanHostAddress: '192.168.1.44',
+    lanPort: 4567,
+    lanAutoReconnect: false,
+    lanClientConnected: true,
+    lanHostEnabled: false
+  }
   const db = {
     'alice.json': makePerson('Alice'),
     'bob.json': makePerson('Bob')
@@ -605,9 +618,62 @@ function setupRendererHarness(options = {}) {
       calls.push({ name: 'saveAppSettings', args: [deepClone(settings)] })
       appSettings = {
         userName: String(settings?.userName || '').trim(),
-        dateFormat: settings?.dateFormat === 'en-US' ? 'en-US' : 'en-GB'
+        dateFormat: settings?.dateFormat === 'en-US' ? 'en-US' : 'en-GB',
+        survivorDataMode:
+          settings?.survivorDataMode === 'lan-host' || settings?.survivorDataMode === 'lan-client'
+            ? settings.survivorDataMode
+            : 'local',
+        lanDisplayName: String(settings?.lanDisplayName || '').trim(),
+        lanHostAddress: String(settings?.lanHostAddress || '').trim(),
+        lanPort: Number.isInteger(Number(settings?.lanPort)) ? Number(settings.lanPort) : 3765,
+        lanAutoReconnect: typeof settings?.lanAutoReconnect === 'boolean' ? settings.lanAutoReconnect : true,
+        lanClientConnected: typeof settings?.lanClientConnected === 'boolean' ? settings.lanClientConnected : true,
+        lanHostEnabled: typeof settings?.lanHostEnabled === 'boolean' ? settings.lanHostEnabled : false
       }
       return deepClone(appSettings)
+    },
+    async getLanConnectionStatus() {
+      calls.push({ name: 'getLanConnectionStatus', args: [] })
+      if (appSettings.survivorDataMode === 'lan-host') {
+        return appSettings.lanHostEnabled
+          ? { mode: 'lan-host', state: 'hosting', label: 'Hosting', message: 'Hosting survivor data' }
+          : { mode: 'lan-host', state: 'offline', label: 'Offline', message: 'LAN host is not enabled' }
+      }
+      if (appSettings.survivorDataMode === 'lan-client') {
+        if (appSettings.lanClientConnected === false) {
+          return { mode: 'lan-client', state: 'offline', label: 'Offline', message: 'LAN client is disconnected' }
+        }
+        return appSettings.lanHostAddress
+          ? { mode: 'lan-client', state: 'connected', label: 'Connected', message: 'Connected to LAN host' }
+          : { mode: 'lan-client', state: 'offline', label: 'Offline', message: 'LAN host is unavailable' }
+      }
+      return { mode: 'local', state: 'local', label: 'Local', message: 'Using local survivor files' }
+    },
+    async getLanHostInfo() {
+      calls.push({ name: 'getLanHostInfo', args: [] })
+      return {
+        running: appSettings.survivorDataMode === 'lan-host' && appSettings.lanHostEnabled,
+        port: appSettings.lanPort,
+        addresses: ['192.168.1.44'],
+        urls: [`http://192.168.1.44:${appSettings.lanPort}`]
+      }
+    },
+    async getLanDiscoveredHosts() {
+      calls.push({ name: 'getLanDiscoveredHosts', args: [] })
+      return [
+        {
+          id: '192.168.1.50:4567',
+          address: '192.168.1.50',
+          port: 4567,
+          url: 'http://192.168.1.50:4567',
+          displayName: 'Table Host',
+          lastSeen: Date.now()
+        }
+      ]
+    },
+    async exportSurvivorDataBackup() {
+      calls.push({ name: 'exportSurvivorDataBackup', args: [] })
+      return { ok: true, backupPath: '/tmp/kdm-survivor-backup-test' }
     },
     async getFullScreenState() {
       calls.push({ name: 'getFullScreenState', args: [] })
@@ -624,6 +690,27 @@ function setupRendererHarness(options = {}) {
       fullScreenListeners.add(listener)
       return () => {
         fullScreenListeners.delete(listener)
+      }
+    },
+    onLanConnectionStatusChanged(listener) {
+      if (typeof listener !== 'function') return () => {}
+      lanConnectionStatusListeners.add(listener)
+      return () => {
+        lanConnectionStatusListeners.delete(listener)
+      }
+    },
+    onLanSurvivorDataChanged(listener) {
+      if (typeof listener !== 'function') return () => {}
+      lanSurvivorDataListeners.add(listener)
+      return () => {
+        lanSurvivorDataListeners.delete(listener)
+      }
+    },
+    onLanDiscoveredHostsChanged(listener) {
+      if (typeof listener !== 'function') return () => {}
+      lanDiscoveredHostsListeners.add(listener)
+      return () => {
+        lanDiscoveredHostsListeners.delete(listener)
       }
     },
     async listPeople() {
@@ -825,6 +912,15 @@ function setupRendererHarness(options = {}) {
     dispatch(element, type, init = {}) {
       element.dispatchEvent(new FakeEvent(type, { ...init, target: init.target || element }))
     },
+    emitLanConnectionStatusChanged(payload) {
+      for (const listener of lanConnectionStatusListeners) listener(payload)
+    },
+    emitLanSurvivorDataChanged(payload) {
+      for (const listener of lanSurvivorDataListeners) listener(payload)
+    },
+    emitLanDiscoveredHostsChanged(payload) {
+      for (const listener of lanDiscoveredHostsListeners) listener(payload)
+    },
     cleanup() {
       fakeWindow.cleanup()
       delete require.cache[knowledgeHelperPath]
@@ -912,7 +1008,342 @@ test('renderer persists app settings including date format', async t => {
 
   const saves = harness.calls.slice(saveBefore).filter(entry => entry.name === 'saveAppSettings')
   assert.equal(saves.length, 1)
-  assert.deepEqual(saves[0].args[0], { userName: 'Lantern Mike Updated', dateFormat: 'en-US' })
+  assert.deepEqual(saves[0].args[0], {
+    userName: 'Lantern Mike Updated',
+    dateFormat: 'en-US',
+    survivorDataMode: 'lan-client',
+    lanDisplayName: 'Remote Player',
+    lanHostAddress: '192.168.1.44',
+    lanPort: 4567,
+    lanAutoReconnect: false,
+    lanClientConnected: true,
+    lanHostEnabled: false
+  })
+})
+
+test('renderer persists survivor data LAN settings from settings controls', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const mode = harness.document.getElementById('settingsSurvivorDataMode')
+  const displayName = harness.document.getElementById('settingsLanDisplayName')
+  const hostAddress = harness.document.getElementById('settingsLanHostAddress')
+  const port = harness.document.getElementById('settingsLanPort')
+  const autoReconnect = harness.document.getElementById('settingsLanAutoReconnect')
+  const hostEnabled = harness.document.getElementById('settingsLanHostEnabled')
+  const survivorSourceRow = harness.document.getElementById('survivorSourceRow')
+  const saveBefore = countCalls(harness.calls, 'saveAppSettings')
+
+  assert.equal(mode.value, 'lan-client')
+  assert.equal(displayName.value, 'Remote Player')
+  assert.equal(hostAddress.value, '192.168.1.44')
+  assert.equal(port.value, '4567')
+  assert.equal(autoReconnect.checked, false)
+  assert.equal(survivorSourceRow.hidden, true)
+
+  mode.value = 'lan-host'
+  displayName.value = 'Table Host'
+  hostAddress.value = ''
+  port.value = '3766'
+  autoReconnect.checked = true
+  hostEnabled.checked = true
+  mode.dispatchEvent(new FakeEvent('change', { target: mode }))
+  await harness.flush()
+
+  const saves = harness.calls.slice(saveBefore).filter(entry => entry.name === 'saveAppSettings')
+  assert.equal(saves.length, 1)
+  assert.deepEqual(saves[0].args[0], {
+    userName: 'Lantern Mike',
+    dateFormat: 'en-GB',
+    survivorDataMode: 'lan-host',
+    lanDisplayName: 'Table Host',
+    lanHostAddress: '',
+    lanPort: 3766,
+    lanAutoReconnect: true,
+    lanClientConnected: true,
+    lanHostEnabled: true
+  })
+  assert.equal(survivorSourceRow.hidden, false)
+})
+
+test('renderer enables survivor workflows for LAN client without local survivor folder', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api) {
+      api.getSavedDataSources = async () => ({
+        survivors: '',
+        defaultSurvivorTemplates: '/tmp/default-survivors',
+        fightingArts: '',
+        secretFightingArts: '',
+        knowledges: '',
+        tenetKnowledges: '',
+        neuroses: '',
+        disorders: ''
+      })
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const survivorSourceRow = harness.document.getElementById('survivorSourceRow')
+  const refreshPeople = harness.document.getElementById('refreshPeople')
+  const createSubmit = harness.document.getElementById('createSurvivorSubmit')
+  const listCalls = harness.calls.filter(entry => entry.name === 'listPeople')
+
+  assert.equal(survivorSourceRow.hidden, true)
+  assert.equal(refreshPeople.disabled, false)
+  assert.equal(createSubmit.disabled, false)
+  assert.ok(listCalls.length >= 1)
+})
+
+test('renderer shows compact LAN status indicator and routes it to settings', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const indicator = harness.document.getElementById('navLanStatus')
+  const mode = harness.document.getElementById('settingsSurvivorDataMode')
+  const hostEnabled = harness.document.getElementById('settingsLanHostEnabled')
+  const dataSourcesView = harness.document.getElementById('dataSourcesView')
+  const settlementView = harness.document.getElementById('settlementView')
+
+  assert.equal(indicator.textContent, 'Connected')
+  assert.equal(indicator.dataset.lanState, 'connected')
+
+  mode.value = 'lan-host'
+  hostEnabled.checked = true
+  mode.dispatchEvent(new FakeEvent('change', { target: mode }))
+  await harness.flush()
+
+  assert.equal(indicator.textContent, 'Hosting')
+  assert.equal(indicator.dataset.lanState, 'hosting')
+
+  harness.click('navSettlement')
+  await harness.flush()
+  assert.ok(!settlementView.classList.contains('hidden'))
+
+  harness.click('navLanStatus')
+  await harness.flush()
+  assert.ok(!dataSourcesView.classList.contains('hidden'))
+})
+
+test('renderer disables survivor writes when LAN client is offline', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, { calls }) {
+      api.getLanConnectionStatus = async () => {
+        calls.push({ name: 'getLanConnectionStatus', args: [] })
+        return { mode: 'lan-client', state: 'offline', label: 'Offline', message: 'LAN host is unavailable' }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  assert.equal(harness.document.getElementById('navLanStatus').dataset.lanState, 'offline')
+  assert.equal(harness.document.getElementById('savePerson').disabled, true)
+  assert.equal(harness.document.getElementById('newPersonTemplate').disabled, true)
+  assert.equal(harness.document.getElementById('createSurvivorSubmit').disabled, true)
+  assert.equal(harness.document.getElementById('settlementApplyBulk').disabled, true)
+})
+
+test('settings LAN action buttons start stop connect and disconnect', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const mode = harness.document.getElementById('settingsSurvivorDataMode')
+  const hostEnabled = harness.document.getElementById('settingsLanHostEnabled')
+  const indicator = harness.document.getElementById('navLanStatus')
+  const saveBefore = countCalls(harness.calls, 'saveAppSettings')
+
+  mode.value = 'lan-host'
+  hostEnabled.checked = false
+  mode.dispatchEvent(new FakeEvent('change', { target: mode }))
+  await harness.flush()
+
+  harness.click('settingsLanHostStart')
+  await harness.flush()
+  assert.equal(indicator.textContent, 'Hosting')
+
+  harness.click('settingsLanHostStop')
+  await harness.flush()
+  assert.equal(indicator.textContent, 'Offline')
+
+  mode.value = 'lan-client'
+  mode.dispatchEvent(new FakeEvent('change', { target: mode }))
+  await harness.flush()
+
+  harness.click('settingsLanClientDisconnect')
+  await harness.flush()
+  assert.equal(indicator.dataset.lanState, 'offline')
+  assert.equal(harness.document.getElementById('refreshPeople').disabled, true)
+
+  harness.click('settingsLanClientConnect')
+  await harness.flush()
+  assert.equal(indicator.dataset.lanState, 'connected')
+  assert.equal(harness.document.getElementById('refreshPeople').disabled, false)
+
+  const saves = harness.calls.slice(saveBefore).filter(entry => entry.name === 'saveAppSettings')
+  assert.ok(saves.some(entry => entry.args[0].lanHostEnabled === true))
+  assert.ok(saves.some(entry => entry.args[0].lanHostEnabled === false))
+  assert.ok(saves.some(entry => entry.args[0].lanClientConnected === false))
+  assert.ok(saves.some(entry => entry.args[0].lanClientConnected === true))
+})
+
+test('settings shows LAN host URL and exports survivor backups', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const mode = harness.document.getElementById('settingsSurvivorDataMode')
+  mode.value = 'lan-host'
+  mode.dispatchEvent(new FakeEvent('change', { target: mode }))
+  await harness.flush()
+
+  assert.match(harness.document.getElementById('settingsLanHostAddresses').textContent, /http:\/\/192\.168\.1\.44:4567/)
+  assert.equal(harness.document.getElementById('settingsExportBackup').disabled, false)
+
+  harness.click('settingsExportBackup')
+  await harness.flush()
+
+  assert.equal(countCalls(harness.calls, 'exportSurvivorDataBackup'), 1)
+  assert.match(harness.document.getElementById('status').innerText, /Backup exported to/)
+})
+
+test('settings can select a discovered LAN host', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const mode = harness.document.getElementById('settingsSurvivorDataMode')
+  const discoveredHosts = harness.document.getElementById('settingsLanDiscoveredHosts')
+  const hostAddress = harness.document.getElementById('settingsLanHostAddress')
+  const port = harness.document.getElementById('settingsLanPort')
+  mode.value = 'lan-client'
+  mode.dispatchEvent(new FakeEvent('change', { target: mode }))
+  await harness.flush()
+
+  assert.match(discoveredHosts.children[0].textContent, /Table Host/)
+
+  harness.click('settingsLanUseDiscoveredHost')
+  await harness.flush()
+
+  assert.equal(hostAddress.value, '192.168.1.50')
+  assert.equal(port.value, '4567')
+  assert.ok(harness.calls.some(call => call.name === 'saveAppSettings' && call.args[0].lanHostAddress === '192.168.1.50'))
+  assert.match(harness.document.getElementById('status').innerText, /Selected Table Host/)
+})
+
+test('settings reverts host enabled checkbox when LAN host start fails', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, { calls }) {
+      const originalSave = api.saveAppSettings
+      api.saveAppSettings = async settings => {
+        calls.push({ name: 'saveAppSettings', args: [deepClone(settings)] })
+        if (settings?.survivorDataMode === 'lan-host' && settings?.lanHostEnabled) {
+          throw new Error('Port already in use')
+        }
+        return originalSave(settings)
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const mode = harness.document.getElementById('settingsSurvivorDataMode')
+  const hostEnabled = harness.document.getElementById('settingsLanHostEnabled')
+  mode.value = 'lan-host'
+  mode.dispatchEvent(new FakeEvent('change', { target: mode }))
+  await harness.flush()
+
+  hostEnabled.checked = true
+  hostEnabled.dispatchEvent(new FakeEvent('change', { target: hostEnabled }))
+  await harness.flush()
+
+  assert.equal(hostEnabled.checked, false)
+  assert.match(harness.document.getElementById('status').innerText, /Port already in use/)
+})
+
+test('renderer refreshes LAN status after survivor save operations', async t => {
+  let statusCalls = 0
+  const harness = setupRendererHarness({
+    customizeApi(api, { calls }) {
+      api.getLanConnectionStatus = async () => {
+        statusCalls += 1
+        calls.push({ name: 'getLanConnectionStatus', args: [] })
+        return statusCalls <= 1
+          ? { mode: 'lan-client', state: 'connected', label: 'Connected', message: 'Connected to LAN host' }
+          : { mode: 'lan-client', state: 'offline', label: 'Offline', message: 'LAN host is unavailable' }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const before = countCalls(harness.calls, 'getLanConnectionStatus')
+  harness.click('savePerson')
+  await harness.flush()
+
+  assert.equal(countCalls(harness.calls, 'savePerson'), 0)
+  assert.ok(countCalls(harness.calls, 'getLanConnectionStatus') > before)
+  assert.equal(harness.document.getElementById('savePerson').disabled, true)
+})
+
+test('renderer surfaces LAN delete failure payloads without refreshing settlement', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, { calls }) {
+      api.deletePerson = async fileName => {
+        calls.push({ name: 'deletePerson', args: [fileName] })
+        return {
+          deleted: false,
+          ok: false,
+          errorType: 'host-unavailable',
+          message: 'Cannot reach LAN host at http://192.168.1.44:4567'
+        }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+  const peopleList = harness.document.getElementById('peopleList')
+  peopleList.value = 'alice.json'
+  const refreshBefore = countCalls(harness.calls, 'listPeopleSummaries')
+
+  harness.click('deletePerson')
+  await harness.flush()
+
+  assert.equal(countCalls(harness.calls, 'deletePerson'), 1)
+  assert.equal(countCalls(harness.calls, 'listPeopleSummaries'), refreshBefore)
+  assert.match(harness.document.getElementById('status').innerText, /Cannot reach LAN host/)
+  assert.ok(harness.db['alice.json'])
+})
+
+test('renderer refreshes settlement when LAN host pushes survivor data changes', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+  assert.equal(harness.document.getElementById('settlementCount').textContent, '2 of 2 survivors shown')
+
+  const before = countCalls(harness.calls, 'listPeopleSummaries')
+  harness.db['cara.json'] = makePerson('Cara')
+  harness.emitLanSurvivorDataChanged({ action: 'save', fileName: 'cara.json' })
+  await new Promise(resolve => setTimeout(resolve, 5))
+  await harness.flush()
+
+  assert.ok(countCalls(harness.calls, 'listPeopleSummaries') > before)
+  assert.equal(harness.document.getElementById('settlementCount').textContent, '3 of 3 survivors shown')
+  assert.match(harness.document.getElementById('status').innerText, /Settlement refreshed from LAN host change/)
 })
 
 test('settlement name search waits briefly before rerendering results', async t => {
@@ -1704,7 +2135,7 @@ test('showdown end surfaces conflict-specific failure messaging and stays depart
 
   assert.equal(sessionState.textContent, 'Session departed')
   assert.match(status.innerText, /Saved Alice\./)
-  assert.match(status.innerText, /Bob failed with a conflict: Stale survivor revision/)
+  assert.match(status.innerText, /Bob failed with a stale revision conflict: Stale survivor revision/)
   assert.equal(harness.alerts.length, 1)
 })
 

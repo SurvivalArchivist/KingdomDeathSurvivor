@@ -5,6 +5,10 @@ contextBridge.exposeInMainWorld('api', {
   getSavedDataSources: () => ipcRenderer.invoke('get-saved-data-sources'),
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   saveAppSettings: settings => ipcRenderer.invoke('save-app-settings', settings),
+  getLanConnectionStatus: () => ipcRenderer.invoke('get-lan-connection-status'),
+  getLanHostInfo: () => ipcRenderer.invoke('get-lan-host-info'),
+  getLanDiscoveredHosts: () => ipcRenderer.invoke('get-lan-discovered-hosts'),
+  exportSurvivorDataBackup: () => ipcRenderer.invoke('export-survivor-data-backup'),
   getFullScreenState: () => ipcRenderer.invoke('get-full-screen-state'),
   toggleFullScreen: () => ipcRenderer.invoke('toggle-full-screen'),
   onFullScreenChanged: listener => {
@@ -13,6 +17,30 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('window-full-screen-changed', wrapped)
     return () => {
       ipcRenderer.removeListener('window-full-screen-changed', wrapped)
+    }
+  },
+  onLanConnectionStatusChanged: listener => {
+    if (typeof listener !== 'function') return () => {}
+    const wrapped = (_event, status) => listener(status)
+    ipcRenderer.on('lan-connection-status-changed', wrapped)
+    return () => {
+      ipcRenderer.removeListener('lan-connection-status-changed', wrapped)
+    }
+  },
+  onLanSurvivorDataChanged: listener => {
+    if (typeof listener !== 'function') return () => {}
+    const wrapped = (_event, payload) => listener(payload)
+    ipcRenderer.on('lan-survivor-data-changed', wrapped)
+    return () => {
+      ipcRenderer.removeListener('lan-survivor-data-changed', wrapped)
+    }
+  },
+  onLanDiscoveredHostsChanged: listener => {
+    if (typeof listener !== 'function') return () => {}
+    const wrapped = (_event, hosts) => listener(hosts)
+    ipcRenderer.on('lan-discovered-hosts-changed', wrapped)
+    return () => {
+      ipcRenderer.removeListener('lan-discovered-hosts-changed', wrapped)
     }
   },
   listPeople: () => ipcRenderer.invoke('list-people'),

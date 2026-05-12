@@ -1,11 +1,20 @@
-## KDM Survivors Console 2.2.9
+## KDM Survivors Console 3.0.0
 
-This patch release fixes Showdown combat temporary stat modifiers.
+This major release adds LAN survivor-data hosting for real table sessions. One machine can host the survivor folder, while other machines connect as LAN Clients and keep using the normal Create, Settlement, Showdown, and survivor edit workflows.
 
 ### Highlights
-- Showdown combat `Temp` modifiers can now be negative as well as positive.
-- `Tokens (+)` and `Tokens (-)` still clamp at zero.
-- Temporary combat modifiers and tokens remain showdown-only and are not saved to survivor files.
+- New Settings modes: `Local Files`, `LAN Host`, and `LAN Client`.
+- LAN Host serves survivor list, summary, load, save, delete, health, and live update endpoints from the configured local survivor folder.
+- LAN Client reads and writes through the host while preserving the existing app workflow.
+- Settlement refreshes automatically on connected clients when host survivor data changes.
+- Automatic LAN discovery lets clients scan for hosts and fill the host address/port, with manual entry still available as a fallback.
+- Compact navbar status shows Local, Hosting, Connected, Reconnecting, Offline, and Error states.
+- Reliability hardening covers reconnects, disconnected write blocking, pre-save health checks, stale revision conflicts, validation failures, and clearer host unavailable/server error messages.
+- Settings now includes explicit Start Host, Stop Host, Connect, Disconnect, displayed host URLs, and manual survivor-data backup export.
+
+### Notes
+- LAN discovery is best-effort and can be blocked by operating system firewalls, VPNs, or router broadcast settings. Manual host address entry remains supported.
+- The hosting machine remains authoritative for survivor files. Before a long session, use the Settings backup export if you want a quick copy of the survivor folder.
 
 ### Downloads
 - Windows: use the `setup.exe` asset for installation, or `portable.exe` if you specifically want the portable build.

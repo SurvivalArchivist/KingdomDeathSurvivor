@@ -1,6 +1,6 @@
 # LAN Survivor Plan
 
-Last updated: 2026-04-18
+Last updated: 2026-05-11
 
 ## Purpose
 This document captures the proposed plan for moving survivor data from the current local/cloud-shared file model to a LAN-based host/client model, while leaving markdown/reference content on the existing local/cloud-backed approach for now.
@@ -119,6 +119,14 @@ Behavior:
 ## Recommended Delivery Phases
 
 ## Phase 1: Survivor Provider Abstraction
+Status: implemented for Local Files, LAN Host, and LAN Client.
+
+Current implementation notes:
+- `src/survivorProvider.js` now exists with a local provider wrapping existing `dataService`.
+- Survivor IPC handlers in `src/main.js` route through the provider.
+- `local` and `lan-host` use local `dataService`; `lan-client` routes survivor CRUD through the host HTTP API.
+- Ongoing implementation progress is tracked in `docs/ai/LAN_IMPLEMENTATION_HANDOFF.md`.
+
 Create a survivor provider layer so renderer code is not tightly coupled to local file access.
 
 Provider contract should cover:
@@ -142,6 +150,8 @@ Likely touchpoints:
 - `src/renderer.js`
 
 ## Phase 2: Settings Model And Persistence
+Status: implemented for persisted controls; explicit connect/disconnect buttons are still pending.
+
 Extend app settings/config to store survivor mode and LAN state.
 
 Suggested settings fields:
@@ -150,6 +160,7 @@ Suggested settings fields:
 - `lanHostAddress`
 - `lanPort`
 - `lanAutoReconnect`
+- `lanClientConnected`
 - `lanHostEnabled`
 
 UX requirements:
@@ -158,6 +169,8 @@ UX requirements:
 - current survivor folder picker shown only in `Local Files` and likely `LAN Host`
 
 ## Phase 3: Host API In Main Process
+Status: started; HTTP JSON host service exists for health and survivor CRUD.
+
 Build a host service in the Electron main process.
 
 Recommended MVP transport:
@@ -182,6 +195,8 @@ Important rules:
 - host remains the single authority for writes
 
 ## Phase 4: Client Routing
+Status: implemented for survivor CRUD over the host HTTP API.
+
 Build LAN client support in main/preload.
 
 Behavior:
@@ -193,6 +208,8 @@ Expected renderer impact:
 - minimal if provider/routing layer is done first
 
 ## Phase 5: Navbar Connection Indicator
+Status: implemented for compact status display and Settings navigation.
+
 Add a compact nav status element that reflects survivor data mode and connection state.
 
 Suggested states:
@@ -211,18 +228,23 @@ Placement:
 - right side of the current nav, near `Full Screen` and `Theme`
 
 ## Phase 6: LAN Refresh Behavior
-For MVP, polling is acceptable.
+Status: implemented for operation/status refreshes and host-pushed Settlement refresh. The host exposes an SSE stream, the client main process subscribes/reconnects, and Settlement refreshes automatically when host survivor data changes.
+
+Polling remains a fallback and explicit/manual refresh remains available.
 
 Behavior:
-- Settlement refresh can continue using explicit/manual refresh and timed polling
-- client periodically refreshes summaries from host
+- Settlement can continue using explicit/manual refresh and timed polling
+- client periodically refreshes status from host
+- host pushes survivor-data change events over Server-Sent Events
+- LAN Client refreshes Settlement automatically when host data changes
 
 After MVP:
-- add push updates via WebSocket or Server-Sent Events
-- refresh Settlement automatically when host data changes
-- improve connection-state accuracy
+- broaden push handling to other views if needed
+- improve read-failure recovery copy while offline
 
 ## Phase 7: Reliability And Recovery
+Status: implemented for host-unavailable errors, reconnecting status, disconnected write disabling, differentiated save/delete messages, host start/stop confirmation, host-start rollback, LAN host URL display, automatic LAN discovery, and manual survivor backup export.
+
 Harden the LAN experience for real sessions.
 
 Add:
@@ -236,6 +258,12 @@ Add:
 - generic server error
 - host start/stop confirmation
 - optional host backup/export workflow later
+
+Implemented operational additions:
+- manual `Export Backup` action in Settings copies the configured survivor folder to a timestamped destination
+- LAN Host mode displays local `http://address:port` URLs clients can enter
+- LAN Client mode can scan and select discovered LAN hosts advertised by host machines
+- failed host startup rolls `lanHostEnabled` back to false so Settings does not imply a host is running
 
 ## Settings UX Plan
 
@@ -262,6 +290,7 @@ Show:
 - start hosting / stop hosting
 - local LAN address display
 - current hosting status
+- manual backup/export action
 
 Possible later addition:
 - connected client count
@@ -270,6 +299,7 @@ Possible later addition:
 Show:
 - host address input
 - port input
+- discovered host selector
 - connect / disconnect button
 - connection status
 

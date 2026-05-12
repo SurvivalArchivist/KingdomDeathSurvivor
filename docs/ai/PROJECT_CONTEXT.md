@@ -52,6 +52,21 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Saves can also discover an existing survivor file by `id`, which keeps raw/technical name edits from leaving duplicate old-name files.
 - This does not provide distributed locking; concurrent edits still require coordination, but stale overwrite risk is reduced.
 
+## LAN Survivor Data Direction
+- v3 LAN work is tracked in `docs/ai/LAN_SURVIVOR_PLAN.md` and `docs/ai/LAN_IMPLEMENTATION_HANDOFF.md`.
+- Survivor IPC should route through a survivor-provider layer so `Local Files`, future `LAN Host`, and future `LAN Client` modes can share the existing renderer API.
+- `Local Files` remains the default provider mode.
+- `LAN Host` uses the selected local survivor folder as authoritative storage and exposes a main-process HTTP JSON API for survivor health/list/load/save/delete operations when enabled in Settings.
+- `LAN Host` also exposes a Server-Sent Events stream for survivor-data changes; LAN Client uses those events as refresh triggers and still reloads authoritative data through the existing survivor APIs.
+- `LAN Client` routes survivor list/load/save/delete calls to the configured host HTTP API and does not require a local Survivors folder for survivor CRUD.
+- The navbar includes a compact survivor-data status indicator (`Local`, `Hosting`, `Connected`, `Offline`, or `Error`) that opens Settings when clicked; connection controls stay in Settings.
+- Settings includes explicit `Start Host`, `Stop Host`, `Connect`, and `Disconnect` actions; client disconnect uses `lanClientConnected` so the host address can remain saved.
+- Settings shows LAN Host URLs from local IPv4 addresses and includes a manual `Export Backup` action for copying the configured survivor folder before a session.
+- LAN Host advertises itself with best-effort UDP broadcast; LAN Client Settings can scan/select discovered hosts while retaining manual host address entry as the fallback.
+- In LAN Client mode, survivor write controls are disabled when the latest status is `Offline` or `Error`, survivor operations refresh the navbar status, and writes perform a fresh pre-save status check.
+- LAN Client recovery messaging distinguishes unreachable host, validation failure, stale revision conflict, and generic server error; Auto Reconnect surfaces `Reconnecting` status while checking host health or restoring the live update stream.
+- Markdown/reference content remains local/cloud-backed for the first LAN phase; only survivor records are intended to become host-authoritative.
+
 ## Knowledge / Tenet Knowledge Rules
 
 ## Schema Compatibility Policy

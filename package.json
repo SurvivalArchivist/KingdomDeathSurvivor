@@ -1,6 +1,6 @@
 {
   "name": "kingdom-death-survivors",
-  "version": "2.2.9",
+  "version": "3.0.0",
   "description": "Desktop companion app for Kingdom Death survivor management.",
   "main": "src/main.js",
   "scripts": {
@@ -16,7 +16,7 @@
     "build:mac:local": "bash scripts/build-macos-local.sh",
     "test": "npm run test:unit && npm run test:integration && npm run test:main && npm run test:renderer",
     "test:unit": "node --test test/compile.test.js",
-    "test:integration": "node --test test/dataService.test.js test/dataService.edge.test.js test/dataService.schema.test.js test/dataService.util.test.js test/dataService.template.test.js test/dataService.filesystem.test.js",
+    "test:integration": "node --test test/dataService.test.js test/dataService.edge.test.js test/dataService.schema.test.js test/dataService.util.test.js test/dataService.template.test.js test/dataService.filesystem.test.js test/survivorProvider.test.js test/lanSurvivorHost.test.js",
     "test:main": "node --test test/main.ipc.test.js test/main.handlers.test.js",
     "test:renderer": "node --test test/renderer.smoke.test.js"
   },

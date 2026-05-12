@@ -6,6 +6,16 @@ const path = require('path')
 
 const dataService = require('../src/dataService')
 
+const DEFAULT_LAN_SETTINGS = {
+  survivorDataMode: 'local',
+  lanDisplayName: '',
+  lanHostAddress: '',
+  lanPort: 3765,
+  lanAutoReconnect: true,
+  lanClientConnected: true,
+  lanHostEnabled: false
+}
+
 function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'kdm-survivors-'))
 }
@@ -146,7 +156,7 @@ test('config save/read and configured folder lookup', () => {
   dataService.saveConfig(app, dataPath)
   assert.equal(dataService.getSavedDataFolder(app), dataPath)
   assert.equal(dataService.ensureDataFolderConfigured(app), dataPath)
-  assert.deepEqual(dataService.getSavedAppSettings(app), { userName: '', dateFormat: 'en-GB' })
+  assert.deepEqual(dataService.getSavedAppSettings(app), { userName: '', dateFormat: 'en-GB', ...DEFAULT_LAN_SETTINGS })
 })
 
 test('ensureDataFolderConfigured throws without config', () => {
@@ -163,8 +173,8 @@ test('saveAppSettings persists username without disturbing data sources', () => 
   dataService.saveConfig(app, dataPath)
   const saved = dataService.saveAppSettings(app, { userName: '  Mike  ', dateFormat: 'en-US' })
 
-  assert.deepEqual(saved, { userName: 'Mike', dateFormat: 'en-US' })
-  assert.deepEqual(dataService.getSavedAppSettings(app), { userName: 'Mike', dateFormat: 'en-US' })
+  assert.deepEqual(saved, { userName: 'Mike', dateFormat: 'en-US', ...DEFAULT_LAN_SETTINGS })
+  assert.deepEqual(dataService.getSavedAppSettings(app), { userName: 'Mike', dateFormat: 'en-US', ...DEFAULT_LAN_SETTINGS })
   assert.equal(dataService.getSavedDataFolder(app), dataPath)
 })
 

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-05-12
+
+### Added
+- Added LAN survivor-data support with `Local Files`, `LAN Host`, and `LAN Client` modes in Settings.
+- Added a local LAN Host HTTP API for survivor list, summary, load, save, delete, health, and live survivor-data change events.
+- Added LAN Client survivor routing that preserves the existing Create, Settlement, Showdown, and survivor edit workflows while reading and writing through the host.
+- Added a compact navbar LAN status indicator for Local, Hosting, Connected, Reconnecting, Offline, and Error states.
+- Added explicit Settings actions for starting/stopping a host and connecting/disconnecting a client.
+- Added automatic LAN host discovery with scan/select controls, while keeping manual host entry as a fallback.
+- Added LAN Host URL display and a manual survivor-data backup export action.
+
+### Changed
+- Settlement now refreshes automatically on LAN Clients when the host broadcasts survivor-data changes.
+- LAN Client save/delete flows now run pre-save health checks and disable write actions while disconnected.
+- LAN reliability messages now distinguish unreachable host, validation failures, stale revision conflicts, and generic server errors.
+
+### Fixed
+- Hardened LAN Host start/stop recovery, host-start rollback, client reconnect handling, event-stream cleanup, and offline save behavior for real table sessions.
+
 ## [2.2.9] - 2026-05-04
 
 ### Fixed

@@ -3,8 +3,11 @@
  */
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const fs = require('fs')
+const os = require('os')
 const path = require('path')
 const Module = require('module')
+const { EventEmitter } = require('events')
 
 const mainPath = path.join(__dirname, '..', 'src', 'main.js')
 
@@ -118,6 +121,18 @@ function makeHarness(overrides = {}) {
   const Menu = {
     setApplicationMenu() {}
   }
+  const dgramMock = overrides.dgram || {
+    createSocket() {
+      const socket = new EventEmitter()
+      socket.bind = (_port, callback) => {
+        process.nextTick(callback)
+      }
+      socket.setBroadcast = () => {}
+      socket.send = () => {}
+      socket.close = () => {}
+      return socket
+    }
+  }
 
   const dataService = {
     ConflictError,
@@ -215,6 +230,9 @@ function makeHarness(overrides = {}) {
   Module._load = function patchedLoad(request, parent, isMain) {
     if (request === 'electron') return electron
     if (request === './dataService') return dataService
+    if (request === './lanSurvivorHost' && overrides.lanSurvivorHost) return overrides.lanSurvivorHost
+    if (request === 'dgram') return dgramMock
+    if (request === 'os' && overrides.os) return overrides.os
     if (request === 'markdown-it') return MarkdownItMock
     return originalLoad.call(this, request, parent, isMain)
   }
@@ -246,6 +264,11 @@ function makeHarness(overrides = {}) {
 
 test('create-person-template handler creates template with name', async t => {
   const harness = makeHarness({
+    app: {
+      whenReady() {
+        return new Promise(() => {})
+      }
+    },
     dataService: {
       createPersonTemplate(name) {
         return { name, created: true }
@@ -341,6 +364,26 @@ test('delete-person handler deletes and returns success', async t => {
   const result = await handler(null, 'alice.json')
   assert.deepEqual(result, { deleted: true })
   assert.equal(deletedFile, 'alice.json')
+})
+
+test('delete-person handler maps survivor errors to payloads', async t => {
+  const harness = makeHarness({
+    dataService: {
+      deletePerson() {
+        throw new ConflictError('Stale survivor revision')
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  const handler = harness.handlers.get('delete-person')
+  const result = await handler(null, 'alice.json')
+  assert.deepEqual(result, {
+    deleted: false,
+    ok: false,
+    errorType: 'conflict',
+    message: 'Stale survivor revision'
+  })
 })
 
 
@@ -698,6 +741,208 @@ test('save-app-settings handler saves and returns settings', async t => {
   const result = await handler(null, { userName: '  Mike  ', dateFormat: 'en-US' })
   assert.deepEqual(result, { userName: 'Mike', dateFormat: 'en-US' })
   assert.deepEqual(savedSettings, { userName: '  Mike  ', dateFormat: 'en-US' })
+})
+
+test('save-app-settings rolls back host enabled when LAN host start fails', async t => {
+  let currentSettings = { survivorDataMode: 'local', lanHostEnabled: false, lanPort: 3765 }
+  const savedSettings = []
+  const harness = makeHarness({
+    app: {
+      whenReady() {
+        return new Promise(() => {})
+      }
+    },
+    dataService: {
+      getSavedAppSettings() {
+        return currentSettings
+      },
+      saveAppSettings(_app, settings) {
+        currentSettings = { ...settings }
+        savedSettings.push({ ...settings })
+        return currentSettings
+      }
+    },
+    lanSurvivorHost: {
+      createLanSurvivorHost() {
+        return {
+          async start() {
+            throw new Error('Port already in use')
+          },
+          async stop() {
+            return { running: false, port: null }
+          },
+          getStatus() {
+            return { running: false, port: null }
+          }
+        }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  const handler = harness.handlers.get('save-app-settings')
+  await assert.rejects(
+    () => handler(null, { survivorDataMode: 'lan-host', lanHostEnabled: true, lanPort: 3765 }),
+    /Port already in use/
+  )
+
+  assert.deepEqual(savedSettings, [
+    { survivorDataMode: 'lan-host', lanHostEnabled: true, lanPort: 3765 },
+    { survivorDataMode: 'lan-host', lanHostEnabled: false, lanPort: 3765 }
+  ])
+})
+
+test('get-lan-connection-status reports local and offline LAN states', async t => {
+  let settings = { survivorDataMode: 'local' }
+  const harness = makeHarness({
+    dataService: {
+      getSavedAppSettings() {
+        return settings
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  const handler = harness.handlers.get('get-lan-connection-status')
+  assert.deepEqual(await handler(), {
+    mode: 'local',
+    state: 'local',
+    label: 'Local',
+    message: 'Using local survivor files'
+  })
+
+  settings = { survivorDataMode: 'lan-host', lanHostEnabled: false, lanPort: 3765 }
+  assert.deepEqual(await handler(), {
+    mode: 'lan-host',
+    state: 'offline',
+    label: 'Offline',
+    message: 'LAN host is not enabled'
+  })
+
+  settings = { survivorDataMode: 'lan-client', lanHostAddress: '', lanPort: 3765 }
+  assert.deepEqual(await handler(), {
+    mode: 'lan-client',
+    state: 'error',
+    label: 'Error',
+    message: 'No LAN host address configured'
+  })
+})
+
+test('get-lan-host-info reports LAN URLs from local network interfaces', async t => {
+  let settings = { survivorDataMode: 'lan-host', lanHostEnabled: true, lanPort: 3765 }
+  const harness = makeHarness({
+    dataService: {
+      getSavedAppSettings() {
+        return settings
+      }
+    },
+    os: {
+      networkInterfaces() {
+        return {
+          en0: [
+            { family: 'IPv4', internal: false, address: '192.168.1.44' },
+            { family: 'IPv6', internal: false, address: 'fe80::1' }
+          ],
+          lo0: [{ family: 'IPv4', internal: true, address: '127.0.0.1' }]
+        }
+      }
+    },
+    lanSurvivorHost: {
+      createLanSurvivorHost() {
+        return {
+          async start() {
+            return { running: true, port: 4567 }
+          },
+          async stop() {
+            return { running: false, port: null }
+          },
+          getStatus() {
+            return { running: true, port: 4567 }
+          }
+        }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  const handler = harness.handlers.get('get-lan-host-info')
+  assert.deepEqual(await handler(), {
+    running: true,
+    port: 4567,
+    addresses: ['192.168.1.44'],
+    urls: ['http://192.168.1.44:4567']
+  })
+})
+
+test('LAN discovery records advertised hosts', async t => {
+  let socket = null
+  const harness = makeHarness({
+    dgram: {
+      createSocket() {
+        socket = new EventEmitter()
+        socket.bind = (_port, callback) => {
+          process.nextTick(callback)
+        }
+        socket.setBroadcast = () => {}
+        socket.send = () => {}
+        socket.close = () => {}
+        return socket
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.ready()
+
+  socket.emit(
+    'message',
+    Buffer.from(JSON.stringify({ type: 'kdm-survivor-host', version: 1, displayName: 'Table Host', port: 4567 })),
+    { address: '192.168.1.50' }
+  )
+
+  const handler = harness.handlers.get('get-lan-discovered-hosts')
+  assert.deepEqual(await handler(), [
+    {
+      id: '192.168.1.50:4567',
+      address: '192.168.1.50',
+      port: 4567,
+      url: 'http://192.168.1.50:4567',
+      displayName: 'Table Host',
+      lastSeen: (await handler())[0].lastSeen
+    }
+  ])
+})
+
+test('export-survivor-data-backup copies survivor folder to chosen destination', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kdm-backup-test-'))
+  const source = path.join(root, 'survivors')
+  const destination = path.join(root, 'backups')
+  fs.mkdirSync(source, { recursive: true })
+  fs.mkdirSync(destination, { recursive: true })
+  fs.writeFileSync(path.join(source, 'alice.json'), '{"name":"Alice"}')
+  t.after(() => {
+    fs.rmSync(root, { recursive: true, force: true })
+  })
+
+  const harness = makeHarness({
+    dataService: {
+      ensureDataFolderConfigured() {
+        return source
+      }
+    },
+    dialog: {
+      async showOpenDialog() {
+        return { canceled: false, filePaths: [destination] }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  const handler = harness.handlers.get('export-survivor-data-backup')
+  const result = await handler()
+  assert.equal(result.ok, true)
+  assert.equal(result.sourcePath, source)
+  assert.ok(result.backupPath.startsWith(destination))
+  assert.equal(fs.readFileSync(path.join(result.backupPath, 'alice.json'), 'utf8'), '{"name":"Alice"}')
 })
 
 // ============================================

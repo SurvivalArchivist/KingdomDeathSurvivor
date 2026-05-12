@@ -27,6 +27,7 @@
         <button id="departShowdown" type="button" class="btn btn-primary">Depart</button>
         <button id="showdownOver" type="button" class="btn btn-danger hidden">End Showdown</button>
       </div>
+      <button id="navLanStatus" type="button" class="nav-lan-status" data-lan-state="local" title="Open Settings">Local</button>
       <button id="navFullscreen" type="button" class="btn btn-ghost nav-window-toggle" aria-pressed="false">Full Screen</button>
       <label class="nav-theme-switcher" for="themeSelect">
         <span class="nav-theme-switcher-label">Theme</span>
@@ -78,8 +79,64 @@
         </label>
       </div>
       <p class="muted settings-hint">Saved into editedBy on survivor saves. When enabled, settlement refresh interval is capped to a faster cadence.</p>
+      <section class="settings-section" aria-labelledby="survivorDataSettingsTitle">
+        <div class="settings-section-header">
+          <h3 id="survivorDataSettingsTitle">Survivor Data</h3>
+          <p id="settingsLanStatus" class="muted">Local files mode</p>
+        </div>
+        <div class="settings-row settings-row-survivor-data">
+          <label class="settings-control">
+            <span>Mode</span>
+            <select id="settingsSurvivorDataMode">
+              <option value="local">Local Files</option>
+              <option value="lan-host">LAN Host</option>
+              <option value="lan-client">LAN Client</option>
+            </select>
+          </label>
+          <label class="settings-control">
+            <span>Display Name</span>
+            <input id="settingsLanDisplayName" type="text" placeholder="Player name" />
+          </label>
+          <label class="settings-control" data-lan-client-setting>
+            <span>Host Address</span>
+            <input id="settingsLanHostAddress" type="text" placeholder="192.168.1.44" />
+          </label>
+          <label class="settings-control">
+            <span>Port</span>
+            <input id="settingsLanPort" type="number" min="1024" max="65535" step="1" />
+          </label>
+          <label class="settings-toggle" data-lan-client-setting>
+            <span>Auto Reconnect</span>
+            <input id="settingsLanAutoReconnect" type="checkbox" />
+          </label>
+          <label class="settings-control" data-lan-client-setting>
+            <span>Discovered Hosts</span>
+            <select id="settingsLanDiscoveredHosts">
+              <option value="">No hosts discovered</option>
+            </select>
+          </label>
+          <label class="settings-toggle" data-lan-host-setting>
+            <span>Host Enabled</span>
+            <input id="settingsLanHostEnabled" type="checkbox" />
+          </label>
+          <div class="settings-readout" data-lan-host-setting>
+            <span>Host URLs</span>
+            <p id="settingsLanHostAddresses" class="folder-path">Not available</p>
+          </div>
+        </div>
+        <div class="settings-action-row">
+          <button id="settingsLanHostStart" class="btn btn-primary" type="button" data-lan-host-setting>Start Host</button>
+          <button id="settingsLanHostStop" class="btn btn-secondary" type="button" data-lan-host-setting>Stop Host</button>
+          <button id="settingsLanClientConnect" class="btn btn-primary" type="button" data-lan-client-setting>Connect</button>
+          <button id="settingsLanClientDisconnect" class="btn btn-secondary" type="button" data-lan-client-setting>Disconnect</button>
+          <button id="settingsLanRefreshDiscovery" class="btn btn-secondary" type="button" data-lan-client-setting>Scan Hosts</button>
+          <button id="settingsLanUseDiscoveredHost" class="btn btn-secondary" type="button" data-lan-client-setting>Use Selected Host</button>
+          <button id="settingsExportBackup" class="btn btn-secondary" type="button">Export Backup</button>
+        </div>
+        <p id="settingsLanHint" class="muted settings-hint">Local Files reads and writes survivor JSON in the selected Survivors folder.</p>
+      </section>
       <div class="data-sources-grid">
-        <div class="data-source-row">
+        <div id="survivorSourceRow" class="data-source-row">
           <span>Survivors</span>
           <button id="selectSourceSurvivors" class="btn btn-primary" type="button">Select Folder</button>
           <p id="sourcePathSurvivors" class="folder-path">Not set</p>

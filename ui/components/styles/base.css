@@ -174,8 +174,52 @@ body.showdown-mode .top-nav .nav-showdown-actions {
   display: inline-flex;
 }
 
-.top-nav .nav-window-toggle {
+.top-nav .nav-lan-status {
   margin-left: auto;
+}
+
+.top-nav .nav-lan-status {
+  flex: 0 0 auto;
+  min-width: 4.6rem;
+  padding: 0.3rem 0.54rem;
+  border: 1px solid var(--status-neutral-border);
+  border-radius: 8px;
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-ink);
+  box-shadow: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.top-nav .nav-lan-status:hover {
+  transform: translateY(-1px);
+}
+
+.top-nav .nav-lan-status[data-lan-state="hosting"],
+.top-nav .nav-lan-status[data-lan-state="connected"] {
+  border-color: var(--status-success-border);
+  background: var(--status-success-bg);
+  color: var(--status-success-ink);
+}
+
+.top-nav .nav-lan-status[data-lan-state="reconnecting"] {
+  border-color: var(--status-neutral-border);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-ink);
+}
+
+.top-nav .nav-lan-status[data-lan-state="offline"],
+.top-nav .nav-lan-status[data-lan-state="error"] {
+  border-color: var(--status-error-border);
+  background: var(--status-error-bg);
+  color: var(--status-error-ink);
 }
 
 .top-nav .nav-theme-switcher {
@@ -293,11 +337,13 @@ body.departed-active .panel {
 }
 
 .settings-row .settings-control,
-.settings-row .settings-toggle {
+.settings-row .settings-toggle,
+.settings-row .settings-readout {
   min-width: 0;
 }
 
-.settings-row label {
+.settings-row label,
+.settings-row .settings-readout {
   display: grid;
   align-content: start;
   gap: 0.22rem;
@@ -311,9 +357,17 @@ body.departed-active .panel {
   background: transparent;
 }
 
-.settings-row label > span {
+.settings-row label > span,
+.settings-row .settings-readout > span {
   display: block;
   color: var(--hero-eyebrow);
+}
+
+.settings-row .settings-readout p {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.35;
 }
 
 .settings-row .settings-toggle {
@@ -340,7 +394,8 @@ body.departed-active .panel {
   min-width: 0;
 }
 
-.settings-row input[type="text"] {
+.settings-row input[type="text"],
+.settings-row input[type="number"] {
   border: 1px solid var(--field-border);
   border-radius: 8px;
   font: inherit;
@@ -359,6 +414,47 @@ body.departed-active .panel {
   max-width: 76ch;
   font-size: 0.8rem;
   margin-bottom: 0.7rem;
+}
+
+.settings-section {
+  border-top: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border);
+  padding: 0.72rem 0 0.68rem;
+  margin: 0.82rem 0;
+}
+
+.settings-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.settings-section-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+}
+
+.settings-section-header p {
+  margin: 0;
+  text-align: right;
+}
+
+.settings-row-survivor-data {
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+}
+
+.settings-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+  margin: 0.15rem 0 0.45rem;
+}
+
+.settings-action-row .btn {
+  flex: 0 0 auto;
 }
 
 .data-sources-grid {
@@ -1868,6 +1964,7 @@ textarea:focus-visible {
 
 .settings-row select,
 .settings-row input[type="text"],
+.settings-row input[type="number"],
 #peopleList,
 #newPersonName,
 #personJson,
@@ -1939,6 +2036,7 @@ textarea:focus-visible {
 
 .settings-row select:disabled,
 .settings-row input[type="text"]:disabled,
+.settings-row input[type="number"]:disabled,
 .ve-grid input[type="text"]:disabled,
 .ve-grid select:disabled,
 .ve-row input:disabled,
@@ -1996,6 +2094,12 @@ textarea:focus-visible {
   .top-nav .btn {
     font-size: 0.72rem;
     padding: 0.32rem 0.56rem;
+  }
+
+  .top-nav .nav-lan-status {
+    min-width: 4.25rem;
+    padding: 0.28rem 0.48rem;
+    font-size: 0.64rem;
   }
 
   .top-nav .nav-showdown-actions {

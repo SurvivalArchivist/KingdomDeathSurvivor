@@ -19,7 +19,14 @@ const SOURCE_KEYS = [
 ]
 const DEFAULT_APP_SETTINGS = Object.freeze({
   userName: '',
-  dateFormat: 'en-GB'
+  dateFormat: 'en-GB',
+  survivorDataMode: 'local',
+  lanDisplayName: '',
+  lanHostAddress: '',
+  lanPort: 3765,
+  lanAutoReconnect: true,
+  lanClientConnected: true,
+  lanHostEnabled: false
 })
 const DEFAULT_CREATE_TEMPLATE_FILE_NAME = 'default-new-survivor.json'
 const HISTORY_FOLDER_NAME = 'history'
@@ -199,9 +206,21 @@ function normalizeDataSources(input) {
 
 function normalizeAppSettings(input) {
   const dateFormat = input && typeof input.dateFormat === 'string' ? input.dateFormat.trim() : ''
+  const survivorDataMode = String(input?.survivorDataMode || '').trim()
+  const lanPort = Number(input?.lanPort)
   return {
     userName: input && typeof input.userName === 'string' ? input.userName.trim() : DEFAULT_APP_SETTINGS.userName,
-    dateFormat: dateFormat === 'en-US' ? 'en-US' : 'en-GB'
+    dateFormat: dateFormat === 'en-US' ? 'en-US' : 'en-GB',
+    survivorDataMode:
+      survivorDataMode === 'lan-host' || survivorDataMode === 'lan-client' ? survivorDataMode : DEFAULT_APP_SETTINGS.survivorDataMode,
+    lanDisplayName: typeof input?.lanDisplayName === 'string' ? input.lanDisplayName.trim() : DEFAULT_APP_SETTINGS.lanDisplayName,
+    lanHostAddress: typeof input?.lanHostAddress === 'string' ? input.lanHostAddress.trim() : DEFAULT_APP_SETTINGS.lanHostAddress,
+    lanPort: Number.isInteger(lanPort) && lanPort >= 1024 && lanPort <= 65535 ? lanPort : DEFAULT_APP_SETTINGS.lanPort,
+    lanAutoReconnect:
+      typeof input?.lanAutoReconnect === 'boolean' ? input.lanAutoReconnect : DEFAULT_APP_SETTINGS.lanAutoReconnect,
+    lanClientConnected:
+      typeof input?.lanClientConnected === 'boolean' ? input.lanClientConnected : DEFAULT_APP_SETTINGS.lanClientConnected,
+    lanHostEnabled: typeof input?.lanHostEnabled === 'boolean' ? input.lanHostEnabled : DEFAULT_APP_SETTINGS.lanHostEnabled
   }
 }
 

@@ -51,6 +51,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsUserName = document.getElementById('settingsUserName')
   const settingsDateFormat = document.getElementById('settingsDateFormat')
   const settingsFastMode = document.getElementById('settingsFastMode')
+  const settingsSurvivorDataMode = document.getElementById('settingsSurvivorDataMode')
+  const settingsLanDisplayName = document.getElementById('settingsLanDisplayName')
+  const settingsLanHostAddress = document.getElementById('settingsLanHostAddress')
+  const settingsLanPort = document.getElementById('settingsLanPort')
+  const settingsLanAutoReconnect = document.getElementById('settingsLanAutoReconnect')
+  const settingsLanHostEnabled = document.getElementById('settingsLanHostEnabled')
+  const settingsLanHostStart = document.getElementById('settingsLanHostStart')
+  const settingsLanHostStop = document.getElementById('settingsLanHostStop')
+  const settingsLanClientConnect = document.getElementById('settingsLanClientConnect')
+  const settingsLanClientDisconnect = document.getElementById('settingsLanClientDisconnect')
+  const settingsLanDiscoveredHosts = document.getElementById('settingsLanDiscoveredHosts')
+  const settingsLanRefreshDiscovery = document.getElementById('settingsLanRefreshDiscovery')
+  const settingsLanUseDiscoveredHost = document.getElementById('settingsLanUseDiscoveredHost')
+  const settingsLanHostAddresses = document.getElementById('settingsLanHostAddresses')
+  const settingsExportBackup = document.getElementById('settingsExportBackup')
+  const settingsLanStatus = document.getElementById('settingsLanStatus')
+  const settingsLanHint = document.getElementById('settingsLanHint')
+  const survivorSourceRow = document.getElementById('survivorSourceRow')
+  const lanClientSettings = [...document.querySelectorAll('[data-lan-client-setting]')]
+  const lanHostSettings = [...document.querySelectorAll('[data-lan-host-setting]')]
   const status = document.getElementById('status')
 
   const refreshPeopleButton = document.getElementById('refreshPeople')
@@ -78,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const navShowdownButton = document.getElementById('navShowdown')
   const navSettlementButton = document.getElementById('navSettlement')
   const navBulkUpdatesButton = document.getElementById('navBulkUpdates')
+  const navLanStatus = document.getElementById('navLanStatus')
   const navFullscreenButton = document.getElementById('navFullscreen')
   const themeSelect = document.getElementById('themeSelect')
   const settlementNameSearch = document.getElementById('settlementNameSearch')
@@ -239,7 +260,26 @@ document.addEventListener('DOMContentLoaded', () => {
     sourcePathNeuroses,
     sourcePathDisorders,
     settingsUserName,
+    settingsDateFormat,
     settingsFastMode,
+    settingsSurvivorDataMode,
+    settingsLanDisplayName,
+    settingsLanHostAddress,
+    settingsLanPort,
+    settingsLanAutoReconnect,
+    settingsLanHostEnabled,
+    settingsLanHostStart,
+    settingsLanHostStop,
+    settingsLanClientConnect,
+    settingsLanClientDisconnect,
+    settingsLanDiscoveredHosts,
+    settingsLanRefreshDiscovery,
+    settingsLanUseDiscoveredHost,
+    settingsLanHostAddresses,
+    settingsExportBackup,
+    settingsLanStatus,
+    settingsLanHint,
+    survivorSourceRow,
     status,
     refreshPeopleButton,
     peopleList,
@@ -488,9 +528,20 @@ document.addEventListener('DOMContentLoaded', () => {
   let settlementExtraFiltersOpen = false
   let settlementViewController = null
   let pendingSettlementEntryRefresh = false
+  let pendingLanSettlementRefresh = false
+  let lanStatusRefreshTimer = null
+  let lanConnectionState = 'local'
+  let discoveredLanHosts = []
   let appSettings = {
     userName: '',
-    dateFormat: 'en-GB'
+    dateFormat: 'en-GB',
+    survivorDataMode: 'local',
+    lanDisplayName: '',
+    lanHostAddress: '',
+    lanPort: 3765,
+    lanAutoReconnect: true,
+    lanClientConnected: true,
+    lanHostEnabled: false
   }
   let createTemplateDefaults = null
   let createViewBase = null
@@ -670,9 +721,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function normalizeAppSettings(input) {
     const dateFormat = input && typeof input.dateFormat === 'string' ? input.dateFormat.trim() : ''
+    const survivorDataMode = String(input?.survivorDataMode || '').trim()
+    const lanPort = Number(input?.lanPort)
     return {
       userName: input && typeof input.userName === 'string' ? input.userName.trim() : '',
-      dateFormat: dateFormat === 'en-US' ? 'en-US' : 'en-GB'
+      dateFormat: dateFormat === 'en-US' ? 'en-US' : 'en-GB',
+      survivorDataMode:
+        survivorDataMode === 'lan-host' || survivorDataMode === 'lan-client' ? survivorDataMode : 'local',
+      lanDisplayName: typeof input?.lanDisplayName === 'string' ? input.lanDisplayName.trim() : '',
+      lanHostAddress: typeof input?.lanHostAddress === 'string' ? input.lanHostAddress.trim() : '',
+      lanPort: Number.isInteger(lanPort) && lanPort >= 1024 && lanPort <= 65535 ? lanPort : 3765,
+      lanAutoReconnect: typeof input?.lanAutoReconnect === 'boolean' ? input.lanAutoReconnect : true,
+      lanClientConnected: typeof input?.lanClientConnected === 'boolean' ? input.lanClientConnected : true,
+      lanHostEnabled: typeof input?.lanHostEnabled === 'boolean' ? input.lanHostEnabled : false
     }
   }
 
@@ -1065,6 +1126,112 @@ document.addEventListener('DOMContentLoaded', () => {
     else status.classList.add('is-neutral')
   }
 
+  function applyLanConnectionStatus(statusPayload) {
+    const state = String(statusPayload?.state || '').trim() || 'error'
+    const label = String(statusPayload?.label || '').trim() || 'Error'
+    const message = String(statusPayload?.message || '').trim() || 'Open Settings'
+    lanConnectionState = state
+    navLanStatus.textContent = label
+    navLanStatus.dataset.lanState = state
+    navLanStatus.title = message
+    navLanStatus.setAttribute('aria-label', `Survivor data status: ${label}. Open Settings.`)
+  }
+
+  function getLanStatusRefreshDelay() {
+    if (isLanClientMode() && appSettings.lanAutoReconnect && appSettings.lanClientConnected !== false) {
+      return lanConnectionState === 'offline' || lanConnectionState === 'error' || lanConnectionState === 'reconnecting'
+        ? 5000
+        : 15000
+    }
+    return 15000
+  }
+
+  async function refreshLanConnectionStatus() {
+    if (typeof window.api.getLanConnectionStatus !== 'function') {
+      applyLanConnectionStatus({ state: appSettings.survivorDataMode === 'lan-client' ? 'offline' : 'local', label: appSettings.survivorDataMode === 'lan-client' ? 'Offline' : 'Local' })
+      return
+    }
+    if (
+      isLanClientMode() &&
+      appSettings.lanAutoReconnect &&
+      appSettings.lanClientConnected !== false &&
+      (lanConnectionState === 'offline' || lanConnectionState === 'error')
+    ) {
+      applyLanConnectionStatus({ state: 'reconnecting', label: 'Reconnecting', message: 'Checking LAN host availability' })
+    }
+    try {
+      applyLanConnectionStatus(await window.api.getLanConnectionStatus())
+    } catch {
+      applyLanConnectionStatus({ state: 'error', label: 'Error', message: 'LAN status unavailable' })
+    }
+  }
+
+  function scheduleLanConnectionStatusRefresh(delayMs = 15000) {
+    if (lanStatusRefreshTimer) {
+      window.clearTimeout(lanStatusRefreshTimer)
+      lanStatusRefreshTimer = null
+    }
+    lanStatusRefreshTimer = window.setTimeout(() => {
+      refreshLanConnectionStatus().finally(() => {
+        if (currentPage) scheduleLanConnectionStatusRefresh(getLanStatusRefreshDelay())
+      })
+    }, delayMs)
+  }
+
+  function isLanClientWriteBlocked() {
+    return isLanClientMode() && (lanConnectionState === 'offline' || lanConnectionState === 'error')
+  }
+
+  function getLanClientBlockedMessage(action) {
+    const stateLabel = lanConnectionState === 'error' ? 'in an error state' : 'offline'
+    return `LAN host is ${stateLabel}. Open Settings or reconnect before ${action}.`
+  }
+
+  async function ensureCanWriteSurvivorData(action) {
+    if (isLanClientMode()) await refreshLanConnectionStatus()
+    syncControlState()
+    if (!isLanClientWriteBlocked()) return true
+    setStatus(getLanClientBlockedMessage(action), 'error')
+    return false
+  }
+
+  async function refreshLanStatusAfterSurvivorOperation(task) {
+    try {
+      return await task()
+    } finally {
+      if (isLanClientMode()) await refreshLanConnectionStatus()
+    }
+  }
+
+  function formatSurvivorSaveFailure(result, fallbackMessage) {
+    const errorType = String(result?.errorType || '').trim()
+    const message = String(result?.message || fallbackMessage || 'Survivor save failed').trim()
+    if (errorType === 'validation') {
+      const errors = Array.isArray(result?.errors) ? result.errors : []
+      const path = errors[0]?.path || '/'
+      return { tone: 'error', message: `Validation failure at ${path}: ${message}`, errors }
+    }
+    if (errorType === 'conflict') {
+      return { tone: 'error', message: `Stale revision conflict: ${message}. Refresh the survivor before saving again.`, errors: [] }
+    }
+    if (errorType === 'host-unavailable' || errorType === 'disconnected') {
+      return { tone: 'error', message: `Cannot reach LAN host: ${message}. Open Settings or reconnect.`, errors: [] }
+    }
+    if (errorType === 'server-error') {
+      return { tone: 'error', message: `LAN host server error: ${message}`, errors: [] }
+    }
+    return { tone: 'error', message, errors: [] }
+  }
+
+  function showSurvivorSaveFailure(result, fallbackMessage, options = {}) {
+    const failure = formatSurvivorSaveFailure(result, fallbackMessage)
+    if (failure.errors.length > 0 && options.renderValidationErrors) {
+      renderValidationErrors(failure.errors)
+      highlightPath(failure.errors[0].path || '/')
+    }
+    setStatus(failure.message, failure.tone)
+  }
+
   function normalizeTheme(theme) {
     return Object.prototype.hasOwnProperty.call(THEME_OPTIONS, theme) ? theme : 'dark'
   }
@@ -1118,6 +1285,20 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme(normalizeTheme(storedTheme))
   }
 
+  function isLanClientMode() {
+    return appSettings.survivorDataMode === 'lan-client'
+  }
+
+  function hasConfiguredSurvivorDataAccess() {
+    if (isLanClientMode()) return Boolean(String(appSettings.lanHostAddress || '').trim()) && appSettings.lanClientConnected !== false
+    return Boolean(String(dataSources.survivors || '').trim())
+  }
+
+  function getSurvivorDataSetupPrompt() {
+    if (isLanClientMode()) return 'Enter a LAN host address to begin'
+    return 'Select a survivors folder to begin'
+  }
+
   function renderDataSources() {
     for (const key of DATA_SOURCE_KEYS) {
       const el = dataSourcePathDisplays[key]
@@ -1125,8 +1306,132 @@ document.addEventListener('DOMContentLoaded', () => {
       const value = String(dataSources[key] || '').trim()
       el.textContent = value || 'Not set'
     }
-    hasDataFolder = Boolean(String(dataSources.survivors || '').trim())
+    hasDataFolder = hasConfiguredSurvivorDataAccess()
     hasDefaultTemplateFolder = Boolean(String(dataSources.defaultSurvivorTemplates || '').trim())
+  }
+
+  function syncLanSettingsUi() {
+    const mode = appSettings.survivorDataMode || 'local'
+    const isHost = mode === 'lan-host'
+    const isClient = mode === 'lan-client'
+
+    settingsSurvivorDataMode.value = mode
+    settingsLanDisplayName.value = appSettings.lanDisplayName || ''
+    settingsLanHostAddress.value = appSettings.lanHostAddress || ''
+    settingsLanPort.value = String(appSettings.lanPort || 3765)
+    settingsLanAutoReconnect.checked = Boolean(appSettings.lanAutoReconnect)
+    settingsLanHostEnabled.checked = Boolean(appSettings.lanHostEnabled)
+
+    for (const row of lanHostSettings) row.hidden = !isHost
+    for (const row of lanClientSettings) row.hidden = !isClient
+    survivorSourceRow.hidden = isClient
+
+    if (isHost) {
+      settingsLanStatus.textContent = appSettings.lanHostEnabled ? 'Host mode ready' : 'Host mode configured'
+      settingsLanHint.textContent = 'LAN Host will use the selected Survivors folder as authoritative storage.'
+    } else if (isClient) {
+      settingsLanStatus.textContent =
+        appSettings.lanClientConnected === false
+          ? 'Client disconnected'
+          : appSettings.lanHostAddress
+            ? 'Client mode configured'
+            : 'Client host not set'
+      settingsLanHint.textContent = 'LAN Client reads and writes survivor records through the configured host address.'
+    } else {
+      settingsLanStatus.textContent = 'Local files mode'
+      settingsLanHint.textContent = 'Local Files reads and writes survivor JSON in the selected Survivors folder.'
+    }
+  }
+
+  function renderDiscoveredLanHosts(hosts = discoveredLanHosts) {
+    discoveredLanHosts = Array.isArray(hosts) ? hosts : []
+    const previousValue = settingsLanDiscoveredHosts.value
+    settingsLanDiscoveredHosts.innerHTML = ''
+    if (discoveredLanHosts.length === 0) {
+      const option = document.createElement('option')
+      option.value = ''
+      option.textContent = 'No hosts discovered'
+      settingsLanDiscoveredHosts.appendChild(option)
+      syncControlState()
+      return
+    }
+    for (const host of discoveredLanHosts) {
+      const option = document.createElement('option')
+      option.value = String(host.id || host.url || '')
+      const label = String(host.displayName || '').trim()
+      option.textContent = label ? `${label} (${host.url})` : String(host.url || host.address || 'LAN Host')
+      settingsLanDiscoveredHosts.appendChild(option)
+    }
+    if (previousValue && discoveredLanHosts.some(host => String(host.id || host.url || '') === previousValue)) {
+      settingsLanDiscoveredHosts.value = previousValue
+    } else {
+      settingsLanDiscoveredHosts.value = String(discoveredLanHosts[0]?.id || discoveredLanHosts[0]?.url || '')
+    }
+    syncControlState()
+  }
+
+  async function refreshDiscoveredLanHosts(options = {}) {
+    if (typeof window.api.getLanDiscoveredHosts !== 'function') {
+      renderDiscoveredLanHosts([])
+      return []
+    }
+    const hosts = await window.api.getLanDiscoveredHosts()
+    renderDiscoveredLanHosts(hosts)
+    if (options.showStatus) {
+      setStatus(hosts.length > 0 ? `Found ${hosts.length} LAN host${hosts.length === 1 ? '' : 's'}` : 'No LAN hosts discovered yet', 'neutral')
+    }
+    return hosts
+  }
+
+  async function useSelectedDiscoveredHost() {
+    const selectedId = settingsLanDiscoveredHosts.value
+    const host = discoveredLanHosts.find(entry => String(entry.id || entry.url || '') === selectedId)
+    if (!host) {
+      setStatus('No discovered LAN host selected', 'error')
+      return
+    }
+    settingsLanHostAddress.value = host.address || ''
+    settingsLanPort.value = String(host.port || 3765)
+    await applyLanAction({ survivorDataMode: 'lan-client', lanHostAddress: host.address || '', lanPort: host.port || 3765, lanClientConnected: true }, `Selected ${host.displayName || host.url || 'LAN host'}`)
+  }
+
+  function renderLanHostInfo(info) {
+    if (!settingsLanHostAddresses) return
+    const urls = Array.isArray(info?.urls) ? info.urls.filter(Boolean) : []
+    if (urls.length === 0) {
+      settingsLanHostAddresses.textContent = 'Not available'
+      return
+    }
+    settingsLanHostAddresses.textContent = urls.join(', ')
+  }
+
+  async function refreshLanHostInfo() {
+    if (typeof window.api.getLanHostInfo !== 'function') {
+      renderLanHostInfo(null)
+      return
+    }
+    try {
+      renderLanHostInfo(await window.api.getLanHostInfo())
+    } catch {
+      renderLanHostInfo(null)
+    }
+  }
+
+  async function exportSurvivorDataBackup() {
+    if (typeof window.api.exportSurvivorDataBackup !== 'function') {
+      setStatus('Backup export is unavailable', 'error')
+      return
+    }
+    if (!hasDataFolder) {
+      setStatus(getSurvivorDataSetupPrompt(), 'error')
+      return
+    }
+    const result = await window.api.exportSurvivorDataBackup()
+    if (!result) {
+      setStatus('Backup export canceled', 'neutral')
+      return
+    }
+    setStatus(`Backup exported to ${result.backupPath}`, 'success')
   }
 
   function getEffectiveSettlementRefreshMs() {
@@ -1222,6 +1527,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 0)
   }
 
+  function requestLanSettlementRefresh() {
+    if (pendingLanSettlementRefresh) return
+    if (!isLanClientMode() || currentPage !== 'settlement' || !hasDataFolder) return
+    pendingLanSettlementRefresh = true
+    window.setTimeout(() => {
+      pendingLanSettlementRefresh = false
+      if (!isLanClientMode() || currentPage !== 'settlement' || !hasDataFolder) return
+      if (busy) {
+        requestLanSettlementRefresh()
+        return
+      }
+      runBusy(async () => {
+        await refreshPeople({ silentStatus: true, updateRefreshTimestamp: true })
+        setStatus('Settlement refreshed from LAN host change', 'neutral')
+      }).catch(err => {
+        setStatus(err.message || 'Failed to refresh settlement from LAN host', 'error')
+      })
+    }, 0)
+  }
+
+  function handleLanSurvivorDataChanged() {
+    if (!isLanClientMode()) return
+    refreshLanConnectionStatus()
+      .catch(() => {})
+      .finally(() => {
+        requestLanSettlementRefresh()
+      })
+  }
+
   function setBusy(nextBusy) {
     busy = nextBusy
     syncControlState()
@@ -1239,6 +1573,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const hasMarkdownCollections = markdownCollection.options.length > 0 && markdownCollection.value !== ''
     const hasTwoShowdownOptions = showdownSelectA.options.length >= 2
     const hasShowdownPairLoaded = Boolean(showdownPeople.A && showdownPeople.B)
+    const survivorWriteBlocked = isLanClientWriteBlocked()
+    const isHostMode = appSettings.survivorDataMode === 'lan-host'
+    const isClientMode = appSettings.survivorDataMode === 'lan-client'
+    const hasDiscoveredHost = discoveredLanHosts.length > 0 && Boolean(settingsLanDiscoveredHosts.value)
     const canOpenShowdown =
       hasTwoShowdownOptions &&
       showdownSelectA.value &&
@@ -1249,15 +1587,22 @@ document.addEventListener('DOMContentLoaded', () => {
       if (button) button.disabled = busy
     }
     refreshPeopleButton.disabled = !hasDataFolder || busy
+    settingsLanHostStart.disabled = busy || !isHostMode || !hasDataFolder || appSettings.lanHostEnabled
+    settingsLanHostStop.disabled = busy || !isHostMode || !appSettings.lanHostEnabled
+    settingsLanClientConnect.disabled = busy || !isClientMode || appSettings.lanClientConnected !== false
+    settingsLanClientDisconnect.disabled = busy || !isClientMode || appSettings.lanClientConnected === false
+    settingsLanRefreshDiscovery.disabled = busy || !isClientMode
+    settingsLanUseDiscoveredHost.disabled = busy || !isClientMode || !hasDiscoveredHost
+    settingsExportBackup.disabled = busy || !hasDataFolder
     peopleList.disabled = !hasDataFolder || busy
     loadPersonButton.disabled = !hasDataFolder || !hasSelection || busy
-    deletePersonButton.disabled = !hasDataFolder || !hasSelection || busy
+    deletePersonButton.disabled = !hasDataFolder || !hasSelection || busy || survivorWriteBlocked
     showdownSelectA.disabled = !hasDataFolder || busy || showdownDeparted
     showdownSelectB.disabled = !hasDataFolder || busy || showdownDeparted
     openShowdownButton.disabled = !hasDataFolder || !canOpenShowdown || busy || showdownDeparted
     departShowdownButton.disabled = busy || !hasShowdownPairLoaded || showdownDeparted
     refreshShowdownSurvivorsButton.disabled = busy || showdownDeparted || !canOpenShowdown
-    showdownOverButton.disabled = busy || !hasShowdownPairLoaded || !showdownDeparted
+    showdownOverButton.disabled = busy || !hasShowdownPairLoaded || !showdownDeparted || survivorWriteBlocked
     departShowdownButton.classList.toggle('hidden', showdownDeparted)
     showdownOverButton.classList.toggle('hidden', !showdownDeparted)
     document.body.classList.toggle('departed-active', showdownDeparted)
@@ -1304,8 +1649,8 @@ document.addEventListener('DOMContentLoaded', () => {
       knowledgeEntryNextMode.value !== 'existingTemplate'
     knowledgeEntrySaveTemplate.disabled = busy || !knowledgeTemplatePickerState.scratchEditorActive
     syncKnowledgeSaveTemplateToggle()
-    newPersonTemplateButton.disabled = !hasDataFolder || busy
-    savePersonButton.disabled = !hasDataFolder || busy
+    newPersonTemplateButton.disabled = !hasDataFolder || busy || survivorWriteBlocked
+    savePersonButton.disabled = !hasDataFolder || busy || survivorWriteBlocked
     loadJsonToVisualButton.disabled = busy
     veWeaponProficiencyType.disabled = busy
     addFightingArtButton.disabled = busy
@@ -1325,6 +1670,21 @@ document.addEventListener('DOMContentLoaded', () => {
     settingsUserName.disabled = busy
     settingsDateFormat.disabled = busy
     settingsFastMode.disabled = busy
+    settingsSurvivorDataMode.disabled = busy
+    settingsLanDisplayName.disabled = busy
+    settingsLanHostAddress.disabled = busy
+    settingsLanPort.disabled = busy
+    settingsLanAutoReconnect.disabled = busy
+    settingsLanHostEnabled.disabled = busy
+    settingsLanHostStart.disabled = busy || appSettings.survivorDataMode !== 'lan-host' || appSettings.lanHostEnabled
+    settingsLanHostStop.disabled = busy || appSettings.survivorDataMode !== 'lan-host' || !appSettings.lanHostEnabled
+    settingsLanClientConnect.disabled =
+      busy ||
+      appSettings.survivorDataMode !== 'lan-client' ||
+      !String(appSettings.lanHostAddress || '').trim() ||
+      appSettings.lanClientConnected !== false
+    settingsLanClientDisconnect.disabled =
+      busy || appSettings.survivorDataMode !== 'lan-client' || appSettings.lanClientConnected === false
     settlementAutoRefreshEnabled.disabled = !hasDataFolder || busy
     settlementAutoRefreshInterval.disabled = !hasDataFolder || busy || !settlementAutoRefreshOn
     settlementRefreshNow.disabled = !hasDataFolder || busy
@@ -1333,7 +1693,7 @@ document.addEventListener('DOMContentLoaded', () => {
       control.disabled =
         !hasDataFolder || busy || (control instanceof HTMLButtonElement && control.dataset.removeBulkChange !== undefined && settlementBulkChanges.length === 1)
     }
-    settlementApplyBulkButton.disabled = !hasDataFolder || busy || settlementRecords.length === 0
+    settlementApplyBulkButton.disabled = !hasDataFolder || busy || settlementRecords.length === 0 || survivorWriteBlocked
     for (const filter of settlementBoolFilters) {
       filter.disabled = !hasDataFolder || busy
     }
@@ -1358,7 +1718,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createSurvivorBack.disabled = busy
     createOpenDefaultTemplate.disabled = busy || createViewMode === 'defaultTemplate'
     createSurvivorSubmit.disabled =
-      busy || (createViewMode === 'defaultTemplate' ? !hasDefaultTemplateFolder : !hasDataFolder)
+      busy || (createViewMode === 'defaultTemplate' ? !hasDefaultTemplateFolder : !hasDataFolder || survivorWriteBlocked)
     resetCreateSurvivorButton.disabled = busy
     createAddFightingArtButton.disabled = busy
     createAddSecretFightingArtButton.disabled = busy
@@ -2450,7 +2810,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function openSurvivorInCreateView(fileName) {
     if (!confirmDiscardCreateChanges(`open ${fileName}`)) return
-    const person = await window.api.loadPerson(fileName)
+    const person = await refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(fileName))
     createViewMode = 'edit'
     createEditingFileName = fileName
     createSurvivorTitle.textContent = 'View Survivor'
@@ -2475,6 +2835,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function applySettlementBulkChange() {
+    if (!(await ensureCanWriteSurvivorData('applying bulk survivor updates'))) return
     const changes = collectSettlementBulkChangesFromDom()
     const validChanges = []
     for (const change of changes) {
@@ -2509,7 +2870,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     for (const record of livingRecords) {
       try {
-        const latest = await window.api.loadPerson(record.fileName)
+        const latest = await refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(record.fileName))
         if (!latest?.isAlive) {
           unchanged += 1
           continue
@@ -2526,7 +2887,9 @@ document.addEventListener('DOMContentLoaded', () => {
           unchanged += 1
           continue
         }
-        const result = await window.api.savePerson(latest, { expectedFileName: record.fileName })
+        const result = await refreshLanStatusAfterSurvivorOperation(() =>
+          window.api.savePerson(latest, { expectedFileName: record.fileName })
+        )
         if (!result || result.ok === false) {
           failed += 1
           continue
@@ -3300,7 +3663,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextFileName = String(saveResult?.fileName || showdownPeople[slot].fileName || '').trim()
     if (!nextFileName) return
     try {
-      const latest = await window.api.loadPerson(nextFileName)
+      const latest = await refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(nextFileName))
       showdownPeople[slot] = {
         fileName: nextFileName,
         person: deepClone(latest)
@@ -3325,8 +3688,13 @@ document.addEventListener('DOMContentLoaded', () => {
       successes.length > 0 ? `Saved ${successes.map(result => result.label).join(' and ')}. ` : ''
     const failureMessage = failures
       .map(result => {
-        const conflictText = result.errorType === 'conflict' ? ' with a conflict' : ''
-        return `${result.label} failed${conflictText}: ${result.message}`
+        if (result.errorType === 'conflict') return `${result.label} failed with a stale revision conflict: ${result.message}`
+        if (result.errorType === 'validation') return `${result.label} failed validation: ${result.message}`
+        if (result.errorType === 'host-unavailable' || result.errorType === 'disconnected') {
+          return `${result.label} could not reach the LAN host: ${result.message}`
+        }
+        if (result.errorType === 'server-error') return `${result.label} failed with a LAN host server error: ${result.message}`
+        return `${result.label} failed: ${result.message}`
       })
       .join(' ')
     return `Could not end showdown. ${successMessage}${failureMessage} Showdown remains departed so you can retry safely.`
@@ -3334,13 +3702,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function saveShowdownSurvivors(options = {}) {
     if (!showdownPeople.A || !showdownPeople.B) return
+    if (!(await ensureCanWriteSurvivorData('saving showdown survivors'))) {
+      throw new Error(getLanClientBlockedMessage('saving showdown survivors'))
+    }
     const slots = ['A', 'B']
     const settledResults = await Promise.allSettled(
       slots.map(slot =>
-        window.api.savePerson(showdownPeople[slot].person, {
-          expectedFileName: showdownPeople[slot].fileName,
-          markReturned: Boolean(options.markReturned)
-        })
+        refreshLanStatusAfterSurvivorOperation(() =>
+          window.api.savePerson(showdownPeople[slot].person, {
+            expectedFileName: showdownPeople[slot].fileName,
+            markReturned: Boolean(options.markReturned)
+          })
+        )
       )
     )
     const results = []
@@ -3567,7 +3940,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
 
-    const [personA, personB] = await Promise.all([window.api.loadPerson(fileA), window.api.loadPerson(fileB)])
+    const [personA, personB] = await Promise.all([
+      refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(fileA)),
+      refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(fileB))
+    ])
     if (!personA?.isAlive || !personB?.isAlive) {
       throw new Error('Only alive survivors can enter showdown')
     }
@@ -3604,7 +3980,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadTasks = []
     if (!showdownPeople.A || showdownPeople.A.fileName !== fileA) {
       loadTasks.push(
-        window.api.loadPerson(fileA).then(person => {
+        refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(fileA)).then(person => {
           if (!person?.isAlive) throw new Error('Only alive survivors can enter showdown')
           showdownPeople.A = { fileName: fileA, person: deepClone(person) }
           resetShowdownSlotState('A')
@@ -3613,7 +3989,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!showdownPeople.B || showdownPeople.B.fileName !== fileB) {
       loadTasks.push(
-        window.api.loadPerson(fileB).then(person => {
+        refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(fileB)).then(person => {
           if (!person?.isAlive) throw new Error('Only alive survivors can enter showdown')
           showdownPeople.B = { fileName: fileB, person: deepClone(person) }
           resetShowdownSlotState('B')
@@ -4492,10 +4868,12 @@ document.addEventListener('DOMContentLoaded', () => {
   async function refreshPeople(options = {}) {
     const silentStatus = Boolean(options.silentStatus)
     const updateRefreshTimestamp = options.updateRefreshTimestamp !== false
-    const [files, summaryPayload] = await Promise.all([
-      window.api.listPeople(),
-      window.api.listPeopleSummaries()
-    ])
+    const [files, summaryPayload] = await refreshLanStatusAfterSurvivorOperation(() =>
+      Promise.all([
+        window.api.listPeople(),
+        window.api.listPeopleSummaries()
+      ])
+    )
     populatePeople(files)
     await refreshSettlementData(summaryPayload)
     if (updateRefreshTimestamp) updateSettlementLastRefreshed(new Date())
@@ -4702,23 +5080,25 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       settingsUserName.value = appSettings.userName
       settingsDateFormat.value = appSettings.dateFormat
+      syncLanSettingsUi()
       settingsFastMode.checked = settlementFastMode
       settlementAutoRefreshEnabled.checked = settlementAutoRefreshOn
       settlementAutoRefreshInterval.value = String(settlementAutoRefreshIntervalSeconds)
       updateSettlementLastRefreshed(null)
       dataSources = { ...dataSources, ...(await window.api.getSavedDataSources()) }
       renderDataSources()
+      await refreshLanHostInfo()
+      await refreshDiscoveredLanHosts()
+      await refreshLanConnectionStatus()
 
       if (hasDataFolder) {
-        hasDataFolder = true
         await refreshPeople({ updateRefreshTimestamp: true })
       } else {
-        hasDataFolder = false
         peopleCount.textContent = '0 people loaded'
         settlementRecords = []
         renderSettlementTable()
         updateSettlementLastRefreshed(null)
-        setStatus('Select a survivors folder to begin', 'neutral')
+        setStatus(getSurvivorDataSetupPrompt(), 'neutral')
       }
 
       const template = await loadDefaultCreateTemplateWithFallback()
@@ -4729,6 +5109,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await refreshMarkdownCollections()
       await refreshKnowledgeTemplateCache()
       syncSettlementAutoRefresh()
+      scheduleLanConnectionStatusRefresh()
     }).catch(err => {
       console.error('Failed to initialize app state:', err)
       setStatus('Failed to initialize app state', 'error')
@@ -4756,14 +5137,34 @@ document.addEventListener('DOMContentLoaded', () => {
     setStatus(`${sourceKey} folder updated`, 'success')
   }
 
-  async function persistAppSettingsFromUi() {
+  async function persistAppSettingsFromUi(overrides = {}) {
     const nextSettings = normalizeAppSettings({
+      ...appSettings,
       userName: settingsUserName.value,
-      dateFormat: settingsDateFormat.value
+      dateFormat: settingsDateFormat.value,
+      survivorDataMode: settingsSurvivorDataMode.value,
+      lanDisplayName: settingsLanDisplayName.value,
+      lanHostAddress: settingsLanHostAddress.value,
+      lanPort: settingsLanPort.value,
+      lanAutoReconnect: settingsLanAutoReconnect.checked,
+      lanClientConnected: appSettings.lanClientConnected,
+      lanHostEnabled: settingsLanHostEnabled.checked,
+      ...(overrides && typeof overrides === 'object' ? overrides : {})
     })
-    if (nextSettings.userName === appSettings.userName && nextSettings.dateFormat === appSettings.dateFormat) {
+    if (
+      nextSettings.userName === appSettings.userName &&
+      nextSettings.dateFormat === appSettings.dateFormat &&
+      nextSettings.survivorDataMode === appSettings.survivorDataMode &&
+      nextSettings.lanDisplayName === appSettings.lanDisplayName &&
+      nextSettings.lanHostAddress === appSettings.lanHostAddress &&
+      nextSettings.lanPort === appSettings.lanPort &&
+      nextSettings.lanAutoReconnect === appSettings.lanAutoReconnect &&
+      nextSettings.lanClientConnected === appSettings.lanClientConnected &&
+      nextSettings.lanHostEnabled === appSettings.lanHostEnabled
+    ) {
       settingsUserName.value = appSettings.userName
       settingsDateFormat.value = appSettings.dateFormat
+      syncLanSettingsUi()
       return
     }
     if (typeof window.api.saveAppSettings === 'function') {
@@ -4773,8 +5174,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     settingsUserName.value = appSettings.userName
     settingsDateFormat.value = appSettings.dateFormat
+    syncLanSettingsUi()
+    renderDataSources()
+    await refreshLanHostInfo()
+    await refreshDiscoveredLanHosts()
+    await refreshLanConnectionStatus()
+    scheduleLanConnectionStatusRefresh()
+    if (!hasDataFolder) {
+      peopleCount.textContent = '0 people loaded'
+      settlementRecords = []
+      renderSettlementTable()
+      updateSettlementLastRefreshed(null)
+    }
     renderSettlementTable()
     setStatus(appSettings.userName ? `Settings saved for ${appSettings.userName}` : 'Settings saved', 'success')
+  }
+
+  async function applyLanAction(overrides, successMessage) {
+    await persistAppSettingsFromUi(overrides)
+    syncControlState()
+    if (successMessage) setStatus(successMessage, 'success')
+  }
+
+  function handleSettingsPersistError(err, fallbackMessage) {
+    syncLanSettingsUi()
+    syncControlState()
+    setStatus(err.message || fallbackMessage, 'error')
   }
 
   for (const sourceKey of DATA_SOURCE_KEYS) {
@@ -4921,12 +5346,61 @@ document.addEventListener('DOMContentLoaded', () => {
   settlementViewController.bindEvents()
   settingsUserName.addEventListener('change', () => {
     runBusy(persistAppSettingsFromUi).catch(err => {
-      setStatus(err.message || 'Failed to save app settings', 'error')
+      handleSettingsPersistError(err, 'Failed to save app settings')
     })
   })
   settingsDateFormat.addEventListener('change', () => {
     runBusy(persistAppSettingsFromUi).catch(err => {
-      setStatus(err.message || 'Failed to save app settings', 'error')
+      handleSettingsPersistError(err, 'Failed to save app settings')
+    })
+  })
+  for (const control of [
+    settingsSurvivorDataMode,
+    settingsLanDisplayName,
+    settingsLanHostAddress,
+    settingsLanPort,
+    settingsLanAutoReconnect,
+    settingsLanHostEnabled
+  ]) {
+    control.addEventListener('change', () => {
+      runBusy(persistAppSettingsFromUi).catch(err => {
+        handleSettingsPersistError(err, 'Failed to save app settings')
+      })
+    })
+  }
+  settingsLanHostStart.addEventListener('click', () => {
+    runBusy(() => applyLanAction({ survivorDataMode: 'lan-host', lanHostEnabled: true }, 'LAN host started')).catch(err => {
+      handleSettingsPersistError(err, 'Failed to start LAN host')
+    })
+  })
+  settingsLanHostStop.addEventListener('click', () => {
+    runBusy(() => applyLanAction({ survivorDataMode: 'lan-host', lanHostEnabled: false }, 'LAN host stopped')).catch(err => {
+      handleSettingsPersistError(err, 'Failed to stop LAN host')
+    })
+  })
+  settingsLanClientConnect.addEventListener('click', () => {
+    runBusy(() => applyLanAction({ survivorDataMode: 'lan-client', lanClientConnected: true }, 'LAN client connected')).catch(err => {
+      handleSettingsPersistError(err, 'Failed to connect LAN client')
+    })
+  })
+  settingsLanClientDisconnect.addEventListener('click', () => {
+    runBusy(() => applyLanAction({ survivorDataMode: 'lan-client', lanClientConnected: false }, 'LAN client disconnected')).catch(err => {
+      handleSettingsPersistError(err, 'Failed to disconnect LAN client')
+    })
+  })
+  settingsLanRefreshDiscovery.addEventListener('click', () => {
+    runBusy(() => refreshDiscoveredLanHosts({ showStatus: true })).catch(err => {
+      setStatus(err.message || 'Failed to scan LAN hosts', 'error')
+    })
+  })
+  settingsLanUseDiscoveredHost.addEventListener('click', () => {
+    runBusy(useSelectedDiscoveredHost).catch(err => {
+      handleSettingsPersistError(err, 'Failed to use discovered LAN host')
+    })
+  })
+  settingsExportBackup.addEventListener('click', () => {
+    runBusy(exportSurvivorDataBackup).catch(err => {
+      setStatus(err.message || 'Failed to export survivor backup', 'error')
     })
   })
   settingsFastMode.addEventListener('change', () => {
@@ -5011,6 +5485,11 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   })
   navDataSourcesButton.addEventListener('click', () => {
+    if (currentPage === 'dataSources') return
+    if (!confirmDiscardCreateChanges('open settings')) return
+    setPage('dataSources')
+  })
+  navLanStatus.addEventListener('click', () => {
     if (currentPage === 'dataSources') return
     if (!confirmDiscardCreateChanges('open settings')) return
     setPage('dataSources')
@@ -5472,7 +5951,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setStatus('No person selected', 'error')
         return
       }
-      const person = await window.api.loadPerson(fileName)
+      const person = await refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(fileName))
       personJson.value = JSON.stringify(person, null, 2)
       renderVisualEditor(person)
       clearValidationErrors()
@@ -5490,7 +5969,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return
       }
       if (!window.confirm(`Delete ${fileName}? This cannot be undone.`)) return
-      await window.api.deletePerson(fileName)
+      if (!(await ensureCanWriteSurvivorData('deleting survivors'))) return
+      const result = await refreshLanStatusAfterSurvivorOperation(() => window.api.deletePerson(fileName))
+      if (result && result.ok === false) {
+        showSurvivorSaveFailure(result, 'Failed to delete survivor')
+        return
+      }
       await refreshPeople()
       personJson.value = ''
       clearValidationErrors()
@@ -5509,20 +5993,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const person = await window.api.createPersonTemplate(survivorName)
-      const result = await window.api.savePerson(person)
+      if (!(await ensureCanWriteSurvivorData('creating survivors'))) return
+      const result = await refreshLanStatusAfterSurvivorOperation(() => window.api.savePerson(person))
       if (!result || result.ok === false) {
-        const errors = Array.isArray(result?.errors) ? result.errors : []
-        if (errors.length > 0) {
-          renderValidationErrors(errors)
-          highlightPath(errors[0].path || '/')
-          setStatus(`Validation failed at ${errors[0].path || '/'}`, 'error')
-        } else {
-          setStatus(result?.message || 'Failed to create survivor', 'error')
-        }
+        showSurvivorSaveFailure(result, 'Failed to create survivor', { renderValidationErrors: true })
         return
       }
 
-      const savedPerson = await window.api.loadPerson(result.fileName)
+      const savedPerson = await refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(result.fileName))
       personJson.value = JSON.stringify(savedPerson, null, 2)
       renderVisualEditor(savedPerson)
       clearValidationErrors()
@@ -5539,16 +6017,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const person = parseEditorJson()
       if (!person) return
 
-      const result = await window.api.savePerson(person)
+      if (!(await ensureCanWriteSurvivorData('saving survivors'))) return
+      const result = await refreshLanStatusAfterSurvivorOperation(() => window.api.savePerson(person))
       if (!result || result.ok === false) {
-        const errors = Array.isArray(result?.errors) ? result.errors : []
-        if (errors.length > 0) {
-          renderValidationErrors(errors)
-          highlightPath(errors[0].path || '/')
-          setStatus(`Validation failed at ${errors[0].path || '/'}`, 'error')
-        } else {
-          setStatus(result?.message || 'Failed to save person', 'error')
-        }
+        showSurvivorSaveFailure(result, 'Failed to save person', { renderValidationErrors: true })
         return
       }
 
@@ -5786,29 +6258,27 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (!hasDataFolder) {
-        setStatus('Select a data folder before creating a survivor', 'error')
+        setStatus(isLanClientMode() ? 'Enter a LAN host address before creating a survivor' : 'Select a data folder before creating a survivor', 'error')
         return
       }
 
       const previousEditingFile = createEditingFileName
       const wasEditingExisting = Boolean(previousEditingFile)
 
-      const result = await window.api.savePerson(person, {
-        expectedFileName: wasEditingExisting ? previousEditingFile : undefined
-      })
+      if (!(await ensureCanWriteSurvivorData(wasEditingExisting ? 'saving survivors' : 'creating survivors'))) return
+      const result = await refreshLanStatusAfterSurvivorOperation(() =>
+        window.api.savePerson(person, {
+          expectedFileName: wasEditingExisting ? previousEditingFile : undefined
+        })
+      )
       if (!result || result.ok === false) {
-        const errors = Array.isArray(result?.errors) ? result.errors : []
-        if (errors.length > 0) {
-          setStatus(`Validation failed at ${errors[0].path || '/'}`, 'error')
-        } else {
-          setStatus(result?.message || 'Failed to create survivor', 'error')
-        }
+        showSurvivorSaveFailure(result, wasEditingExisting ? 'Failed to save survivor' : 'Failed to create survivor')
         return
       }
 
       await refreshPeople()
       peopleList.value = result.fileName
-      const savedPerson = await window.api.loadPerson(result.fileName)
+      const savedPerson = await refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(result.fileName))
       personJson.value = JSON.stringify(savedPerson, null, 2)
       renderVisualEditor(savedPerson)
       await resetCreateSurvivorForm()
@@ -6007,6 +6477,22 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof window.api.onFullScreenChanged === 'function') {
     window.api.onFullScreenChanged(isFullScreen => {
       applyWindowFullScreenState(isFullScreen)
+    })
+  }
+  if (typeof window.api.onLanConnectionStatusChanged === 'function') {
+    window.api.onLanConnectionStatusChanged(statusPayload => {
+      applyLanConnectionStatus(statusPayload)
+      syncControlState()
+    })
+  }
+  if (typeof window.api.onLanSurvivorDataChanged === 'function') {
+    window.api.onLanSurvivorDataChanged(() => {
+      handleLanSurvivorDataChanged()
+    })
+  }
+  if (typeof window.api.onLanDiscoveredHostsChanged === 'function') {
+    window.api.onLanDiscoveredHostsChanged(hosts => {
+      renderDiscoveredLanHosts(hosts)
     })
   }
   syncWindowFullScreenState()

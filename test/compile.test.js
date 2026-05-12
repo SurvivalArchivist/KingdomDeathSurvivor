@@ -7,7 +7,9 @@ const compileTargets = [
   path.join('src', 'main.js'),
   path.join('src', 'preload.js'),
   path.join('src', 'renderer.js'),
-  path.join('src', 'dataService.js')
+  path.join('src', 'dataService.js'),
+  path.join('src', 'lanSurvivorHost.js'),
+  path.join('src', 'survivorProvider.js')
 ]
 
 test('core source files pass node syntax check', () => {
