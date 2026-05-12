@@ -260,6 +260,7 @@ function startLanDiscoveryService() {
   }
   try {
     lanDiscoverySocket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
+    lanDiscoverySocket.unref?.()
     lanDiscoverySocket.on('message', handleLanDiscoveryMessage)
     lanDiscoverySocket.on('error', handleDiscoveryUnavailable)
     lanDiscoverySocket.bind(LAN_DISCOVERY_PORT, () => {
