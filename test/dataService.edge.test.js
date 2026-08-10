@@ -23,7 +23,7 @@ function blankSources() {
   return Object.fromEntries(dataService.SOURCE_KEYS.map(key => [key, '']))
 }
 
-test('getSavedDataSources reads legacy config dataPath and trims it', () => {
+test('getSavedDataSources ignores legacy config dataPath', () => {
   const userData = makeTempDir()
   const app = makeApp(userData)
   const legacyPath = path.join(userData, 'legacy-survivors')
@@ -31,9 +31,7 @@ test('getSavedDataSources reads legacy config dataPath and trims it', () => {
   fs.writeFileSync(configPath, JSON.stringify({ dataPath: `  ${legacyPath}  ` }, null, 2), 'utf8')
 
   const sources = dataService.getSavedDataSources(app)
-  assert.equal(sources.survivors, legacyPath)
   for (const key of dataService.SOURCE_KEYS) {
-    if (key === 'survivors') continue
     assert.equal(sources[key], '')
   }
 })
@@ -73,7 +71,7 @@ test('save/load default create template roundtrip and null when missing', () => 
   assert.equal(loaded.name, 'Default Survivor')
   assert.equal(loaded.age, 4)
   assert.equal(loaded.philosophy, 'Skylore')
-  assert.equal(loaded.schemaVersion, 5)
+  assert.equal(loaded.schemaVersion, 6)
   assert.deepEqual(loaded.notes, [])
   assert.equal(typeof loaded.lastUpdated, 'string')
   assert.equal(loaded.lastReturned, null)

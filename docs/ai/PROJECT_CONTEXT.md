@@ -53,6 +53,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - This does not provide distributed locking; concurrent edits still require coordination, but stale overwrite risk is reduced.
 
 ## LAN Survivor Data Direction
+- LAN Host / LAN Client has been exercised in a real-world trial and behaved as expected.
 - v3 LAN work is tracked in `docs/ai/LAN_SURVIVOR_PLAN.md` and `docs/ai/LAN_IMPLEMENTATION_HANDOFF.md`.
 - Survivor IPC should route through a survivor-provider layer so `Local Files`, future `LAN Host`, and future `LAN Client` modes can share the existing renderer API.
 - `Local Files` remains the default provider mode.
@@ -70,14 +71,11 @@ Electron desktop companion app for Kingdom Death survivor management with:
 ## Knowledge / Tenet Knowledge Rules
 
 ## Schema Compatibility Policy
-- Survivor records now include stable `id`, `createdAt`, and `schemaVersion` (current: `5`).
-- `loadPerson` applies compatibility normalization:
-  - missing/invalid `schemaVersion` is treated as legacy and normalized to current version
-  - missing `id` on legacy name-only files is normalized to a deterministic `survivor-legacy-{filename-slug}` id
-  - missing `createdAt` is migrated from `updatedAt`, then `lastUpdated`, then the current timestamp
-  - future unsupported versions are rejected with a validation error
-- `savePerson` normalizes incoming records to current `schemaVersion` before validation/write.
-- Migration stub exists in `src/dataService.js` for future schema upgrades.
+- Version `3.0.1` is an explicit new-campaign reset; pre-reset survivor/config compatibility is not supported.
+- Survivor records require an explicit `schemaVersion` of `6`.
+- Missing, invalid, older, and future `schemaVersion` values are rejected with a validation error rather than migrated.
+- `savePerson` and `loadPerson` both enforce the current schema version before validation/write.
+- Survivor JSON no longer supports the deprecated `philosophyTenet` property.
 - Philosophy metadata includes optional `philosophyNeurosisName` (template/source label) and `philosophyNeurosis` text.
 - Tenet Knowledge max: 1
 - Knowledge max: 5
@@ -95,7 +93,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 
 ## Template Library
 - Knowledge templates are sourced from the configured `knowledges` data source path for both `Knowledge` and `Tenet Knowledge`.
-- Backward compatibility: if `knowledges` is unset, Tenet template operations fall back to `tenetKnowledges` when present.
+- There is no dedicated or fallback `tenetKnowledges` data source.
 - Neurosis templates are sourced from the configured `neuroses` data source path.
 - Templates exclude runtime `currentObservations`
 - Template selection UI supports search filtering

@@ -364,14 +364,13 @@ test('load-markdown-file handler renders markdown HTML', async t => {
   assert.equal(result.html, '<rendered>**Bold** text</rendered>')
 })
 
-test('knowledge template handlers resolve primary and legacy folder paths', async t => {
+test('tenet knowledge template handlers require the shared knowledges folder', async t => {
   const calls = []
   const harness = makeHarness({
     dataService: {
       getSavedDataSources() {
         return {
           knowledges: '',
-          tenetKnowledges: '/tmp/legacy-tenets',
           neuroses: ''
         }
       },
@@ -386,17 +385,11 @@ test('knowledge template handlers resolve primary and legacy folder paths', asyn
   const saveHandler = harness.handlers.get('save-knowledge-template')
   const listHandler = harness.handlers.get('list-knowledge-templates')
 
-  const tenetResult = await saveHandler(null, 'tenetKnowledge', { name: 'Tenet 2' })
-  assert.deepEqual(tenetResult, { ok: true, fileName: 'saved-template.json' })
-  assert.deepEqual(calls[0], {
-    folderPath: '/tmp/legacy-tenets',
-    type: 'tenetKnowledge',
-    template: { name: 'Tenet 2' }
-  })
-
+  assert.throws(() => saveHandler(null, 'tenetKnowledge', { name: 'Tenet 2' }), /No Knowledges folder selected/)
   assert.throws(() => saveHandler(null, 'knowledge', { name: 'Knowledge 2' }), /No Knowledges folder selected/)
   const listResult = await listHandler(null, 'knowledge')
   assert.deepEqual(listResult, [])
+  assert.deepEqual(calls, [])
 })
 
 test('list-people-summaries handler returns summaries payload', async t => {

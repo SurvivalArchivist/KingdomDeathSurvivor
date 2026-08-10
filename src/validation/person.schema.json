@@ -54,7 +54,8 @@
     "schemaVersion": {
       "type": "integer",
       "minimum": 1,
-      "default": 5
+      "const": 6,
+      "default": 6
     },
     "revision": {
       "type": "integer",
@@ -122,10 +123,6 @@
       "default": ""
     },
     "philosophyNeurosisName": {
-      "type": "string",
-      "default": ""
-    },
-    "philosophyTenet": {
       "type": "string",
       "default": ""
     },

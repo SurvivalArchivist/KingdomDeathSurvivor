@@ -1,7 +1,10 @@
 # Model Handoff Log
 
 ## Current State Snapshot
-- LAN survivor-data is ready for real-table trial use: Settings shows client-enterable LAN Host URLs, can discover LAN hosts automatically, has a manual survivor-folder backup export, rolls failed host starts back to `lanHostEnabled: false`, blocks disconnected client writes, uses structured LAN error messages, and refreshes Settlement from host push events.
+- Project/package version is `3.0.1`, an intentionally breaking new-campaign reset release. Survivor schema is strictly version `6`; older/missing/future versions are rejected, not migrated.
+- Legacy `config.dataPath`, the `tenetKnowledges` Data Source/UI/fallback, and the survivor `philosophyTenet` field have been removed. Knowledge and Tenet Knowledge templates both require `knowledges`.
+- Settlement refresh shows an explicit v3.0.1 campaign-reset/schema-6 error when incompatible survivor files are skipped, directing users to choose a new Survivors folder.
+- LAN survivor-data has passed a real-world trial: Settings shows client-enterable LAN Host URLs, can discover LAN hosts automatically, has a manual survivor-folder backup export, rolls failed host starts back to `lanHostEnabled: false`, blocks disconnected client writes, uses structured LAN error messages, and refreshes Settlement from host push events.
 - LAN survivor-data live refresh is implemented with Server-Sent Events: LAN Host broadcasts survivor save/delete changes from `/events`, LAN Client subscribes and reconnects the stream, and Settlement refreshes automatically when host survivor data changes.
 - LAN survivor-data Phase 7 reliability is underway: host-unavailable failures carry a specific error type/message, Auto Reconnect shows `Reconnecting` and retries status faster while offline/error, and save/showdown messages distinguish validation, stale revision conflict, unreachable host, and generic server errors.
 - LAN Settings now has explicit `Start Host`, `Stop Host`, `Connect`, and `Disconnect` actions; `lanClientConnected` persists client disconnect state without clearing the saved host address, and client writes perform a fresh status check before persistence.
@@ -45,17 +48,17 @@
 - Neurosis template save flows in both Showdown and Create/View now support explicit user-entered template names via visible name inputs (no prompt required).
 - Create/View Survivor (including settlement edit flow) now mirrors showdown neurosis handling with Philosophy Neurosis template actions (`Load Template`, `Save as Template`) and proper `philosophyNeurosis` form render/save binding.
 - Showdown `Tenet Knowledge` section is now `Tenet Knowledge and Neurosis`, showing editable survivor neurosis plus load/save template actions backed by the configured `neuroses` data source.
-- Philosophy Tenet input has been removed from Technical and Create/View Philosophy UI, but survivor JSON compatibility is preserved (existing `philosophyTenet` field remains supported in data model/schema).
+- Philosophy Tenet has been removed from the UI and survivor schema; `philosophyTenet` is no longer accepted in survivor JSON.
 - Showdown view now includes a `Refresh Survivors` action that reloads selected showdown survivors from persisted settlement data (non-departed sessions only).
 - Ending showdown (`Showdown Over`) now clears showdown slot selections and forces explicit reselection of two survivors before opening another showdown.
 - Showdown `Knowledge` and `Tenet Knowledge` entries now render with clearer visual separation between multiple rows using divider spacing.
-- Tenet Knowledge templates now resolve from the same configured `knowledges` source path as Knowledge templates (with fallback to legacy `tenetKnowledges` only when `knowledges` is unset).
+- Tenet Knowledge templates resolve from the same configured `knowledges` source path as Knowledge templates, with no legacy fallback.
 - Create/View Survivor now has a dedicated `Back` button above the save button to quickly return to Settlement without making changes.
 - Create/Edit Survivor knowledge rows now include an `Upgrade` action that follows showdown upgrade rules (`currentObservations >= observationRequirement`, `nextKnowledgeMode` handling, template-or-blank progression).
 - Showdown Fighting Arts, Secret Fighting Arts, and Disorders now display inline markdown preview text beneath each linked entry name (in addition to click-to-open full markdown modal).
 - Showdown survivor cards now expose an editable `Alive` boolean toggle (`isAlive`) so death state can be updated during showdown and persisted on showdown save.
 - Abilities/Impairments in Create Survivor and Showdown now use commit flow: `Add New` -> editable free text -> `Save/Commit`, then read-only paragraph with `Edit`/`Remove`.
-- Survivor schema compatibility policy is in place via `schemaVersion` normalization and forward-version rejection in dataService.
+- Survivor schema version `6` is enforced strictly in dataService with no version migration.
 - Showdown armor locations now include temporary Light/Heavy checkboxes (Head: Heavy only), stored in showdown memory only (non-persistent).
 - Showdown includes a temporary Bleeding Tokens counter in the vitals group (non-persistent).
 - Multi-view Electron app is operational (Technical/Create/Settlement/Showdown).
@@ -67,6 +70,8 @@
 - Survivor saves now use optimistic concurrency (`revision`, `updatedAt`) and atomic file writes.
 
 ## Recent Changes
+- 2026-08-10: Recorded the successful real-world LAN Host / LAN Client trial and archived the executed v3.0.1 backward-compatibility removal playbook under `docs/ai/archive/`; verification: documentation-only follow-up after the completed release preflight.
+- 2026-08-10: Prepared `v3.0.1` as an explicit breaking campaign-reset release: bumped survivor schema to strict v6, removed legacy `dataPath` config loading, removed the deprecated `tenetKnowledges` source/UI/fallback and `philosophyTenet` field, added an explicit in-app reset warning for skipped incompatible files, updated tests, and added prominent backup/reset warnings to release-facing docs; files: `package.json`, `package-lock.json`, `src/dataService.js`, `src/main.js`, `src/renderer.js`, `src/validation/person.schema.json`, `ui/components/index.html`, `test/`, `CHANGELOG.md`, `README.md`, `.github/release-notes.md`, `docs/ai/`; verification: `node --check src/main.js src/preload.js src/dataService.js src/renderer.js`, `npm test`, `npm run verify`, `git diff --check`.
 - 2026-05-12: Prepared the `v3.0.0` release metadata and GitHub release notes for the LAN survivor-data release, including the version bump, changelog entry, release notes covering Host/Client modes, auto discovery, live Settlement refresh, reconnect/status hardening, explicit LAN actions, and backup export, plus a CI hardening fix so the best-effort UDP discovery socket is unref'd and cannot hold test processes open; files: `package.json`, `package-lock.json`, `CHANGELOG.md`, `.github/release-notes.md`, `src/main.js`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/lanSurvivorHost.js src/survivorProvider.js src/rendererKnowledgeTemplateHelpers.js src/rendererSettlementHelpers.js src/renderer.js test/main.handlers.test.js test/renderer.smoke.test.js`, `git diff --check`, `npm test`, `npm run verify`.
 - 2026-05-12: Added automatic LAN discovery using best-effort UDP host advertisements, with LAN Client Settings controls to scan discovered hosts and fill the selected host address/port automatically while preserving manual host entry as fallback; files: `src/main.js`, `src/preload.js`, `src/renderer.js`, `ui/components/index.html`, `test/main.handlers.test.js`, `test/renderer.smoke.test.js`, `docs/ai/LAN_IMPLEMENTATION_HANDOFF.md`, `docs/ai/LAN_SURVIVOR_PLAN.md`, `docs/ai/PROJECT_CONTEXT.md`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/lanSurvivorHost.js src/survivorProvider.js src/rendererKnowledgeTemplateHelpers.js src/rendererSettlementHelpers.js src/renderer.js test/main.handlers.test.js test/renderer.smoke.test.js`, `npm test`.
 - 2026-05-12: Added final real-world LAN readiness hardening by showing LAN Host URLs from local IPv4 addresses in Settings, adding a manual `Export Backup` action for the configured survivor folder, rolling back `lanHostEnabled` when host startup fails, and reverting LAN Settings controls after save/start failures; files: `src/main.js`, `src/preload.js`, `src/renderer.js`, `ui/components/index.html`, `ui/components/styles/base.css`, `test/main.handlers.test.js`, `test/renderer.smoke.test.js`, `docs/ai/LAN_IMPLEMENTATION_HANDOFF.md`, `docs/ai/LAN_SURVIVOR_PLAN.md`, `docs/ai/PROJECT_CONTEXT.md`, `docs/ai/MODEL_HANDOFF.md`; verification: `node --check src/main.js src/preload.js src/dataService.js src/lanSurvivorHost.js src/survivorProvider.js src/rendererKnowledgeTemplateHelpers.js src/rendererSettlementHelpers.js src/renderer.js test/main.handlers.test.js test/renderer.smoke.test.js`, `npm test`.
@@ -190,7 +195,7 @@
 - 2026-02-23: Applied showdown-style stat group/stepper layout to Create Survivor view while preserving existing create IDs/events; files: `ui/components/index.html`, `ui/components/styles.css`; verification: `npm run test:unit`, `npm run test:integration`.
 
 ## Open Risks / Follow-ups
-- Legacy files missing `schemaVersion` are normalized in memory on load; version marker is persisted when those records are next saved.
+- Version 3.0.1 intentionally rejects all pre-reset survivor schemas. Users must back up old data, start a new survivor folder, and reselect current Data Sources before use.
 - Renderer state complexity is high; future refactor could split large sections into modules.
 - UI behavior has many coupled rules; consider adding renderer-level tests for key flows.
 - Add explicit regression test for "rename existing survivor does not duplicate" at integration level.

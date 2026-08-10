@@ -2,6 +2,9 @@
 
 Desktop companion app for Kingdom Death survivor management.
 
+> [!CAUTION]
+> **Version 3.0.1 is a breaking campaign-reset release.** It will not load survivor files created by earlier versions. Back up any data you need, use a new survivor folder, and reselect every Data Source in Settings after updating.
+
 ## What This Is
 KDM Survivors Console helps you manage survivor records across the full play loop:
 - Create and edit survivors with a structured UI
