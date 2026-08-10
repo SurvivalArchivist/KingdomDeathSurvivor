@@ -13,7 +13,6 @@ const SOURCE_KEYS = [
   'fightingArts',
   'secretFightingArts',
   'knowledges',
-  'tenetKnowledges',
   'neuroses',
   'disorders'
 ]
@@ -35,7 +34,6 @@ const MARKDOWN_SOURCE_LABELS = {
   fightingArts: 'Fighting Arts',
   secretFightingArts: 'Secret Fighting Arts',
   knowledges: 'Knowledges',
-  tenetKnowledges: 'Tenet Knowledges',
   disorders: 'Disorders'
 }
 const MARKDOWN_PREVIEW_CACHE_MAX = 3000
@@ -48,7 +46,7 @@ const schemaPath = path.join(__dirname, 'validation', 'person.schema.json')
 const personSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'))
 const ajv = new Ajv2020({ allErrors: true, strict: false })
 const validatePerson = ajv.compile(personSchema)
-const CURRENT_PERSON_SCHEMA_VERSION = 5
+const CURRENT_PERSON_SCHEMA_VERSION = 6
 
 class ValidationError extends Error {
   constructor(message, errors) {
@@ -122,30 +120,25 @@ function sanitizeStoredKnowledgeArrays(person) {
   return next
 }
 
-function applyPersonSchemaCompatibility(person, options = {}) {
+function preparePersonForValidation(person, options = {}) {
   if (!person || typeof person !== 'object') return person
   const next = { ...person }
   const schemaVersion = coerceSchemaVersion(next.schemaVersion)
 
-  if (schemaVersion === 0) {
-    next.schemaVersion = CURRENT_PERSON_SCHEMA_VERSION
-  } else if (schemaVersion > CURRENT_PERSON_SCHEMA_VERSION) {
+  if (schemaVersion !== CURRENT_PERSON_SCHEMA_VERSION) {
+    const versionLabel = schemaVersion || 'missing or invalid'
     throw new ValidationError(
-      'Unsupported person schemaVersion ' + schemaVersion + '. This app supports up to ' + CURRENT_PERSON_SCHEMA_VERSION + '.',
+      'Unsupported person schemaVersion ' + versionLabel + '. This app requires schemaVersion ' + CURRENT_PERSON_SCHEMA_VERSION + '.',
       [
         {
           path: '/schemaVersion',
           keyword: 'schemaVersion',
-          message: 'Unsupported schemaVersion ' + schemaVersion + '; supported max is ' + CURRENT_PERSON_SCHEMA_VERSION
+          message: 'Expected schemaVersion ' + CURRENT_PERSON_SCHEMA_VERSION
         }
       ]
     )
-  } else if (schemaVersion < CURRENT_PERSON_SCHEMA_VERSION) {
-    // Migration stub for future schema upgrades.
-    next.schemaVersion = CURRENT_PERSON_SCHEMA_VERSION
-  } else {
-    next.schemaVersion = schemaVersion
   }
+  next.schemaVersion = schemaVersion
 
   if (typeof next.notes === 'undefined') {
     next.notes = []
@@ -229,8 +222,7 @@ function ensureFolderStructure() {}
 function saveConfig(app, dataSources, appSettings) {
   const configPath = getConfigPath(app)
   fs.mkdirSync(path.dirname(configPath), { recursive: true })
-  const normalized =
-    typeof dataSources === 'string' ? normalizeDataSources({ survivors: dataSources }) : normalizeDataSources(dataSources || {})
+  const normalized = normalizeDataSources(dataSources || {})
   const normalizedSettings =
     typeof appSettings === 'undefined' ? getSavedAppSettings(app) : normalizeAppSettings(appSettings || {})
   fs.writeFileSync(configPath, JSON.stringify({ dataSources: normalized, settings: normalizedSettings }, null, 2), 'utf8')
@@ -249,14 +241,8 @@ function setDataSource(app, sourceKey, folderPath) {
 
 function getSavedDataSources(app) {
   const config = readConfigObject(app)
-  if (config && typeof config === 'object') {
-    if (config.dataSources && typeof config.dataSources === 'object') {
-      return normalizeDataSources(config.dataSources)
-    }
-    // Backward compatibility for legacy single-path config.
-    if (typeof config.dataPath === 'string' && config.dataPath.trim().length > 0) {
-      return normalizeDataSources({ survivors: config.dataPath.trim() })
-    }
+  if (config.dataSources && typeof config.dataSources === 'object') {
+    return normalizeDataSources(config.dataSources)
   }
   return normalizeDataSources({})
 }
@@ -415,7 +401,7 @@ function resolveIncomingRevision(person) {
 
 function savePerson(basePath, person, options = {}) {
   fs.mkdirSync(basePath, { recursive: true })
-  const normalizedPerson = applyPersonSchemaCompatibility(person)
+  const normalizedPerson = preparePersonForValidation(person)
   normalizedPerson.id = normalizeSurvivorId(normalizedPerson.id)
   const editorName = typeof options.editorName === 'string' ? options.editorName.trim() : ''
   const markReturned = Boolean(options.markReturned)
@@ -516,7 +502,7 @@ function loadPerson(basePath, fileName) {
   if (!fs.existsSync(fullPath)) throw new Error('Person file not found')
 
   const personRaw = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
-  const person = applyPersonSchemaCompatibility(personRaw, {
+  const person = preparePersonForValidation(personRaw, {
     legacySurvivorId: legacySurvivorIdFromFileName(path.basename(fileName)),
     sanitizeStoredKnowledgeEntries: true
   })
@@ -668,7 +654,6 @@ function createPersonTemplate(name = 'New Survivor') {
     philosophy: '',
     philosophyNeurosis: '',
     philosophyNeurosisName: '',
-    philosophyTenet: '',
     lumi: 0,
     survivalPts: 0,
     insanityPts: 0,
@@ -708,7 +693,7 @@ function saveDefaultCreateTemplate(basePath, template) {
   }
   const folder = basePath.trim()
   fs.mkdirSync(folder, { recursive: true })
-  const normalizedTemplate = applyPersonSchemaCompatibility(template)
+  const normalizedTemplate = preparePersonForValidation(template)
   if (!validatePerson(normalizedTemplate)) {
     const errors = mapValidationErrors(validatePerson.errors || [])
     throw new ValidationError(`Invalid person data: ${validationErrorSummary(errors)}`, errors)
@@ -724,7 +709,7 @@ function loadDefaultCreateTemplate(basePath) {
   const fullPath = path.join(folder, DEFAULT_CREATE_TEMPLATE_FILE_NAME)
   if (!fs.existsSync(fullPath)) return null
   const raw = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
-  const normalizedTemplate = applyPersonSchemaCompatibility(raw)
+  const normalizedTemplate = preparePersonForValidation(raw)
   if (!validatePerson(normalizedTemplate)) {
     const errors = mapValidationErrors(validatePerson.errors || [])
     throw new ValidationError(`Invalid person data: ${validationErrorSummary(errors)}`, errors)

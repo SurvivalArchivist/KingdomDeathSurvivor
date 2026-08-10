@@ -153,7 +153,7 @@ test('config save/read and configured folder lookup', () => {
   const app = makeApp(userData)
 
   assert.equal(dataService.getSavedDataFolder(app), null)
-  dataService.saveConfig(app, dataPath)
+  dataService.saveConfig(app, { survivors: dataPath })
   assert.equal(dataService.getSavedDataFolder(app), dataPath)
   assert.equal(dataService.ensureDataFolderConfigured(app), dataPath)
   assert.deepEqual(dataService.getSavedAppSettings(app), { userName: '', dateFormat: 'en-GB', ...DEFAULT_LAN_SETTINGS })
@@ -170,7 +170,7 @@ test('saveAppSettings persists username without disturbing data sources', () => 
   const app = makeApp(userData)
   const dataPath = path.join(userData, 'survivors')
 
-  dataService.saveConfig(app, dataPath)
+  dataService.saveConfig(app, { survivors: dataPath })
   const saved = dataService.saveAppSettings(app, { userName: '  Mike  ', dateFormat: 'en-US' })
 
   assert.deepEqual(saved, { userName: 'Mike', dateFormat: 'en-US', ...DEFAULT_LAN_SETTINGS })
@@ -499,7 +499,7 @@ test('loadPerson assigns deterministic id to legacy name-only survivor files', (
 
   const legacy = dataService.createPersonTemplate('Legacy Named')
   delete legacy.id
-  legacy.schemaVersion = 3
+  legacy.schemaVersion = 6
   fs.writeFileSync(path.join(basePath, 'legacy-named.json'), JSON.stringify(legacy, null, 2), 'utf8')
 
   const loadedA = dataService.loadPerson(basePath, 'legacy-named.json')
@@ -572,7 +572,7 @@ test('savePerson throws ConflictError for stale rename when expected file change
   )
 })
 
-test('loadPerson auto-populates missing schemaVersion for legacy records', () => {
+test('loadPerson rejects records with missing schemaVersion', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')
   fs.mkdirSync(basePath, { recursive: true })
@@ -582,12 +582,10 @@ test('loadPerson auto-populates missing schemaVersion for legacy records', () =>
   const filePath = path.join(basePath, 'legacy-survivor.json')
   fs.writeFileSync(filePath, JSON.stringify(person, null, 2), 'utf8')
 
-  const loaded = dataService.loadPerson(basePath, 'legacy-survivor.json')
-  assert.equal(loaded.schemaVersion, 5)
-  assert.deepEqual(loaded.notes, [])
-  assert.equal(loaded.lastUpdated, loaded.updatedAt)
-  assert.equal(loaded.lastReturned, null)
-  assert.equal(loaded.editedBy, '')
+  assert.throws(
+    () => dataService.loadPerson(basePath, 'legacy-survivor.json'),
+    err => err instanceof dataService.ValidationError && err.message.includes('missing or invalid')
+  )
 })
 
 test('loadPerson rejects unsupported future schemaVersion', () => {

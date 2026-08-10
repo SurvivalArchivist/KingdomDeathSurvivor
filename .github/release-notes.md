@@ -1,6 +1,16 @@
-## KDM Survivors Console 3.0.0
+## KDM Survivors Console 3.0.1
 
-This major release adds LAN survivor-data hosting for real table sessions. One machine can host the survivor folder, while other machines connect as LAN Clients and keep using the normal Create, Settlement, Showdown, and survivor edit workflows.
+> [!CAUTION]
+> # BREAKING CAMPAIGN RESET
+> **Do not install 3.0.1 over a campaign you need to keep using.** Survivor files from earlier versions are rejected. Before installing, back up the survivor folder and app configuration. Then start with a new survivor folder and reselect every Data Source in Settings.
+
+Version 3.0.1 removes the deferred legacy config, survivor-schema, template-folder, and `philosophyTenet` compatibility paths. It retains the complete LAN survivor-data feature set introduced in 3.0.0.
+
+### Breaking Changes
+- Survivor JSON must use schema version `6`; missing, invalid, older, and future versions are rejected.
+- Legacy config containing only `dataPath` is ignored; configure current Data Sources again in Settings.
+- The dedicated Tenet Knowledges Data Source and fallback are removed. Knowledge and Tenet Knowledge templates both use `knowledges`.
+- The deprecated `philosophyTenet` survivor field is no longer accepted.
 
 ### Highlights
 - New Settings modes: `Local Files`, `LAN Host`, and `LAN Client`.

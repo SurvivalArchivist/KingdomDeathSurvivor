@@ -37,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectSourceFightingArts = document.getElementById('selectSourceFightingArts')
   const selectSourceSecretFightingArts = document.getElementById('selectSourceSecretFightingArts')
   const selectSourceKnowledges = document.getElementById('selectSourceKnowledges')
-  const selectSourceTenetKnowledges = document.getElementById('selectSourceTenetKnowledges')
   const selectSourceNeuroses = document.getElementById('selectSourceNeuroses')
   const selectSourceDisorders = document.getElementById('selectSourceDisorders')
   const sourcePathSurvivors = document.getElementById('sourcePathSurvivors')
@@ -45,7 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const sourcePathFightingArts = document.getElementById('sourcePathFightingArts')
   const sourcePathSecretFightingArts = document.getElementById('sourcePathSecretFightingArts')
   const sourcePathKnowledges = document.getElementById('sourcePathKnowledges')
-  const sourcePathTenetKnowledges = document.getElementById('sourcePathTenetKnowledges')
   const sourcePathNeuroses = document.getElementById('sourcePathNeuroses')
   const sourcePathDisorders = document.getElementById('sourcePathDisorders')
   const settingsUserName = document.getElementById('settingsUserName')
@@ -248,7 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
     selectSourceFightingArts,
     selectSourceSecretFightingArts,
     selectSourceKnowledges,
-    selectSourceTenetKnowledges,
     selectSourceNeuroses,
     selectSourceDisorders,
     sourcePathSurvivors,
@@ -256,7 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
     sourcePathFightingArts,
     sourcePathSecretFightingArts,
     sourcePathKnowledges,
-    sourcePathTenetKnowledges,
     sourcePathNeuroses,
     sourcePathDisorders,
     settingsUserName,
@@ -853,7 +849,6 @@ document.addEventListener('DOMContentLoaded', () => {
     'fightingArts',
     'secretFightingArts',
     'knowledges',
-    'tenetKnowledges',
     'neuroses',
     'disorders'
   ]
@@ -863,7 +858,6 @@ document.addEventListener('DOMContentLoaded', () => {
     fightingArts: selectSourceFightingArts,
     secretFightingArts: selectSourceSecretFightingArts,
     knowledges: selectSourceKnowledges,
-    tenetKnowledges: selectSourceTenetKnowledges,
     neuroses: selectSourceNeuroses,
     disorders: selectSourceDisorders
   }
@@ -873,7 +867,6 @@ document.addEventListener('DOMContentLoaded', () => {
     fightingArts: sourcePathFightingArts,
     secretFightingArts: sourcePathSecretFightingArts,
     knowledges: sourcePathKnowledges,
-    tenetKnowledges: sourcePathTenetKnowledges,
     neuroses: sourcePathNeuroses,
     disorders: sourcePathDisorders
   }
@@ -4547,23 +4540,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (category === 'disorders') {
       return { field: 'disorders', max: 3, build: doc => ({ name: doc.title, file: doc.fileName }) }
     }
-    if (category === 'tenetKnowledges') {
-      return {
-        field: 'tenetKnowledge',
-        max: TENET_KNOWLEDGE_LIMIT,
-        build: doc => ({
-          name: doc.title,
-          observation: '',
-          rules: '',
-          observationRequirement: 0,
-          currentObservations: 0,
-          knowledgeLevel: 1,
-          nextKnowledgeMode: 'noTemplate',
-          nextKnowledgeTemplate: '',
-          file: doc.fileName
-        })
-      }
-    }
     if (category === 'knowledges') {
       return {
         field: 'knowledge',
@@ -4595,9 +4571,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (arrayName === 'disorders') {
       return category ? category === 'disorders' : folder.includes('disorders')
-    }
-    if (arrayName === 'tenetKnowledge') {
-      return category ? category === 'tenetKnowledges' : folder.includes('tenets')
     }
     if (arrayName === 'knowledge') {
       return category ? category === 'knowledges' : folder.includes('knowledges')
@@ -4880,7 +4853,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const unreadableCount = coerceInt(summaryPayload?.unreadableCount, 0)
     if (!silentStatus) {
       if (unreadableCount > 0) {
-        setStatus(`Loaded ${files.length} people (${unreadableCount} skipped during settlement refresh)`, 'neutral')
+        const fileLabel = unreadableCount === 1 ? 'file' : 'files'
+        setStatus(
+          `Skipped ${unreadableCount} incompatible or invalid survivor ${fileLabel}. Version 3.0.1 requires new-campaign schema 6; select a new Survivors folder in Settings.`,
+          'error'
+        )
       } else {
         setStatus(`Loaded ${files.length} people`, 'success')
       }

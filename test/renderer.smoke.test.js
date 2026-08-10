@@ -446,7 +446,7 @@ function makePerson(name, overrides = {}) {
   return {
     id: `survivor-${slugify(name)}`,
     name,
-    schemaVersion: 5,
+    schemaVersion: 6,
     revision: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -462,7 +462,6 @@ function makePerson(name, overrides = {}) {
     philosophy: '',
     philosophyNeurosis: '',
     philosophyNeurosisName: '',
-    philosophyTenet: '',
     lumi: 0,
     survivalPts: 0,
     insanityPts: 0,
@@ -605,7 +604,6 @@ function setupRendererHarness(options = {}) {
         fightingArts: '',
         secretFightingArts: '',
         knowledges: '',
-        tenetKnowledges: '',
         neuroses: '',
         disorders: ''
       }
@@ -1077,7 +1075,6 @@ test('renderer enables survivor workflows for LAN client without local survivor 
         fightingArts: '',
         secretFightingArts: '',
         knowledges: '',
-        tenetKnowledges: '',
         neuroses: '',
         disorders: ''
       })
@@ -1096,6 +1093,26 @@ test('renderer enables survivor workflows for LAN client without local survivor 
   assert.equal(refreshPeople.disabled, false)
   assert.equal(createSubmit.disabled, false)
   assert.ok(listCalls.length >= 1)
+})
+
+test('renderer explains the campaign reset when survivor files are incompatible', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api) {
+      api.listPeopleSummaries = async () => ({
+        records: [],
+        unreadableCount: 2,
+        totalFiles: 2
+      })
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+
+  const status = harness.document.getElementById('status')
+  assert.match(status.innerText, /Skipped 2 incompatible or invalid survivor files/)
+  assert.match(status.innerText, /Version 3\.0\.1 requires new-campaign schema 6/)
+  assert.equal(status.classList.contains('is-error'), true)
 })
 
 test('renderer shows compact LAN status indicator and routes it to settings', async t => {

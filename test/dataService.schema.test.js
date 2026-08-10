@@ -1,6 +1,5 @@
 /**
- * Comprehensive tests for schema compatibility and migration functions
- * These tests work by testing the public API (savePerson/loadPerson)
+ * Tests for strict survivor schema loading and current-record normalization.
  */
 const test = require('node:test')
 const assert = require('node:assert/strict')
@@ -14,75 +13,38 @@ function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'kdm-schema-test-'))
 }
 
-test('loadPerson handles schema version 0 (legacy) by migrating', () => {
+test('loadPerson rejects legacy schema versions', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')
   fs.mkdirSync(basePath, { recursive: true })
 
-  // Create a person with schemaVersion 0 (legacy)
   const legacyPerson = dataService.createPersonTemplate('Legacy Survivor')
-  legacyPerson.schemaVersion = 0
-  // Remove properties that would be auto-populated
-  delete legacyPerson.notes
-  delete legacyPerson.createdAt
-  delete legacyPerson.lastUpdated
-  delete legacyPerson.lastReturned
-  delete legacyPerson.editedBy
+  legacyPerson.schemaVersion = 5
 
   const filePath = path.join(basePath, 'legacy.json')
   fs.writeFileSync(filePath, JSON.stringify(legacyPerson), 'utf8')
 
-  const loaded = dataService.loadPerson(basePath, 'legacy.json')
-
-  // Schema version should be migrated
-  assert.equal(loaded.schemaVersion, 5)
-
-  // Missing fields should be populated
-  assert.deepEqual(loaded.notes, [])
-  assert.equal(typeof loaded.createdAt, 'string')
-  assert.equal(loaded.createdAt, loaded.updatedAt)
-  assert.equal(typeof loaded.lastUpdated, 'string')
-  assert.equal(loaded.lastUpdated, loaded.updatedAt)
-  assert.equal(loaded.lastReturned, null)
-  assert.equal(loaded.editedBy, '')
-
-  // Fields that existed should be preserved
-  assert.equal(loaded.name, 'Legacy Survivor')
+  assert.throws(
+    () => dataService.loadPerson(basePath, 'legacy.json'),
+    err => err instanceof dataService.ValidationError && err.message.includes('schemaVersion 5')
+  )
 })
 
-test('loadPerson handles schema version 1 by migrating', () => {
+test('loadPerson rejects a missing schemaVersion', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')
   fs.mkdirSync(basePath, { recursive: true })
 
-  const v1Person = dataService.createPersonTemplate('V1 Survivor')
-  v1Person.schemaVersion = 1
-  // Remove notes to test migration adds it
-  delete v1Person.notes
+  const person = dataService.createPersonTemplate('No Schema Version')
+  delete person.schemaVersion
 
-  const filePath = path.join(basePath, 'v1.json')
-  fs.writeFileSync(filePath, JSON.stringify(v1Person), 'utf8')
+  const filePath = path.join(basePath, 'missing.json')
+  fs.writeFileSync(filePath, JSON.stringify(person), 'utf8')
 
-  const loaded = dataService.loadPerson(basePath, 'v1.json')
-
-  assert.equal(loaded.schemaVersion, 5)
-  assert.deepEqual(loaded.notes, [])
-})
-
-test('loadPerson handles schema version 2 by migrating', () => {
-  const root = makeTempDir()
-  const basePath = path.join(root, 'data')
-  fs.mkdirSync(basePath, { recursive: true })
-
-  const v2Person = dataService.createPersonTemplate('V2 Survivor')
-  v2Person.schemaVersion = 2
-
-  const filePath = path.join(basePath, 'v2.json')
-  fs.writeFileSync(filePath, JSON.stringify(v2Person), 'utf8')
-
-  const loaded = dataService.loadPerson(basePath, 'v2.json')
-
-  assert.equal(loaded.schemaVersion, 5)
+  assert.throws(
+    () => dataService.loadPerson(basePath, 'missing.json'),
+    err => err instanceof dataService.ValidationError && err.message.includes('missing or invalid')
+  )
 })
 
 test('loadPerson handles schema version at boundary (current version)', () => {
@@ -90,14 +52,13 @@ test('loadPerson handles schema version at boundary (current version)', () => {
   const basePath = path.join(root, 'data')
   fs.mkdirSync(basePath, { recursive: true })
 
-  // Test CURRENT_PERSON_SCHEMA_VERSION (3) - should pass through
   const currentPerson = dataService.createPersonTemplate('Current Survivor')
 
   const filePath = path.join(basePath, 'current.json')
   fs.writeFileSync(filePath, JSON.stringify(currentPerson), 'utf8')
 
   const loaded = dataService.loadPerson(basePath, 'current.json')
-  assert.equal(loaded.schemaVersion, 5)
+  assert.equal(loaded.schemaVersion, 6)
 })
 
 test('loadPerson rejects unsupported future schema', () => {
@@ -106,7 +67,7 @@ test('loadPerson rejects unsupported future schema', () => {
   fs.mkdirSync(basePath, { recursive: true })
 
   const futurePerson = dataService.createPersonTemplate('Future Survivor')
-  futurePerson.schemaVersion = 6 // One above current
+  futurePerson.schemaVersion = 7
 
   const filePath = path.join(basePath, 'future.json')
   fs.writeFileSync(filePath, JSON.stringify(futurePerson), 'utf8')
@@ -116,7 +77,7 @@ test('loadPerson rejects unsupported future schema', () => {
     err => {
       assert.equal(err instanceof dataService.ValidationError, true)
       assert.ok(err.message.includes('Unsupported person schemaVersion'))
-      assert.ok(err.message.includes('6'))
+      assert.ok(err.message.includes('7'))
       return true
     }
   )
@@ -142,13 +103,12 @@ test('loadPerson rejects very future schema version', () => {
   )
 })
 
-test('loadPerson preserves all existing fields during schema migration', () => {
+test('loadPerson preserves fields on current-schema records', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')
   fs.mkdirSync(basePath, { recursive: true })
 
   const person = dataService.createPersonTemplate('Full Survivor')
-  person.schemaVersion = 0
   person.age = 5
   person.philosophy = 'Test Philosophy'
   person.lumi = 10
@@ -167,13 +127,12 @@ test('loadPerson preserves all existing fields during schema migration', () => {
   assert.deepEqual(loaded.abilities, ['Ability 1', 'Ability 2'])
 })
 
-test('loadPerson migrates updatedAt to lastUpdated', () => {
+test('loadPerson fills missing lastUpdated from updatedAt', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')
   fs.mkdirSync(basePath, { recursive: true })
 
   const person = dataService.createPersonTemplate('UpdatedAt Test')
-  person.schemaVersion = 0
   person.updatedAt = '2023-01-15T10:30:00.000Z'
   delete person.lastUpdated
 
@@ -185,13 +144,12 @@ test('loadPerson migrates updatedAt to lastUpdated', () => {
   assert.equal(loaded.lastUpdated, '2023-01-15T10:30:00.000Z')
 })
 
-test('loadPerson migrates missing createdAt from existing timestamps', () => {
+test('loadPerson fills missing createdAt from existing timestamps', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')
   fs.mkdirSync(basePath, { recursive: true })
 
   const person = dataService.createPersonTemplate('CreatedAt Test')
-  person.schemaVersion = 0
   person.updatedAt = '2023-02-03T04:05:06.000Z'
   person.lastUpdated = '2023-03-04T05:06:07.000Z'
   delete person.createdAt
@@ -203,14 +161,13 @@ test('loadPerson migrates missing createdAt from existing timestamps', () => {
   assert.equal(loaded.createdAt, '2023-02-03T04:05:06.000Z')
 })
 
-test('loadPerson handles legacy lastReturned values', () => {
+test('loadPerson preserves supported lastReturned values', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')
   fs.mkdirSync(basePath, { recursive: true })
 
   // Test with null (should remain null)
   let person = dataService.createPersonTemplate('Null LastReturned')
-  person.schemaVersion = 0
   person.lastReturned = null
   let filePath = path.join(basePath, 'null-lastreturned.json')
   fs.writeFileSync(filePath, JSON.stringify(person), 'utf8')
@@ -220,7 +177,6 @@ test('loadPerson handles legacy lastReturned values', () => {
 
   // Test with string timestamp (should be preserved)
   person = dataService.createPersonTemplate('String LastReturned')
-  person.schemaVersion = 0
   person.lastReturned = '2023-01-15T10:30:00.000Z'
   filePath = path.join(basePath, 'string-lastreturned.json')
   fs.writeFileSync(filePath, JSON.stringify(person), 'utf8')
@@ -229,7 +185,7 @@ test('loadPerson handles legacy lastReturned values', () => {
   assert.equal(loaded.lastReturned, '2023-01-15T10:30:00.000Z')
 })
 
-test('loadPerson sanitizes legacy knowledge entry metadata before validation', () => {
+test('loadPerson sanitizes stored knowledge entry metadata before validation', () => {
   const root = makeTempDir()
   const basePath = path.join(root, 'data')
   fs.mkdirSync(basePath, { recursive: true })
@@ -318,7 +274,6 @@ test('loadPerson auto-populates missing notes array', () => {
   fs.mkdirSync(basePath, { recursive: true })
 
   const person = dataService.createPersonTemplate('No Notes')
-  person.schemaVersion = 0
   delete person.notes
 
   const filePath = path.join(basePath, 'no-notes.json')
@@ -335,7 +290,6 @@ test('loadPerson auto-populates editedBy when missing', () => {
   fs.mkdirSync(basePath, { recursive: true })
 
   const person = dataService.createPersonTemplate('No Editor')
-  person.schemaVersion = 0
   delete person.editedBy
 
   const filePath = path.join(basePath, 'no-editor.json')
@@ -344,23 +298,6 @@ test('loadPerson auto-populates editedBy when missing', () => {
   const loaded = dataService.loadPerson(basePath, 'no-editor.json')
 
   assert.equal(loaded.editedBy, '')
-})
-
-test('loadPerson handles missing schemaVersion entirely (defaults to 0)', () => {
-  const root = makeTempDir()
-  const basePath = path.join(root, 'data')
-  fs.mkdirSync(basePath, { recursive: true })
-
-  const person = dataService.createPersonTemplate('No Schema Version')
-  delete person.schemaVersion
-
-  const filePath = path.join(basePath, 'no-schema.json')
-  fs.writeFileSync(filePath, JSON.stringify(person), 'utf8')
-
-  const loaded = dataService.loadPerson(basePath, 'no-schema.json')
-
-  // Should be migrated to current version
-  assert.equal(loaded.schemaVersion, 5)
 })
 
 test('savePerson increments revision correctly on each save', () => {

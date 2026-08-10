@@ -93,7 +93,7 @@ Not implemented yet:
 ## Next Recommended Step
 Continue Phase 6 / Phase 7 reliability:
 - Improve in-view recovery copy for failed reads while offline.
-- Trial LAN Host / LAN Client on two physical machines and note OS firewall prompts or network broadcast behavior.
+- Completed a real-world LAN Host / LAN Client trial successfully; the LAN solution behaved as expected with no blocking issue reported.
 
 ## Verification From This Slice
 - `node --check src/survivorProvider.js`

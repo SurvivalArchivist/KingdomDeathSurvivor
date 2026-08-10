@@ -38,7 +38,7 @@ test('createPersonTemplate generates valid default template', () => {
 
   // Required fields exist
   assert.equal(template.name, 'New Survivor')
-  assert.equal(template.schemaVersion, 5)
+  assert.equal(template.schemaVersion, 6)
   assert.equal(template.revision, 0)
   assert.equal(typeof template.createdAt, 'string')
   assert.equal(template.updatedAt, template.createdAt)
@@ -205,7 +205,7 @@ test('deletePerson throws for missing file', () => {
   )
 })
 
-test('normalizeDataSources handles legacy single path string', () => {
+test('saveConfig ignores legacy single path string', () => {
   const userData = makeTempDir()
   const app = makeApp(userData)
   const dataPath = '/path/to/survivors'
@@ -213,7 +213,7 @@ test('normalizeDataSources handles legacy single path string', () => {
   dataService.saveConfig(app, dataPath)
 
   const sources = dataService.getSavedDataSources(app)
-  assert.equal(sources.survivors, dataPath)
+  assert.equal(sources.survivors, '')
   assert.equal(sources.fightingArts, '')
   assert.equal(sources.secretFightingArts, '')
   assert.equal(sources.knowledges, '')
@@ -336,7 +336,6 @@ test('saveConfig and getSavedDataSources roundtrip', () => {
     fightingArts: '/path/to/arts',
     secretFightingArts: '/path/to/secret',
     knowledges: '/path/to/knowledges',
-    tenetKnowledges: '/path/to/tenets',
     neuroses: '/path/to/neuroses',
     disorders: '/path/to/disorders'
   }
@@ -386,7 +385,7 @@ test('getSavedDataFolder returns survivors path', () => {
   const app = makeApp(userData)
   const dataPath = '/path/to/survivors'
 
-  dataService.saveConfig(app, dataPath)
+  dataService.saveConfig(app, { survivors: dataPath })
 
   const folder = dataService.getSavedDataFolder(app)
   assert.equal(folder, dataPath)
@@ -407,7 +406,7 @@ test('ensureDataFolderConfigured returns path when configured', () => {
   const app = makeApp(userData)
   const dataPath = '/path/to/survivors'
 
-  dataService.saveConfig(app, dataPath)
+  dataService.saveConfig(app, { survivors: dataPath })
 
   const folder = dataService.ensureDataFolderConfigured(app)
   assert.equal(folder, dataPath)
@@ -427,7 +426,7 @@ test('savePerson persists and loads person correctly', () => {
   assert.equal(loaded.name, 'Test Survivor')
   assert.equal(loaded.age, 5)
   assert.equal(loaded.philosophy, 'Test Philosophy')
-  assert.equal(loaded.schemaVersion, 5)
+  assert.equal(loaded.schemaVersion, 6)
 })
 
 test('savePerson throws ValidationError for invalid data', () => {

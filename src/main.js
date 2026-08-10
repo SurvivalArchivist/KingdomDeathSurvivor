@@ -697,14 +697,7 @@ ipcMain.handle('load-markdown-file', (_event, collectionId, fileName) => {
 
 function resolveKnowledgeTemplatePath(dataSources, type) {
   if (type !== 'tenetKnowledge' && type !== 'knowledge') throw new Error('Invalid knowledge template type')
-  const primaryPath = String(dataSources.knowledges || '').trim()
-  if (primaryPath) return primaryPath
-  // Backward compatibility for older setups that configured a dedicated tenet folder.
-  if (type === 'tenetKnowledge') {
-    const legacyTenetPath = String(dataSources.tenetKnowledges || '').trim()
-    if (legacyTenetPath) return legacyTenetPath
-  }
-  return ''
+  return String(dataSources.knowledges || '').trim()
 }
 
 ipcMain.handle('save-knowledge-template', (_event, type, template) => {

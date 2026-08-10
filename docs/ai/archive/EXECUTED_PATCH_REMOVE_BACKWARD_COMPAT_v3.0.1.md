@@ -1,6 +1,8 @@
-# Future Patch: Remove Backward Compatibility (New Campaign Reset)
+# Executed Patch: Remove Backward Compatibility (v3.0.1 Campaign Reset)
 
-Use this only when you explicitly declare a **new campaign reset** and confirm old survivor/config files are no longer needed.
+Status: executed for version `3.0.1` on 2026-08-10 after the campaign-reset decision was confirmed in writing.
+
+Archived after implementation and verification. Retained as the historical scope and execution checklist for the breaking reset.
 
 ## Purpose
 - Remove legacy compatibility branches that add maintenance cost.

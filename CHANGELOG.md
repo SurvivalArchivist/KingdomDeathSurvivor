@@ -3,7 +3,23 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and the project generally follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Version `3.0.1` is an explicitly documented exception because it performs the planned campaign reset within the existing v3 release line.
+
+## [3.0.1] - 2026-08-10
+
+> [!CAUTION]
+> **BREAKING CAMPAIGN RESET:** Version 3.0.1 does not load survivor files from earlier app versions. Back up any survivor folder and app configuration you need before installing. Start with a new survivor folder and reselect all Data Sources in Settings.
+
+### Changed
+- Survivor records now require schema version `6`; missing, invalid, older, and future schema versions are rejected instead of migrated.
+- Knowledge and Tenet Knowledge templates now both require the shared `knowledges` Data Source.
+- App configuration now reads only the current `dataSources` structure and ignores the legacy single `dataPath` format.
+- The app now shows an explicit campaign-reset message when incompatible survivor files are skipped.
+
+### Removed
+- Removed the deprecated Tenet Knowledges Data Source selector and `tenetKnowledges` configuration key.
+- Removed the deprecated `philosophyTenet` survivor field.
+- Removed legacy schema-version migration and dedicated Tenet Knowledge folder fallback behavior.
 
 ## [3.0.0] - 2026-05-12
 
