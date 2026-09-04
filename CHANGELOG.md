@@ -7,7 +7,14 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-09-04
+
+### Changed
+- Completed the LAN survivor-data roadmap and documented Settlement-only push refresh as an intentional safeguard for active Create/Edit and Showdown state.
+- Expanded renderer regression coverage for departed Showdown navigation and partial bulk-update outcomes.
+
 ### Fixed
+- LAN Client startup now remains usable when the host is offline, with consistent reconnect guidance for failed survivor reads while preserving the current list, editor, or Showdown state.
 - Changed future Linux artifact filenames to a stable, space-free form so GitHub does not rewrite their names after checksum generation.
 
 ## [3.1.0] - 2026-09-04

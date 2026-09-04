@@ -1,16 +1,23 @@
-## KDM Survivors Console 3.1.0
+## KDM Survivors Console 3.1.1
 
-Version 3.1.0 adds first-class Linux x86_64 and ARM64 releases. The core Linux formats are RPM, DEB, and `tar.gz`, built and tested natively on both architectures alongside the existing macOS and Windows releases.
+Version 3.1.1 completes the LAN survivor-data reliability roadmap and hardens Linux release filenames. It is a compatible patch release for the existing macOS, Windows, Linux x86_64, and Linux ARM64 builds.
+
+### LAN Reliability
+- LAN Client startup remains usable when the configured host is offline.
+- Failed survivor reads keep the current Settlement list, editor content, or Showdown state intact and provide clear reconnect/retry guidance.
+- Settlement continues to accept live host-pushed refreshes; Create/Edit and Showdown require explicit refreshes so active work cannot be replaced silently.
+- Added regression coverage for offline startup, failed Settlement refreshes, failed Showdown reads, departed-session navigation, and partial bulk-update outcomes.
 
 ### Linux Highlights
 - Native x64 and ARM64 builds run the full test suite and launch the real packaged Electron application before publication.
 - RPM and DEB architecture metadata and the packaged executable's ELF architecture are checked automatically.
 - Separate SHA-256 checksum files are included for Linux x64 and ARM64 downloads.
 - The ARM64 RPM has passed installed-package acceptance on Fedora Linux Asahi Remix under KDE Wayland with a 16 KiB-page kernel.
+- Linux artifact filenames are now stable and space-free so their checksum manifests match the published files.
 - AppImage and Flatpak remain experimental and are not included in the core tagged release.
 
 ### Compatibility
-- Version 3.1.0 keeps survivor schema version `6` from 3.0.1; there is no new data migration in this release.
+- Version 3.1.1 keeps survivor schema version `6` from 3.0.1; there is no new data migration in this release.
 - Survivor files from before the 3.0.1 campaign reset remain unsupported. Back up older data before changing folders or versions.
 - Linux RPM and DEB packages are currently unsigned. Download them only from this repository's GitHub Release page and verify their checksums when possible.
 
@@ -27,13 +34,13 @@ Version 3.1.0 adds first-class Linux x86_64 and ARM64 releases. The core Linux f
 Fedora/RPM-based systems:
 
 ```bash
-sudo dnf install ./KDM.Survivors.Console-3.1.0-linux-aarch64.rpm
+sudo dnf install ./kingdom-death-survivors-3.1.1-linux-arm64.rpm
 ```
 
 Ubuntu/Debian-based systems:
 
 ```bash
-sudo apt install ./KDM.Survivors.Console-3.1.0-linux-amd64.deb
+sudo apt install ./kingdom-death-survivors-3.1.1-linux-x64.deb
 ```
 
 Replace the architecture suffix with the one appropriate for the device.

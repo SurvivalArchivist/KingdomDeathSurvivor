@@ -1,9 +1,9 @@
 # LAN Survivor Plan
 
-Last updated: 2026-05-11
+Last updated: 2026-09-04
 
 ## Purpose
-This document captures the proposed plan for moving survivor data from the current local/cloud-shared file model to a LAN-based host/client model, while leaving markdown/reference content on the existing local/cloud-backed approach for now.
+This document records the completed plan for moving survivor data from the local/cloud-shared file model to a LAN-based host/client model, while leaving markdown/reference content on the existing local/cloud-backed approach.
 
 The goal is to reduce the collaboration issues caused by cloud-sync timing, stale local copies, and partial file visibility, without breaking single-user local workflows.
 
@@ -150,7 +150,7 @@ Likely touchpoints:
 - `src/renderer.js`
 
 ## Phase 2: Settings Model And Persistence
-Status: implemented for persisted controls; explicit connect/disconnect buttons are still pending.
+Status: complete. Persisted mode-specific controls and explicit Start/Stop/Connect/Disconnect actions are implemented.
 
 Extend app settings/config to store survivor mode and LAN state.
 
@@ -169,7 +169,7 @@ UX requirements:
 - current survivor folder picker shown only in `Local Files` and likely `LAN Host`
 
 ## Phase 3: Host API In Main Process
-Status: started; HTTP JSON host service exists for health and survivor CRUD.
+Status: complete. The HTTP JSON host service provides health, survivor CRUD, summaries, and the SSE change stream.
 
 Build a host service in the Electron main process.
 
@@ -238,12 +238,13 @@ Behavior:
 - host pushes survivor-data change events over Server-Sent Events
 - LAN Client refreshes Settlement automatically when host data changes
 
-After MVP:
-- broaden push handling to other views if needed
-- improve read-failure recovery copy while offline
+Closeout decisions:
+- Push refresh intentionally targets Settlement, where replacing the visible list is safe and useful.
+- Create/Edit and Showdown retain their in-memory state instead of accepting automatic push replacements that could discard active work; their existing explicit load/refresh actions remain authoritative.
+- Failed LAN reads preserve the current view/list and show consistent reconnect/retry guidance. Offline startup remains usable even when remote survivor data cannot be loaded.
 
 ## Phase 7: Reliability And Recovery
-Status: implemented for host-unavailable errors, reconnecting status, disconnected write disabling, differentiated save/delete messages, host start/stop confirmation, host-start rollback, LAN host URL display, automatic LAN discovery, and manual survivor backup export.
+Status: complete. Host-unavailable recovery, reconnecting status, disconnected write protection, differentiated operation messages, non-fatal offline startup/read failures, host lifecycle controls, discovery, and backup export are implemented and covered by automated tests. A real LAN Host/Client trial passed with no blocking issue.
 
 Harden the LAN experience for real sessions.
 
@@ -382,8 +383,6 @@ The first meaningful milestone should be:
 - local single-user mode still works as before
 
 ## Suggested Future Follow-ups
-- automatic LAN discovery
-- push-based live updates
 - host-side session/client list
 - optional reference-content hosting or caching strategy
-- backup/export tools for host mode
+- authentication only if the feature scope expands beyond trusted local networks

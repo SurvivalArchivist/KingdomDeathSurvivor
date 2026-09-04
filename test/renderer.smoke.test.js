@@ -1167,6 +1167,94 @@ test('renderer disables survivor writes when LAN client is offline', async t => 
   assert.equal(harness.document.getElementById('settlementApplyBulk').disabled, true)
 })
 
+test('renderer finishes initialization with recovery guidance when LAN survivor reads are offline', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, { calls }) {
+      api.getLanConnectionStatus = async () => {
+        calls.push({ name: 'getLanConnectionStatus', args: [] })
+        return { mode: 'lan-client', state: 'offline', label: 'Offline', message: 'LAN host is unavailable' }
+      }
+      api.listPeople = async () => {
+        calls.push({ name: 'listPeople', args: [] })
+        const error = new Error('Cannot reach LAN host at http://192.168.1.44:4567')
+        error.errorType = 'host-unavailable'
+        throw error
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  await harness.flush(16)
+
+  assert.equal(harness.document.getElementById('navLanStatus').dataset.lanState, 'offline')
+  assert.equal(harness.document.getElementById('peopleCount').textContent, '0 people loaded')
+  assert.ok(countCalls(harness.calls, 'loadDefaultCreateTemplate') >= 1)
+  assert.match(
+    harness.document.getElementById('status').innerText,
+    /Cannot reach the LAN host while loading survivor data.*app is ready.*Open Settings to reconnect/i
+  )
+})
+
+test('failed LAN settlement refresh preserves the current list and gives recovery guidance', async t => {
+  let failRefresh = false
+  const harness = setupRendererHarness({
+    customizeApi(api, { calls }) {
+      const listPeopleSummaries = api.listPeopleSummaries.bind(api)
+      api.listPeopleSummaries = async () => {
+        if (!failRefresh) return listPeopleSummaries()
+        calls.push({ name: 'listPeopleSummaries', args: [] })
+        const error = new Error('Cannot reach LAN host at http://192.168.1.44:4567')
+        error.errorType = 'host-unavailable'
+        throw error
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush(12)
+
+  const settlementCount = harness.document.getElementById('settlementCount')
+  assert.equal(settlementCount.textContent, '2 of 2 survivors shown')
+
+  failRefresh = true
+  harness.click('settlementRefreshNow')
+  await harness.flush(12)
+
+  assert.equal(settlementCount.textContent, '2 of 2 survivors shown')
+  assert.match(
+    harness.document.getElementById('status').innerText,
+    /Cannot reach the LAN host while refreshing Settlement.*current settlement list was kept unchanged.*Open Settings to reconnect/i
+  )
+})
+
+test('failed LAN showdown reads keep the current view and give recovery guidance', async t => {
+  let failLoads = false
+  const harness = setupRendererHarness({
+    customizeApi(api, { calls }) {
+      const loadPerson = api.loadPerson.bind(api)
+      api.loadPerson = async fileName => {
+        if (!failLoads) return loadPerson(fileName)
+        calls.push({ name: 'loadPerson', args: [fileName] })
+        const error = new Error('Cannot reach LAN host at http://192.168.1.44:4567')
+        error.errorType = 'host-unavailable'
+        throw error
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush(12)
+
+  failLoads = true
+  harness.click('openShowdown')
+  await harness.flush(12)
+
+  assert.ok(!harness.document.getElementById('settlementView').classList.contains('hidden'))
+  assert.ok(harness.document.getElementById('showdownView').classList.contains('hidden'))
+  assert.match(
+    harness.document.getElementById('status').innerText,
+    /Cannot reach the LAN host while opening Showdown.*current view was kept unchanged.*Open Settings to reconnect/i
+  )
+})
+
 test('settings LAN action buttons start stop connect and disconnect', async t => {
   const harness = setupRendererHarness()
   t.after(() => harness.cleanup())
@@ -1856,6 +1944,56 @@ test('bulk updates can apply lumi to living survivors', async t => {
   assert.match(harness.confirms[0], /Apply \+2 Lumi to all 1 living survivors/)
 })
 
+test('bulk updates continue after individual save failures and report the final outcome', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, context) {
+      context.db['cara.json'] = makePerson('Cara', { lumi: 4 })
+      const savePerson = api.savePerson.bind(api)
+      api.savePerson = async (person, options) => {
+        if (person.name === 'Bob') {
+          context.calls.push({ name: 'savePerson', args: [deepClone(person), deepClone(options)] })
+          return { ok: false, message: 'Stale survivor revision' }
+        }
+        if (person.name === 'Cara') {
+          context.calls.push({ name: 'savePerson', args: [deepClone(person), deepClone(options)] })
+          throw new Error('Host unavailable')
+        }
+        return savePerson(person, options)
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush(12)
+
+  const rows = harness.document.getElementById('settlementBulkRows')
+  rows.innerHTML = ''
+  const row = harness.document.createElement('div')
+  row.className = 'settlement-bulk-row'
+  const field = harness.document.createElement('select')
+  field.dataset.bulkField = ''
+  field.value = 'lumi'
+  const delta = harness.document.createElement('input')
+  delta.dataset.bulkDelta = ''
+  delta.value = '2'
+  row.append(field, delta)
+  rows.appendChild(row)
+
+  harness.click('settlementApplyBulk')
+  await harness.flush(20)
+
+  assert.equal(findDbPersonByName(harness.db, 'Alice').lumi, 2)
+  assert.equal(findDbPersonByName(harness.db, 'Bob').lumi, 0)
+  assert.equal(findDbPersonByName(harness.db, 'Cara').lumi, 4)
+  assert.equal(
+    harness.calls.filter(call => call.name === 'savePerson').length,
+    3
+  )
+  assert.match(
+    harness.document.getElementById('status').innerText,
+    /Bulk update complete: 1 updated, 0 unchanged, 2 failed \(\+2 Lumi\)/
+  )
+})
+
 test('settlement row showdown assignment swaps the other slot when needed', async t => {
   const harness = setupRendererHarness({
     customizeApi(api, context) {
@@ -1926,6 +2064,55 @@ test('nav showdown resumes in-memory session from settlement without reloading s
   assert.ok(!showdownView.classList.contains('hidden'))
   assert.equal(countCalls(harness.calls, 'loadPerson'), loadAfterOpen)
   assert.match(status.innerText, /Resumed in-memory showdown session/)
+})
+
+test('departed showdown survives transitions through Create and Settlement without reloading survivors', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+  await harness.flush(12)
+
+  const showdownSelectA = harness.document.getElementById('showdownSelectA')
+  const showdownSelectB = harness.document.getElementById('showdownSelectB')
+  const createView = harness.document.getElementById('createSurvivorView')
+  const settlementView = harness.document.getElementById('settlementView')
+  const showdownView = harness.document.getElementById('showdownView')
+  const sessionState = harness.document.getElementById('showdownSessionState')
+  const status = harness.document.getElementById('status')
+
+  showdownSelectA.value = 'alice.json'
+  showdownSelectB.value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush(12)
+  harness.click('departShowdown')
+  await harness.flush()
+
+  const loadAfterDepart = countCalls(harness.calls, 'loadPerson')
+  assert.equal(sessionState.textContent, 'Session departed')
+
+  harness.click('navCreate')
+  await harness.flush(12)
+
+  assert.ok(!createView.classList.contains('hidden'))
+  assert.ok(showdownView.classList.contains('hidden'))
+  assert.equal(countCalls(harness.calls, 'loadPerson'), loadAfterDepart)
+
+  harness.click('navSettlement')
+  await harness.flush()
+
+  assert.ok(!settlementView.classList.contains('hidden'))
+  assert.ok(createView.classList.contains('hidden'))
+
+  harness.click('navShowdown')
+  await harness.flush()
+
+  assert.ok(!showdownView.classList.contains('hidden'))
+  assert.equal(countCalls(harness.calls, 'loadPerson'), loadAfterDepart)
+  assert.equal(showdownSelectA.value, 'alice.json')
+  assert.equal(showdownSelectB.value, 'bob.json')
+  assert.equal(showdownSelectA.disabled, true)
+  assert.equal(showdownSelectB.disabled, true)
+  assert.equal(sessionState.textContent, 'Session departed')
+  assert.match(status.innerText, /Resumed departed showdown session/)
 })
 
 function countCalls(calls, name) {

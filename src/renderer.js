@@ -1225,6 +1225,35 @@ document.addEventListener('DOMContentLoaded', () => {
     setStatus(failure.message, failure.tone)
   }
 
+  function isLanSurvivorReadUnavailable(err) {
+    if (!isLanClientMode()) return false
+    const errorType = String(err?.errorType || '').trim()
+    if (errorType === 'host-unavailable' || errorType === 'disconnected') return true
+    if (lanConnectionState === 'offline' || lanConnectionState === 'error') {
+      return true
+    }
+    const message = String(err?.message || '').toLowerCase()
+    return (
+      message.includes('cannot reach lan host') ||
+      message.includes('lan host is unavailable') ||
+      message.includes('failed to fetch') ||
+      message.includes('econnrefused') ||
+      message.includes('network error')
+    )
+  }
+
+  function showSurvivorReadFailure(err, action, fallbackMessage, preservedStateMessage = '') {
+    if (isLanSurvivorReadUnavailable(err)) {
+      const preserved = String(preservedStateMessage || '').trim()
+      setStatus(
+        `Cannot reach the LAN host while ${action}. ${preserved ? `${preserved} ` : ''}Open Settings to reconnect, or retry when the host is available.`,
+        'error'
+      )
+      return
+    }
+    setStatus(err?.message || fallbackMessage || `Failed while ${action}`, 'error')
+  }
+
   function normalizeTheme(theme) {
     return Object.prototype.hasOwnProperty.call(THEME_OPTIONS, theme) ? theme : 'dark'
   }
@@ -1515,7 +1544,12 @@ document.addEventListener('DOMContentLoaded', () => {
       runBusy(async () => {
         await refreshPeople({ updateRefreshTimestamp: true })
       }).catch(err => {
-        setStatus(err.message || 'Failed to refresh settlement on open', 'error')
+        showSurvivorReadFailure(
+          err,
+          'refreshing Settlement',
+          'Failed to refresh settlement on open',
+          'The current settlement list was kept unchanged.'
+        )
       })
     }, 0)
   }
@@ -1535,7 +1569,12 @@ document.addEventListener('DOMContentLoaded', () => {
         await refreshPeople({ silentStatus: true, updateRefreshTimestamp: true })
         setStatus('Settlement refreshed from LAN host change', 'neutral')
       }).catch(err => {
-        setStatus(err.message || 'Failed to refresh settlement from LAN host', 'error')
+        showSurvivorReadFailure(
+          err,
+          'refreshing Settlement',
+          'Failed to refresh settlement from LAN host',
+          'The current settlement list was kept unchanged.'
+        )
       })
     }, 0)
   }
@@ -5052,6 +5091,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function init() {
     await runBusy(async () => {
+      let initialSurvivorReadError = null
       if (typeof window.api.getAppSettings === 'function') {
         appSettings = normalizeAppSettings(await window.api.getAppSettings())
       }
@@ -5069,7 +5109,15 @@ document.addEventListener('DOMContentLoaded', () => {
       await refreshLanConnectionStatus()
 
       if (hasDataFolder) {
-        await refreshPeople({ updateRefreshTimestamp: true })
+        try {
+          await refreshPeople({ updateRefreshTimestamp: true })
+        } catch (err) {
+          initialSurvivorReadError = err
+          peopleCount.textContent = '0 people loaded'
+          settlementRecords = []
+          renderSettlementTable()
+          updateSettlementLastRefreshed(null)
+        }
       } else {
         peopleCount.textContent = '0 people loaded'
         settlementRecords = []
@@ -5087,6 +5135,14 @@ document.addEventListener('DOMContentLoaded', () => {
       await refreshKnowledgeTemplateCache()
       syncSettlementAutoRefresh()
       scheduleLanConnectionStatusRefresh()
+      if (initialSurvivorReadError) {
+        showSurvivorReadFailure(
+          initialSurvivorReadError,
+          'loading survivor data',
+          'Failed to load survivor data',
+          'The app is ready, but no remote survivors were loaded.'
+        )
+      }
     }).catch(err => {
       console.error('Failed to initialize app state:', err)
       setStatus('Failed to initialize app state', 'error')
@@ -5191,7 +5247,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   refreshPeopleButton.addEventListener('click', () => {
     runBusy(refreshPeople).catch(err => {
-      setStatus(err.message || 'Failed to load people', 'error')
+      showSurvivorReadFailure(
+        err,
+        'refreshing survivor data',
+        'Failed to load people',
+        'The current survivor lists were kept unchanged.'
+      )
     })
   })
 
@@ -5242,7 +5303,12 @@ document.addEventListener('DOMContentLoaded', () => {
     callbacks: {
       openSurvivor(fileName) {
         runBusy(() => openSurvivorInCreateView(fileName)).catch(err => {
-          setStatus(err.message || 'Failed to open survivor view', 'error')
+          showSurvivorReadFailure(
+            err,
+            'opening the survivor',
+            'Failed to open survivor view',
+            'The current view was kept unchanged.'
+          )
         })
       },
       assignShowdownSlot(slot, fileName) {
@@ -5400,7 +5466,12 @@ document.addEventListener('DOMContentLoaded', () => {
       await refreshPeople({ updateRefreshTimestamp: true })
       setStatus('Settlement refreshed', 'success')
     }).catch(err => {
-      setStatus(err.message || 'Failed to refresh settlement data', 'error')
+      showSurvivorReadFailure(
+        err,
+        'refreshing Settlement',
+        'Failed to refresh settlement data',
+        'The current settlement list was kept unchanged.'
+      )
     })
   })
   document.addEventListener('visibilitychange', () => {
@@ -5438,7 +5509,12 @@ document.addEventListener('DOMContentLoaded', () => {
   })
   openShowdownButton.addEventListener('click', () => {
     runBusy(openShowdownView).catch(err => {
-      setStatus(err.message || 'Failed to open showdown view', 'error')
+      showSurvivorReadFailure(
+        err,
+        'opening Showdown',
+        'Failed to open showdown view',
+        'The current view was kept unchanged.'
+      )
     })
   })
   navShowdownButton.addEventListener('click', () => {
@@ -5458,7 +5534,12 @@ document.addEventListener('DOMContentLoaded', () => {
       reconcileShowdownMemoryForSelectionChange()
       await openShowdownView()
     }).catch(err => {
-      setStatus(err.message || 'Failed to open showdown view', 'error')
+      showSurvivorReadFailure(
+        err,
+        'opening Showdown',
+        'Failed to open showdown view',
+        'The current view was kept unchanged.'
+      )
     })
   })
   navDataSourcesButton.addEventListener('click', () => {
@@ -5907,7 +5988,12 @@ document.addEventListener('DOMContentLoaded', () => {
   peopleList.addEventListener('change', syncControlState)
   refreshShowdownSurvivorsButton.addEventListener('click', () => {
     runBusy(refreshSelectedShowdownSurvivors).catch(err => {
-      setStatus(err.message || 'Failed to refresh showdown survivors', 'error')
+      showSurvivorReadFailure(
+        err,
+        'refreshing Showdown survivors',
+        'Failed to refresh showdown survivors',
+        'The in-memory Showdown survivors were kept unchanged.'
+      )
     })
   })
   departShowdownButton.addEventListener('click', departShowdownSession)
@@ -5934,7 +6020,12 @@ document.addEventListener('DOMContentLoaded', () => {
       clearValidationErrors()
       setStatus(`Loaded ${fileName}`, 'success')
     }).catch(err => {
-      setStatus(err.message || 'Failed to load person', 'error')
+      showSurvivorReadFailure(
+        err,
+        'loading the survivor',
+        'Failed to load person',
+        'The current editor content was kept unchanged.'
+      )
     })
   })
 
