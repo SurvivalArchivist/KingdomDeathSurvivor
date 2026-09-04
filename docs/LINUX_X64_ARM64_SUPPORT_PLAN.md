@@ -16,7 +16,7 @@ The initial review found that Linux support was declared but not delivered or de
 - There is no Asahi/16 KiB-page test. A generic ARM64 Ubuntu runner is necessary, but it is not equivalent to Asahi Linux.
 - On the Asahi system used for this review, `node` and `npm` are absent from `PATH`, so development, tests, and packaging cannot currently begin. The kernel reports `aarch64` and a 16,384-byte page size.
 
-Phases 0–3 were subsequently completed locally. Fedora's native Node 24.18.0 package was installed, `npm ci` succeeded, all 220 repository tests passed, and Electron 41.10.4 launched the application successfully under the KDE Wayland session using the Asahi DRM render node. Electron Builder was upgraded to 26.15.7; valid ARM64 tarball, DEB, and RPM artifacts were produced; and the packaged ARM64 application passed the automated launch smoke test on this 16 KiB-page Asahi system. Native x64 and ARM64 GitHub jobs are defined but still require their first hosted run after this branch is pushed.
+Phases 0–4 were subsequently completed. Fedora's native Node 24.18.0 package was installed, `npm ci` succeeded, all 220 repository tests passed, and Electron 41.10.4 launched the application successfully under the KDE Wayland session using the Asahi DRM render node. Electron Builder was upgraded to 26.15.7; native x64 and ARM64 CI jobs passed; and valid tarball, DEB, and RPM artifacts were uploaded. The ARM64 RPM from the successful `main` run was checksum-verified, installed on the 16 KiB-page Fedora Asahi system, and passed the launch and functional acceptance checks.
 
 The recommended route is to make native `x64` and `arm64` CI builds explicit, start with `tar.gz` plus the native package for each intended distribution, add real launch smoke tests, and treat an Asahi launch as a release gate for ARM64. AppImage and Flatpak should be introduced only after their runtime/tooling behavior is verified on both architectures.
 
@@ -249,7 +249,7 @@ Explicit scripts prevent a developer from assuming that `package:linux` created 
 
 ### Phase 2: create native two-architecture CI
 
-Status: **implemented and passed on native GitHub-hosted runners**. The manual `Linux Package` workflow uses pinned `ubuntu-24.04` x64 and `ubuntu-24.04-arm` ARM64 runners with explicit package scripts. Each job records architecture/page size, runs full verification, builds tarball/DEB/RPM artifacts, validates DEB and RPM architecture metadata plus the unpacked executable's ELF machine, prints ELF load segments and checksums, and uploads an architecture-specific artifact set. Both jobs passed in workflow run `33914209387` on 2026-09-04.
+Status: **implemented and passed on native GitHub-hosted runners**. The manual `Linux Package` workflow uses pinned `ubuntu-24.04` x64 and `ubuntu-24.04-arm` ARM64 runners with explicit package scripts. Each job records architecture/page size, runs full verification, builds tarball/DEB/RPM artifacts, validates DEB and RPM architecture metadata plus the unpacked executable's ELF machine, prints ELF load segments and checksums, and uploads an architecture-specific artifact set. Both jobs passed from merged `main` in workflow run `33914931154` on 2026-09-04.
 
 Replace the single Linux job with a matrix. The key design is:
 
@@ -293,6 +293,8 @@ Run it under a virtual display where needed (for example Xvfb) against the unpac
 Keep the existing unit/integration/renderer tests. The packaged smoke test supplements them; it does not replace them.
 
 ### Phase 4: pass the Asahi acceptance gate
+
+Status: **passed on Fedora Linux Asahi Remix**. The `kingdom-death-survivors-3.0.1-1.aarch64` RPM from merged-`main` workflow run `33914931154` was verified against its CI SHA-256 (`fabbe37b2dc00a00707d8f567fed648bfd6637e52ec4e6ea020dbd9b97ed107d`), installed through Fedora's package manager, and launched from `/opt/KDM Survivors Console/kingdom-death-survivors` without `--no-sandbox`. The installed app passed automated renderer/preload readiness under KDE Wayland on the 16 KiB-page kernel, and the user confirmed the functional acceptance flows below work with schema-v6 survivor data.
 
 For every candidate Electron or Builder upgrade, test the ARM64 core artifact on the physical Asahi device.
 
@@ -395,4 +397,4 @@ Linux support can be described as effective when all of the following are true:
 
 ## Immediate next action
 
-Download the successful ARM64 core artifact set from workflow run `33914209387`, install the RPM on the Fedora Asahi host, and complete the Phase 4 functional acceptance checklist against the installed application. In parallel, validate the x64 RPM on Fedora x86_64 and the DEB on Ubuntu x86_64 before adding the core Linux jobs to tagged release publishing. Keep AppImage and Flatpak stabilization separate until these core package gates pass.
+Validate the x64 RPM on Fedora x86_64 and the DEB on Ubuntu x86_64, then add the proven x64/ARM64 core packages to tagged release publishing with checksums and clear architecture labels. Keep AppImage and Flatpak stabilization separate until the core package gates pass.
