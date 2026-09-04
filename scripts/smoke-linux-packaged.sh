@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 <packaged-electron-executable>" >&2
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <packaged-electron-executable> [electron-arguments...]" >&2
   exit 2
 fi
 
 executable="$1"
+shift
 if [[ ! -x "$executable" ]]; then
   echo "Packaged executable is missing or not executable: $executable" >&2
   exit 2
@@ -21,6 +22,7 @@ trap cleanup EXIT
 log_file="$smoke_dir/electron.log"
 if ! timeout 30s env -u ELECTRON_RUN_AS_NODE ELECTRON_ENABLE_LOGGING=1 \
   "$executable" \
+  "$@" \
   --smoke-test \
   --user-data-dir="$smoke_dir/user-data" \
   2>&1 | tee "$log_file"; then
