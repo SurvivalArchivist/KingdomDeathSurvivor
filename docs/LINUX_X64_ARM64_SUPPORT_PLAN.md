@@ -336,6 +336,8 @@ Give AppImage and Flatpak separate jobs so their failures do not block core pack
 
 ### Phase 6: restore Linux to tagged releases
 
+Status: **implemented for v3.1.0; awaiting the first tagged release run**. `release-publish.yml` calls the proven native Linux workflow, waits for both Linux architectures alongside macOS and Windows, downloads both core artifact sets, and publishes their tarball, DEB, RPM, and per-architecture SHA-256 files. Manual publishing requires a tag and all release paths verify that the tag matches `package.json`. By product decision, native x86_64 installed-package acceptance is tracked through end-user feedback rather than blocking publication; the native CI package/ELF/launch gates remain mandatory.
+
 Once x64, ARM64, and Asahi gates pass:
 
 1. Add the two native Linux core jobs to `release-publish.yml`.
@@ -388,8 +390,8 @@ Linux support can be described as effective when all of the following are true:
 - CI launches the unpacked packaged application on both architectures and verifies renderer load.
 - ELF architecture is checked and build logs record page size.
 - The ARM64 artifact passes the physical Asahi/16 KiB acceptance checklist.
-- RPM is verified on Fedora x86_64 and Fedora Asahi.
-- DEB is verified on Ubuntu x86_64 and ARM64.
+- RPM is verified on Fedora Asahi; Fedora x86_64 installed-package feedback is monitored after publication.
+- DEB architecture and packaged launch are verified on native CI; installed-package feedback is monitored after publication.
 - AppImage and Flatpak are either separately verified or clearly marked experimental/omitted.
 - Folder selection, persistence, backup export, and LAN behavior are verified on Linux.
 - README and release notes explain installation, architecture choice, configuration location differences, AppImage executable/FUSE behavior, and firewall requirements.
@@ -397,4 +399,4 @@ Linux support can be described as effective when all of the following are true:
 
 ## Immediate next action
 
-Validate the x64 RPM on Fedora x86_64 and the DEB on Ubuntu x86_64, then add the proven x64/ARM64 core packages to tagged release publishing with checksums and clear architecture labels. Keep AppImage and Flatpak stabilization separate until the core package gates pass.
+Merge the v3.1.0 release integration, pull `main`, create and push tag `v3.1.0`, and monitor the first four-platform `Release Publish` run through GitHub Release asset publication. Keep AppImage and Flatpak stabilization separate from the core release.

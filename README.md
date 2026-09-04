@@ -3,7 +3,7 @@
 Desktop companion app for Kingdom Death survivor management.
 
 > [!CAUTION]
-> **Version 3.0.1 is a breaking campaign-reset release.** It will not load survivor files created by earlier versions. Back up any data you need, use a new survivor folder, and reselect every Data Source in Settings after updating.
+> **Version 3.1.0 retains the schema-v6 campaign reset introduced in 3.0.1.** It will not load survivor files created before that reset. Back up any older data you need, use a schema-v6 survivor folder, and reselect every Data Source in Settings after upgrading from an older release.
 
 ## What This Is
 KDM Survivors Console helps you manage survivor records across the full play loop:
@@ -20,20 +20,22 @@ KDM Survivors Console helps you manage survivor records across the full play loo
 - Provides dedicated views for technical editing, settlement management, create/edit survivor, and showdown
 
 ## Download The Latest Release
-- Latest release page (automated Windows + macOS artifacts):
+- Latest release page (automated Windows, macOS, and Linux artifacts):
 - https://github.com/SurvivalArchivist/KingdomDeathSurvivor/releases/latest
 
 From that page, download:
 - **Windows**: `.exe` artifact(s)
 - **macOS**: `.dmg` or `.zip` artifact(s)
+- **Fedora Linux**: the `.rpm` matching `x86_64` or `aarch64`
+- **Ubuntu/Debian Linux**: the `.deb` matching `amd64` or `arm64`
+- **Other Linux distributions**: the `tar.gz` matching `x64` or `arm64`
 
-Flatpak note:
-- Linux packaging remains supported, but is currently produced via manual workflows (`Linux Package` / `Linux Flatpak Debug`) while Linux release packaging is stabilized.
+Linux checksum files are published as `SHA256SUMS-linux-x64.txt` and `SHA256SUMS-linux-arm64.txt`. AppImage and Flatpak remain separate experimental formats and are not part of the core tagged release.
 
 ## Notes
-- Unsigned builds may show SmartScreen/Gatekeeper warnings.
+- Unsigned builds may show SmartScreen, Gatekeeper, or Linux package-signature warnings.
 - For safest updates, always use files from the latest GitHub Release page above.
-- Linux AppImage note: mark executable before first launch:
+- Experimental Linux AppImage builds must be marked executable before first launch:
 ```bash
 chmod +x "KDM Survivors Console-<version>-linux-x64.AppImage"
 ```

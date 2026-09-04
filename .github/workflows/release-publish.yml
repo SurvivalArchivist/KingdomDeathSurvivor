@@ -8,19 +8,53 @@ on:
     inputs:
       tag:
         description: "Release tag to publish (for example: v1.1.0)"
-        required: false
+        required: true
         type: string
 
 permissions:
   contents: write
 
 jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.release.outputs.ref }}
+      tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - name: Checkout Release Ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+
+      - name: Validate Release Tag
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            release_tag="${{ github.event.inputs.tag }}"
+          else
+            release_tag="${GITHUB_REF_NAME}"
+          fi
+
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "$release_tag" != "v${package_version}" ]; then
+            echo "Release tag ${release_tag} does not match package version ${package_version}."
+            exit 1
+          fi
+          echo "ref=${release_tag}" >> "$GITHUB_OUTPUT"
+          echo "tag=${release_tag}" >> "$GITHUB_OUTPUT"
+
   build-macos:
+    needs: validate-release
     runs-on: macos-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-release.outputs.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -62,11 +96,14 @@ jobs:
           if-no-files-found: error
 
   build-windows:
+    needs: validate-release
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-release.outputs.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -108,13 +145,21 @@ jobs:
             release/*.blockmap
           if-no-files-found: error
 
+  build-linux:
+    needs: validate-release
+    uses: ./.github/workflows/linux-package.yml
+    with:
+      ref: ${{ needs.validate-release.outputs.ref }}
+
   publish-release:
     runs-on: ubuntu-latest
-    needs: [build-macos, build-windows]
+    needs: [validate-release, build-macos, build-windows, build-linux]
 
     steps:
       - name: Checkout Release Notes
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-release.outputs.ref }}
 
       - name: Download macOS artifacts
         uses: actions/download-artifact@v4
@@ -128,22 +173,26 @@ jobs:
           name: windows-release
           path: release-artifacts/windows
 
-      - name: Resolve release tag
-        id: tag
-        shell: bash
-        run: |
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag }}" ]; then
-            echo "value=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Download Linux x64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-core-x64
+          path: release-artifacts/linux-x64
+
+      - name: Download Linux ARM64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-core-arm64
+          path: release-artifacts/linux-arm64
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.value }}
-          name: ${{ steps.tag.outputs.value }}
+          tag_name: ${{ needs.validate-release.outputs.tag }}
+          name: ${{ needs.validate-release.outputs.tag }}
           body_path: .github/release-notes.md
           files: |
             release-artifacts/macos/*
             release-artifacts/windows/*
+            release-artifacts/linux-x64/*
+            release-artifacts/linux-arm64/*
