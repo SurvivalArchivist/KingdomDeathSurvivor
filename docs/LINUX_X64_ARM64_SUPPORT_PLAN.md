@@ -249,7 +249,7 @@ Explicit scripts prevent a developer from assuming that `package:linux` created 
 
 ### Phase 2: create native two-architecture CI
 
-Status: **implemented locally; awaiting a GitHub Actions run**. The manual `Linux Package` workflow now uses pinned `ubuntu-24.04` x64 and `ubuntu-24.04-arm` ARM64 runners with explicit package scripts. Each job records architecture/page size, runs full verification, builds tarball/DEB/RPM artifacts, validates DEB and RPM architecture metadata plus the unpacked executable's ELF machine, prints ELF load segments and checksums, and uploads an architecture-specific artifact set. The workflow YAML parses locally and its ARM64 validation logic passes against the artifacts built on Asahi; both hosted jobs still need to run after the branch is pushed.
+Status: **implemented and passed on native GitHub-hosted runners**. The manual `Linux Package` workflow uses pinned `ubuntu-24.04` x64 and `ubuntu-24.04-arm` ARM64 runners with explicit package scripts. Each job records architecture/page size, runs full verification, builds tarball/DEB/RPM artifacts, validates DEB and RPM architecture metadata plus the unpacked executable's ELF machine, prints ELF load segments and checksums, and uploads an architecture-specific artifact set. Both jobs passed in workflow run `33914209387` on 2026-09-04.
 
 Replace the single Linux job with a matrix. The key design is:
 
@@ -278,7 +278,7 @@ Do not cross-build the ARM release on the x86 job unless native hosted ARM runne
 
 ### Phase 3: add a real Electron launch smoke test
 
-Status: **implemented and passed on Asahi; awaiting native GitHub-hosted runs**. The packaged application accepts `--smoke-test`, creates its real `BrowserWindow`, verifies the document title, navigation, Settings view, and preload API after `did-finish-load`, prints `KDM_PACKAGED_SMOKE_TEST_OK`, and exits. `scripts/smoke-linux-packaged.sh` provides an isolated temporary user-data directory and enforces an outer timeout. Both CI matrix jobs invoke it through Xvfb against their unpacked packaged executable. The ARM64 package passed this test under the normal KDE Wayland session on the reviewed Fedora Asahi device.
+Status: **implemented and passed on Asahi and native GitHub-hosted x64/ARM64 runners**. The packaged application accepts `--smoke-test`, creates its real `BrowserWindow`, verifies the document title, navigation, Settings view, and preload API after `did-finish-load`, prints `KDM_PACKAGED_SMOKE_TEST_OK`, and exits. `scripts/smoke-linux-packaged.sh` provides an isolated temporary user-data directory and enforces an outer timeout. Both CI matrix jobs invoke it through Xvfb against their unpacked packaged executable; the hosted runners use `--no-sandbox` because the unpacked `chrome-sandbox` cannot have root ownership/mode 4755 in that environment. Normal Asahi launches retain Electron's sandbox. The ARM64 package also passed this test under the normal KDE Wayland session on the reviewed Fedora Asahi device.
 
 Add a small opt-in test mode to the app, for example `--smoke-test`, that:
 
@@ -395,4 +395,4 @@ Linux support can be described as effective when all of the following are true:
 
 ## Immediate next action
 
-The best first implementation slice is Phases 0–2: install Node 24 on the Asahi host, prove `npm start`, upgrade Electron Builder in isolation, and introduce explicit native x64/ARM64 core-package CI. Do not begin with Flatpak debugging; first establish whether the app and a plain unpacked/tarball Electron distribution run natively on the 16 KiB Asahi kernel.
+Download the successful ARM64 core artifact set from workflow run `33914209387`, install the RPM on the Fedora Asahi host, and complete the Phase 4 functional acceptance checklist against the installed application. In parallel, validate the x64 RPM on Fedora x86_64 and the DEB on Ubuntu x86_64 before adding the core Linux jobs to tagged release publishing. Keep AppImage and Flatpak stabilization separate until these core package gates pass.

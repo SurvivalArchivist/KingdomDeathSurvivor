@@ -16,12 +16,14 @@ jobs:
           - arch: x64
             runner: ubuntu-24.04
             package_script: package:linux:x64
+            unpacked_dir: linux-unpacked
             deb_arch: amd64
             rpm_arch: x86_64
             elf_machine: Advanced Micro Devices X86-64
           - arch: arm64
             runner: ubuntu-24.04-arm
             package_script: package:linux:arm64
+            unpacked_dir: linux-arm64-unpacked
             deb_arch: arm64
             rpm_arch: aarch64
             elf_machine: AArch64
@@ -108,7 +110,7 @@ jobs:
             exit 1
           fi
 
-          executable="release/linux-${{ matrix.arch }}-unpacked/kingdom-death-survivors"
+          executable="release/${{ matrix.unpacked_dir }}/kingdom-death-survivors"
           if [[ ! -x "$executable" ]]; then
             echo "Packaged executable is missing or not executable: $executable"
             exit 1
@@ -128,7 +130,8 @@ jobs:
         shell: bash
         run: |
           xvfb-run -a npm run smoke:linux:packaged -- \
-            "release/linux-${{ matrix.arch }}-unpacked/kingdom-death-survivors"
+            "release/${{ matrix.unpacked_dir }}/kingdom-death-survivors" \
+            --no-sandbox
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
