@@ -59,12 +59,31 @@ npm run verify
 ```
 
 ### Local Packaging
+
+Fedora packaging hosts need the native Node runtime plus the compatibility and RPM build tools used by Electron Builder's DEB/RPM helper:
+
+```bash
+sudo dnf install nodejs24 libxcrypt-compat rpm-build
+```
+
 ```bash
 npm run package:mac
 npm run package:win
 npm run package:linux
 npm run package:linux:release
+npm run package:linux:x64
+npm run package:linux:arm64
 ```
+
+The architecture-specific Linux commands build the core `tar.gz`, DEB, and RPM artifacts. Use `package:linux:x64` on an x86_64 Linux build host and `package:linux:arm64` on an ARM64 Linux build host. The generic Linux commands build for the current host architecture and remain available while AppImage and Flatpak packaging are stabilized separately.
+
+After packaging, smoke-test the unpacked executable (replace the architecture when needed):
+
+```bash
+npm run smoke:linux:packaged -- release/linux-arm64-unpacked/kingdom-death-survivors
+```
+
+The smoke test uses a temporary user-data directory, verifies that the real packaged renderer and preload API become ready, then exits automatically. CI runs the same check under Xvfb on native x64 and ARM64 runners.
 
 ### Automated Publishing
 Push a version tag to trigger full release publishing:
