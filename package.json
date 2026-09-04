@@ -75,7 +75,7 @@
       "maintainer": "KDM Survivors Console Maintainers <maintainers@kdm-survivors.local>",
       "icon": "ui/assets/linux-icons",
       "syncDesktopName": true,
-      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
+      "artifactName": "kingdom-death-survivors-${version}-linux-${arch}.${ext}"
     },
     "flatpak": {
       "base": "org.electronjs.Electron2.BaseApp",

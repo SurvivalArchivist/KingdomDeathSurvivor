@@ -118,7 +118,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
   - macOS: `dmg`, `zip`
   - Windows: `nsis`, `portable`
   - Linux: `flatpak`, `AppImage`, `deb`, `rpm`, `tar.gz`
-- Release automation (`.github/workflows/release-publish.yml`) builds/publishes macOS, Windows, Linux x64, and Linux ARM64 artifacts for `v*` tags. It verifies that the tag matches `package.json` and includes separate Linux checksum files.
+- Release automation (`.github/workflows/release-publish.yml`) builds/publishes macOS, Windows, Linux x64, and Linux ARM64 artifacts for `v*` tags. It verifies that the tag matches `package.json` and includes separate Linux checksum files; the complete four-platform path passed for v3.1.0 in run `33918417489`.
 - The core Linux release formats are `tar.gz`, DEB, and RPM. AppImage and Flatpak remain separate experimental/manual formats while their runtime behavior is stabilized.
 - `Linux Package` uses native pinned GitHub runners for x64 (`ubuntu-24.04`) and ARM64 (`ubuntu-24.04-arm`). Each matrix job runs full verification, builds the explicitly selected tarball/DEB/RPM architecture, validates package architecture metadata and the executable ELF machine, launches the packaged app under Xvfb to verify renderer/preload readiness, logs ELF segments/checksums, and uploads a separate architecture artifact set.
 - The ARM64 RPM from merged-`main` workflow run `33914931154` passed installed-package acceptance on Fedora Linux Asahi Remix under KDE Wayland with a 16 KiB-page kernel; future Electron/Builder upgrades should repeat this physical-device gate.

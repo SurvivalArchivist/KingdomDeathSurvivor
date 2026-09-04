@@ -27,13 +27,13 @@ Version 3.1.0 adds first-class Linux x86_64 and ARM64 releases. The core Linux f
 Fedora/RPM-based systems:
 
 ```bash
-sudo dnf install ./KDM\ Survivors\ Console-3.1.0-linux-aarch64.rpm
+sudo dnf install ./KDM.Survivors.Console-3.1.0-linux-aarch64.rpm
 ```
 
 Ubuntu/Debian-based systems:
 
 ```bash
-sudo apt install ./KDM\ Survivors\ Console-3.1.0-linux-amd64.deb
+sudo apt install ./KDM.Survivors.Console-3.1.0-linux-amd64.deb
 ```
 
 Replace the architecture suffix with the one appropriate for the device.

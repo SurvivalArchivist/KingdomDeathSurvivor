@@ -336,7 +336,7 @@ Give AppImage and Flatpak separate jobs so their failures do not block core pack
 
 ### Phase 6: restore Linux to tagged releases
 
-Status: **implemented for v3.1.0; awaiting the first tagged release run**. `release-publish.yml` calls the proven native Linux workflow, waits for both Linux architectures alongside macOS and Windows, downloads both core artifact sets, and publishes their tarball, DEB, RPM, and per-architecture SHA-256 files. Manual publishing requires a tag and all release paths verify that the tag matches `package.json`. By product decision, native x86_64 installed-package acceptance is tracked through end-user feedback rather than blocking publication; the native CI package/ELF/launch gates remain mandatory.
+Status: **complete and proven by v3.1.0**. Tagged workflow run `33918417489` passed tag/version validation; macOS, Windows, native Linux x64, and native Linux ARM64 builds; Linux package/ELF/checksum/launch validation; artifact downloads; and public release publication. The v3.1.0 checksum manifests were corrected after GitHub rewrote spaces in uploaded filenames to periods, and future Linux artifacts now use a stable, space-free name at build time. By product decision, native x86_64 installed-package acceptance is tracked through end-user feedback rather than blocking publication; the native CI package/ELF/launch gates remain mandatory.
 
 Once x64, ARM64, and Asahi gates pass:
 
@@ -399,4 +399,4 @@ Linux support can be described as effective when all of the following are true:
 
 ## Immediate next action
 
-Merge the v3.1.0 release integration, pull `main`, create and push tag `v3.1.0`, and monitor the first four-platform `Release Publish` run through GitHub Release asset publication. Keep AppImage and Flatpak stabilization separate from the core release.
+Monitor v3.1.0 Linux installation feedback, particularly on Fedora/Ubuntu x86_64, while returning normal development focus to renderer workflow coverage and incremental renderer decomposition. Keep AppImage and Flatpak stabilization separate from the core release.
