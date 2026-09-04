@@ -5,12 +5,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const knowledgeTemplateHelpers = window.KDMKnowledgeTemplateHelpers
   const settlementHelpers = window.KDMSettlementHelpers
+  const showdownState = window.KDMShowdownState
+  const showdownViewModule = window.KDMShowdownView
+  const showdownControllerModule = window.KDMShowdownController
   if (!knowledgeTemplateHelpers) {
     console.error('Knowledge template helpers not available')
     return
   }
   if (!settlementHelpers) {
     console.error('Settlement helpers not available')
+    return
+  }
+  if (!showdownState) {
+    console.error('Showdown state module not available')
+    return
+  }
+  if (!showdownViewModule) {
+    console.error('Showdown view module not available')
+    return
+  }
+  if (!showdownControllerModule) {
+    console.error('Showdown controller module not available')
     return
   }
   const {
@@ -27,6 +42,32 @@ document.addEventListener('DOMContentLoaded', () => {
     getSettlementStatsTotal,
     getSettlementTimestampSortValue
   } = settlementHelpers
+  const {
+    SHOWDOWN_DEFAULT_PAGE,
+    SHOWDOWN_PAGE_CONFIG,
+    adjustShowdownArmorAll,
+    adjustShowdownArmorPart,
+    beginShowdownTextDraft,
+    commitShowdownTextDraft,
+    createEmptyShowdownTextDraftState,
+    createShowdownArmorSlotState,
+    createShowdownArmorState,
+    createShowdownModifier,
+    createShowdownModifierSlotState,
+    createShowdownModifierState,
+    createShowdownPageState,
+    createShowdownTextDraftState,
+    ensureShowdownModifier,
+    getSteppedShowdownPageKey,
+    normalizeShowdownPageKey,
+    setShowdownArmorCheck,
+    setShowdownArmorPartValue,
+    setShowdownModifierValue,
+    syncShowdownTextDraftSlotState,
+    updateShowdownTextDraft
+  } = showdownState
+  const { renderShowdownCard } = showdownViewModule
+  const { createShowdownController } = showdownControllerModule
   const TENET_KNOWLEDGE_LIMIT = 1
   const KNOWLEDGE_LIMIT = 5
 
@@ -560,72 +601,8 @@ document.addEventListener('DOMContentLoaded', () => {
     notes: []
   }
   const TEXT_ENTRY_ARRAYS = ['abilities', 'impairments', 'notes']
-  const SHOWDOWN_FIELDS = [
-    'age',
-    'lumi',
-    'survivalPts',
-    'insanityPts',
-    'courage',
-    'understanding',
-    'movement',
-    'speed',
-    'accuracy',
-    'strength',
-    'luck',
-    'evasion'
-  ]
-  const SHOWDOWN_PAGE_CONFIG = [
-    { key: 'armor', symbol: 'A', label: 'Armor' },
-    { key: 'knowledge', symbol: 'K', label: 'Tenet Knowledge / Neurosis / Knowledge' },
-    { key: 'arts', symbol: 'F', label: 'Fighting Arts / Secret Fighting Arts' },
-    { key: 'disorders', symbol: 'D', label: 'Disorders' },
-    { key: 'traits', symbol: 'AI', label: 'Abilities / Impairments / Notes' }
-  ]
-  const SHOWDOWN_DEFAULT_PAGE = SHOWDOWN_PAGE_CONFIG[0].key
-  let showdownArmor = {
-    A: {
-      head: 0,
-      body: 0,
-      arms: 0,
-      waist: 0,
-      legs: 0,
-      bleedingTokens: 0,
-      proficiencyReminder: false,
-      insanityHeavy: false,
-      headHeavy: false,
-      bodyLight: false,
-      bodyHeavy: false,
-      armsLight: false,
-      armsHeavy: false,
-      waistLight: false,
-      waistHeavy: false,
-      legsLight: false,
-      legsHeavy: false
-    },
-    B: {
-      head: 0,
-      body: 0,
-      arms: 0,
-      waist: 0,
-      legs: 0,
-      bleedingTokens: 0,
-      proficiencyReminder: false,
-      insanityHeavy: false,
-      headHeavy: false,
-      bodyLight: false,
-      bodyHeavy: false,
-      armsLight: false,
-      armsHeavy: false,
-      waistLight: false,
-      waistHeavy: false,
-      legsLight: false,
-      legsHeavy: false
-    }
-  }
-  let showdownModifiers = {
-    A: {},
-    B: {}
-  }
+  let showdownArmor = createShowdownArmorState()
+  let showdownModifiers = createShowdownModifierState()
   const WEAPON_PROFICIENCY_TYPES = [
     '',
     'Axe',
@@ -658,16 +635,10 @@ document.addEventListener('DOMContentLoaded', () => {
     A: null,
     B: null
   }
-  let showdownPageBySlot = {
-    A: SHOWDOWN_DEFAULT_PAGE,
-    B: SHOWDOWN_DEFAULT_PAGE
-  }
+  let showdownPageBySlot = createShowdownPageState()
   const showdownMarkdownContentCache = new Map()
   const showdownMarkdownContentPending = new Set()
-  let showdownTextDraftState = {
-    A: createEmptyShowdownTextDraftState(),
-    B: createEmptyShowdownTextDraftState()
-  }
+  let showdownTextDraftState = createShowdownTextDraftState()
   let showdownDeparted = false
   let showdownLockedSlots = { A: '', B: '' }
   let forceShowdownReselection = false
@@ -701,14 +672,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const knowledgeTemplateCache = {
     tenetKnowledge: [],
     knowledge: []
-  }
-
-  function createEmptyShowdownTextDraftState() {
-    return {
-      abilities: [],
-      impairments: [],
-      notes: []
-    }
   }
 
   function isTextEntryArrayName(arrayName) {
@@ -997,22 +960,12 @@ document.addEventListener('DOMContentLoaded', () => {
       .join('')
   }
 
-  function normalizeShowdownPageKey(pageKey) {
-    const value = String(pageKey || '').trim()
-    if (value === 'stats') return 'armor'
-    return SHOWDOWN_PAGE_CONFIG.some(page => page.key === value) ? value : SHOWDOWN_DEFAULT_PAGE
-  }
-
   function stepShowdownPage(slot, direction) {
     if (slot !== 'A' && slot !== 'B') return false
-    const normalizedDirection = direction > 0 ? 1 : direction < 0 ? -1 : 0
-    if (!normalizedDirection) return false
     const current = normalizeShowdownPageKey(showdownPageBySlot[slot])
-    const currentIndex = SHOWDOWN_PAGE_CONFIG.findIndex(page => page.key === current)
-    if (currentIndex === -1) return false
-    const nextIndex = clamp(currentIndex + normalizedDirection, 0, SHOWDOWN_PAGE_CONFIG.length - 1)
-    if (nextIndex === currentIndex) return false
-    showdownPageBySlot[slot] = SHOWDOWN_PAGE_CONFIG[nextIndex].key
+    const next = getSteppedShowdownPageKey(current, direction)
+    if (next === current) return false
+    showdownPageBySlot[slot] = next
     renderShowdownSlot(slot)
     return true
   }
@@ -1941,20 +1894,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function resetShowdownModifiers() {
-    showdownModifiers = { A: {}, B: {} }
-    for (const slot of ['A', 'B']) {
-      for (const field of SHOWDOWN_FIELDS) {
-        showdownModifiers[slot][field] = { temporary: 0, tokensPositive: 0, tokensNegative: 0 }
-      }
-    }
+    showdownModifiers = createShowdownModifierState()
   }
 
   function getShowdownModifier(slot, field) {
-    if (!showdownModifiers[slot]) showdownModifiers[slot] = {}
-    if (!showdownModifiers[slot][field]) {
-      showdownModifiers[slot][field] = { temporary: 0, tokensPositive: 0, tokensNegative: 0 }
-    }
-    return showdownModifiers[slot][field]
+    return ensureShowdownModifier(showdownModifiers, slot, field) || createShowdownModifier()
   }
 
   function setPage(page) {
@@ -3042,545 +2986,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .join('')
   }
 
-  function renderShowdownCard(container, person, slotLabel, fileName) {
-    const p = person || {}
-    const proficiency = ensureWeaponProficiency(p)
-    const slot = slotLabel === 'A' ? 'A' : 'B'
-    const armor = showdownArmor[slot]
-    const vitalStats = [
-      ['age', 'Age', 0, 16, 'icon-vitals'],
-      ['survivalPts', 'Survival', 0, null, 'icon-vitals'],
-      ['insanityPts', 'Insanity', 0, null, 'icon-vitals'],
-      ['systemicPressurePts', 'S. Pressure', 0, null, 'icon-vitals'],
-      ['tormentPts', 'Torment', 0, null, 'icon-vitals']
-    ]
-    const mindHeaderStats = [
-      {
-        field: 'courage',
-        label: 'Courage',
-        min: 0,
-        max: 9,
-        icon: 'icon-mind',
-        group: 'courageGroup',
-        options: [
-          ['none', 'None'],
-          ['stalwart', 'Stalwart'],
-          ['prepared', 'Prepared'],
-          ['matchmaker', 'Matchmaker']
-        ],
-        selected: getSelectedMatchmakerGroup(p)
-      },
-      {
-        field: 'understanding',
-        label: 'Understanding',
-        min: 0,
-        max: 9,
-        icon: 'icon-mind',
-        group: 'understandingGroup',
-        options: [
-          ['none', 'None'],
-          ['analyze', 'Analyze'],
-          ['explore', 'Explorer'],
-          ['tinker', 'Tinker']
-        ],
-        selected: getSelectedTinkerGroup(p)
-      }
-    ]
-    const combatStats = [
-      ['movement', 'Movement', 1, null, 'icon-stats'],
-      ['speed', 'Speed', null, null, 'icon-stats'],
-      ['accuracy', 'Accuracy', null, null, 'icon-stats'],
-      ['strength', 'Strength', null, null, 'icon-stats'],
-      ['luck', 'Luck', null, null, 'icon-stats'],
-      ['evasion', 'Evasion', null, null, 'icon-stats']
-    ]
-
-    syncShowdownTextDraftState(slot, p)
-    const activePage = normalizeShowdownPageKey(showdownPageBySlot[slot])
-    showdownPageBySlot[slot] = activePage
-    const pageDots = SHOWDOWN_PAGE_CONFIG.map(page => {
-      const isActive = page.key === activePage
-      return `<button type="button" class="showdown-page-dot${isActive ? ' is-active' : ''}" data-showdown-page-slot="${slot}" data-showdown-page="${page.key}" aria-label="${page.label}" title="${page.label}" aria-pressed="${isActive ? 'true' : 'false'}"><span>${page.symbol}</span></button>`
-    }).join('')
-    const proficiencyLevel = clamp(coerceInt(proficiency.level, 0), 0, 8)
-
-    const renderBaseStepper = ([field, label, min, max, icon]) => {
-      const base = coerceNumber(p[field], 0)
-      const extraClass =
-        field === 'understanding'
-          ? ' showdown-stepper-understanding'
-          : field === 'insanityPts'
-            ? ' showdown-stepper-insanity'
-            : ''
-      const insanityCheck =
-        field === 'insanityPts'
-          ? `<label class="showdown-insanity-check" title="Heavy"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="insanityHeavy" aria-label="Heavy insanity" ${
-              armor.insanityHeavy ? 'checked' : ''
-            } /></label>`
-          : ''
-      const controlsClass =
-        field === 'insanityPts'
-          ? 'showdown-stepper-controls showdown-stepper-controls-insanity'
-          : 'showdown-stepper-controls'
-
-      return `
-      <div class="showdown-stepper showdown-stepper-simple${extraClass}">
-        <span class="showdown-stepper-label">${iconLabel(icon, label)}</span>
-        <div class="${controlsClass}">
-          <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="-1" data-showdown-min="${
-            min ?? ''
-          }" data-showdown-max="${max ?? ''}">-</button>
-          <strong class="showdown-static-value">${base}</strong>
-          <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="1" data-showdown-min="${
-            min ?? ''
-          }" data-showdown-max="${max ?? ''}">+</button>
-          ${insanityCheck}
-        </div>
-      </div>`
-    }
-
-    const renderCombatStepper = ([field, label, min, max, icon]) => {
-      const base = coerceNumber(p[field], 0)
-      const modifier = getShowdownModifier(slot, field)
-      const temporary = coerceNumber(modifier.temporary, 0)
-      const tokensPositive = coerceNumber(modifier.tokensPositive, 0)
-      const tokensNegative = coerceNumber(modifier.tokensNegative, 0)
-      const total = base + temporary + tokensPositive - tokensNegative
-
-      return `
-      <div class="showdown-stat-card">
-        <div class="showdown-stat-header">
-          <div class="showdown-stat-name">${iconLabel(icon, label)}</div>
-          <strong class="showdown-stat-total-value">${total}</strong>
-        </div>
-        <div class="showdown-stat-line showdown-stat-line-pairs">
-          <div class="showdown-stat-pair">
-            <span class="showdown-bucket-label">Base</span>
-            <div class="showdown-stepper-controls">
-              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="-1" data-showdown-min="${
-                min ?? ''
-              }" data-showdown-max="${max ?? ''}">-</button>
-              <strong class="showdown-static-value">${base}</strong>
-              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="1" data-showdown-min="${
-                min ?? ''
-              }" data-showdown-max="${max ?? ''}">+</button>
-            </div>
-          </div>
-          <div class="showdown-stat-pair">
-            <span class="showdown-bucket-label">Tokens (+)</span>
-            <div class="showdown-stepper-controls">
-              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokensPositive" data-showdown-delta="-1">-</button>
-              <strong class="showdown-static-value">${tokensPositive}</strong>
-              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokensPositive" data-showdown-delta="1">+</button>
-            </div>
-          </div>
-        </div>
-        <div class="showdown-stat-line showdown-stat-line-pairs">
-          <div class="showdown-stat-pair">
-            <span class="showdown-bucket-label">Temp</span>
-            <div class="showdown-stepper-controls">
-              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="temporary" data-showdown-delta="-1">-</button>
-              <strong class="showdown-static-value">${temporary}</strong>
-              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="temporary" data-showdown-delta="1">+</button>
-            </div>
-          </div>
-          <div class="showdown-stat-pair">
-            <span class="showdown-bucket-label">Tokens (-)</span>
-            <div class="showdown-stepper-controls">
-              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokensNegative" data-showdown-delta="-1">-</button>
-              <strong class="showdown-static-value">${tokensNegative}</strong>
-              <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokensNegative" data-showdown-delta="1">+</button>
-            </div>
-          </div>
-        </div>
-      </div>`
-    }
-
-    const renderMindHeaderStepper = ({ field, label, min, max, icon, group, options, selected }) => {
-      const base = coerceNumber(p[field], 0)
-      return `
-      <div class="showdown-stepper showdown-stepper-simple showdown-stepper-header-mind-card">
-        <span class="showdown-stepper-label">${iconLabel(icon, label)}</span>
-        <div class="showdown-stepper-controls">
-          <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="-1" data-showdown-min="${
-            min ?? ''
-          }" data-showdown-max="${max ?? ''}">-</button>
-          <strong class="showdown-static-value">${base}</strong>
-          <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="1" data-showdown-min="${
-            min ?? ''
-          }" data-showdown-max="${max ?? ''}">+</button>
-        </div>
-        <select class="showdown-header-inline-select" data-showdown-group-slot="${slot}" data-showdown-group="${group}" aria-label="${label} ability">
-          ${buildShowdownGroupOptions(selected, options)}
-        </select>
-      </div>`
-    }
-
-    const renderProficiencyStepper = () => `
-      <div class="showdown-stepper showdown-stepper-simple showdown-stepper-proficiency-combined">
-        <div class="showdown-proficiency-header">
-          <span class="showdown-stepper-label showdown-stepper-label-proficiency">${iconLabel('icon-stats', 'Weapon Prof')}</span>
-          <div class="showdown-stepper-controls showdown-stepper-controls-proficiency-rank">
-            <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="-1" aria-label="Decrease proficiency rank">-</button>
-            <strong class="showdown-static-value">${proficiencyLevel}</strong>
-            <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="1" aria-label="Increase proficiency rank">+</button>
-          </div>
-        </div>
-        <div class="showdown-proficiency-inline">
-          <input
-            type="text"
-            class="showdown-proficiency-type-input"
-            data-showdown-proficiency-slot="${slot}"
-            data-showdown-proficiency-field="type"
-            value="${String(proficiency.type || '')}"
-            placeholder="Type"
-            aria-label="Weapon proficiency type"
-          />
-          <label class="showdown-proficiency-reminder" title="Temporary weapon proficiency reminder">
-            <input
-              type="checkbox"
-              data-showdown-slot="${slot}"
-              data-showdown-armor-check="proficiencyReminder"
-              aria-label="Weapon proficiency reminder"
-              ${armor.proficiencyReminder ? 'checked' : ''}
-            />
-          </label>
-        </div>
-      </div>`
-
-    const renderShowdownKnowledgeCopy = (item, level, req, nextDisplay, headerControls) => `
-      <div class="showdown-array-copy showdown-array-copy-knowledge">
-        <div class="showdown-knowledge-header">
-          <span class="showdown-copy-title">
-            <strong>${escapeHtml(item?.name || 'Unnamed')}</strong>
-            <span class="showdown-copy-level">L${level}</span>
-          </span>
-          <div class="showdown-knowledge-controls">
-            ${headerControls}
-          </div>
-        </div>
-        <div class="showdown-copy-section showdown-copy-section-observation">
-          <span class="showdown-copy-label showdown-copy-section-label showdown-copy-section-label-observation">${iconLabel('icon-observation', 'Observation')}</span>
-          <span class="showdown-copy-section-value">${escapeHtml(item?.observation || '-')}</span>
-        </div>
-        <div class="showdown-copy-section showdown-copy-section-rules">
-          <span class="showdown-copy-label showdown-copy-section-label showdown-copy-section-label-rules">${iconLabel('icon-rules', 'Rules')}</span>
-          <span class="showdown-copy-section-value">${escapeHtml(item?.rules || '-')}</span>
-        </div>
-        <div class="showdown-copy-meta">
-          <span class="showdown-copy-meta-item">
-            <span class="showdown-copy-label">Observations Required:</span>
-            <span class="showdown-copy-value">${req}</span>
-          </span>
-          <span class="showdown-copy-meta-item">
-            <span class="showdown-copy-label">Next:</span>
-            <span class="showdown-copy-value">${escapeHtml(nextDisplay)}</span>
-          </span>
-        </div>
-      </div>`
-
-    const renderShowdownKnowledgeRow = (item, slot, arrayName, index) => {
-      const req = coerceNumber(item?.observationRequirement, 0)
-      const current = coerceNumber(item?.currentObservations, coerceNumber(item?.observations, 0))
-      const level = Math.max(1, coerceNumber(item?.knowledgeLevel, 1))
-      const nextMode = String(item?.nextKnowledgeMode || 'noTemplate')
-      const nextTemplate = String(item?.nextKnowledgeTemplate || '').trim()
-      const nextDisplay =
-        nextMode === 'maxLevel'
-          ? 'N/A'
-          : nextMode === 'existingTemplate'
-            ? nextTemplate || 'Not selected'
-            : 'Not selected'
-      const canUpgrade = current >= req && nextMode !== 'maxLevel'
-      const headerControls = `
-        <div class="showdown-inline-stepper showdown-inline-stepper-knowledge">
-          <span>Current</span>
-          <button type="button" data-showdown-obs-slot="${slot}" data-showdown-obs-array="${arrayName}" data-showdown-obs-index="${index}" data-showdown-obs-delta="-1">-</button>
-          <strong class="showdown-static-value">${current}</strong>
-          <button type="button" data-showdown-obs-slot="${slot}" data-showdown-obs-array="${arrayName}" data-showdown-obs-index="${index}" data-showdown-obs-delta="1">+</button>
-        </div>
-        <div class="showdown-knowledge-actions">
-          ${
-            canUpgrade
-              ? `<button type="button" class="btn btn-primary" data-showdown-upgrade-slot="${slot}" data-showdown-upgrade-array="${arrayName}" data-showdown-upgrade-index="${index}">Upgrade</button>`
-              : ''
-          }
-          <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="${arrayName}" data-showdown-remove-index="${index}">Remove</button>
-        </div>`
-
-      return `
-        <li class="showdown-array-row showdown-array-row-knowledge">
-          ${renderShowdownKnowledgeCopy(item, level, req, nextDisplay, headerControls)}
-        </li>`
-    }
-
-    const renderShowdownMarkdownRulesRow = (item, slot, arrayName, index) => {
-      const content = getShowdownMarkdownContent(arrayName, item?.file || '')
-      const displayPreview = content || 'No text available.'
-      return `
-        <li class="showdown-array-row showdown-array-row-knowledge showdown-array-row-markdown">
-          <div class="showdown-array-copy showdown-array-copy-knowledge showdown-array-copy-markdown">
-            <div class="showdown-knowledge-header">
-              <span class="showdown-copy-title">
-                <button
-                  type="button"
-                  class="showdown-copy-title-button"
-                  data-showdown-md-array="${arrayName}"
-                  data-showdown-md-file="${escapeHtml(item?.file || '')}"
-                >${escapeHtml(item?.name || 'Unknown')}</button>
-              </span>
-              <div class="showdown-knowledge-controls">
-                <div class="showdown-knowledge-actions">
-                  <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="${arrayName}" data-showdown-remove-index="${index}">Remove</button>
-                </div>
-              </div>
-            </div>
-            <div class="showdown-copy-section showdown-copy-section-rules">
-              <span class="showdown-copy-label showdown-copy-section-label showdown-copy-section-label-rules">${iconLabel('icon-rules', 'Rules')}</span>
-              <span class="showdown-copy-section-value">${escapeHtml(displayPreview)}</span>
-            </div>
-            <div class="showdown-copy-meta">
-              <span class="showdown-copy-meta-item">
-                <span class="showdown-copy-label">Reference:</span>
-                <span class="showdown-copy-value">${escapeHtml(item?.file || '-')}</span>
-              </span>
-            </div>
-          </div>
-        </li>`
-    }
-
-    container.innerHTML = `
-      <div class="showdown-frozen-header">
-        <div class="showdown-identity-bar">
-          <span class="showdown-identity-name">${p.name || 'Unknown Survivor'}</span>
-          <span class="showdown-identity-item">Sex: ${p.gender || 'Unknown'}</span>
-          <span class="showdown-identity-item showdown-identity-philosophy">Philosophy: ${p.philosophy || 'No philosophy'}</span>
-          <label class="showdown-bool-toggle showdown-bool-toggle-compact">
-            <input type="checkbox" data-showdown-bool-slot="${slot}" data-showdown-bool-field="isAlive" ${
-              p.isAlive ? 'checked' : ''
-            } />
-            <span>Alive</span>
-          </label>
-          <label class="showdown-bool-toggle showdown-bool-toggle-compact">
-            <input type="checkbox" data-showdown-bool-slot="${slot}" data-showdown-bool-field="lifetimeReroll" ${
-              p.lifetimeReroll ? 'checked' : ''
-            } />
-            <span>Lifetime Reroll</span>
-          </label>
-        </div>
-        <section class="showdown-group showdown-group-vitals">
-          <h4>${iconLabel('icon-vitals', 'Age / Survival / Insanity')}</h4>
-          <div class="showdown-stats showdown-stats-vitals">
-            ${vitalStats.map(renderBaseStepper).join('')}
-            ${renderProficiencyStepper()}
-          </div>
-          <div class="showdown-stats showdown-stats-vitals showdown-stats-vitals-bleeding">
-            ${renderBaseStepper(['lumi', 'Lumi', 0, null, 'icon-vitals'])}
-            <div class="showdown-stepper showdown-stepper-simple showdown-stepper-bleeding">
-              <span class="showdown-stepper-label">${iconLabel('icon-bleeding', 'Bleeding Tokens')}</span>
-              <div class="showdown-stepper-controls">
-                <button type="button" data-showdown-slot="${slot}" data-showdown-part="bleedingTokens" data-showdown-delta="-1">-</button>
-                <strong class="showdown-static-value">${Math.max(0, coerceNumber(armor.bleedingTokens, 0))}</strong>
-                <button type="button" data-showdown-slot="${slot}" data-showdown-part="bleedingTokens" data-showdown-delta="1">+</button>
-              </div>
-            </div>
-          </div>
-          <div class="showdown-stats showdown-stats-mind showdown-stats-header-mind">${mindHeaderStats
-            .map(renderMindHeaderStepper)
-            .join('')}</div>
-        </section>
-      </div>
-      <div class="showdown-page-nav" role="tablist" aria-label="Showdown survivor pages">${pageDots}</div>
-
-      <section class="showdown-page-panel" data-showdown-page-panel="armor"${activePage === 'armor' ? '' : ' hidden'}>
-        <section class="showdown-group">
-          <div class="showdown-armor-header">
-            <h4>${iconLabel('icon-shield', 'Armor')}</h4>
-            <div class="showdown-armor-bulk-stepper" aria-label="Adjust all armor">
-              <button type="button" data-showdown-slot="${slot}" data-showdown-bulk-armor-delta="-1" aria-label="Decrease all armor">-</button>
-              <strong class="showdown-static-value">All</strong>
-              <button type="button" data-showdown-slot="${slot}" data-showdown-bulk-armor-delta="1" aria-label="Increase all armor">+</button>
-            </div>
-          </div>
-          <div class="showdown-armor-grid">
-            ${[
-              ['head', 'Head', 'icon-head'],
-              ['arms', 'Arms', 'icon-arms'],
-              ['body', 'Body', 'icon-body'],
-              ['waist', 'Waist', 'icon-waist'],
-              ['legs', 'Legs', 'icon-legs']
-            ]
-              .map(([part, label, icon]) => {
-                const lightKey = `${part}Light`
-                const heavyKey = `${part}Heavy`
-                const checks =
-                  part === 'head'
-                    ? `<label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${heavyKey}" ${
-                        armor[heavyKey] ? 'checked' : ''
-                      } />Heavy</label>`
-                    : `<label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${lightKey}" ${
-                        armor[lightKey] ? 'checked' : ''
-                      } />Light</label><label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${heavyKey}" ${
-                        armor[heavyKey] ? 'checked' : ''
-                      } />Heavy</label>`
-                return `
-              <div class="showdown-armor-stepper">
-                <span>${iconLabel(icon, label)}</span>
-                <button type="button" data-showdown-slot="${slot}" data-showdown-part="${part}" data-showdown-delta="-1">-</button>
-                <strong class="showdown-static-value showdown-armor-value">${armor[part]}</strong>
-                <button type="button" data-showdown-slot="${slot}" data-showdown-part="${part}" data-showdown-delta="1">+</button>
-                <div class="showdown-armor-checks">${checks}</div>
-              </div>`
-              })
-              .join('')}
-          </div>
-        </section>
-        <section class="showdown-group">
-          <h4>${iconLabel('icon-stats', 'Stats')}</h4>
-          <div class="showdown-stats showdown-stats-combat">${combatStats.map(renderCombatStepper).join('')}</div>
-        </section>
-      </section>
-
-      <section class="showdown-page-panel" data-showdown-page-panel="arts"${activePage === 'arts' ? '' : ' hidden'}>
-        <details class="showdown-toggle" data-showdown-section="fightingArts" open>
-        <summary>Fighting Arts (${(p.fightingArts || []).length})</summary>
-        <div class="showdown-array-actions">
-          <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="fightingArts">+ Add</button>
-        </div>
-        ${showdownListItems(
-          p.fightingArts,
-          'None',
-          (item, index) => renderShowdownMarkdownRulesRow(item, slot, 'fightingArts', index)
-        )}
-        </details>
-        <details class="showdown-toggle" data-showdown-section="secretFightingArts" open>
-        <summary>Secret Fighting Arts (${(p.secretFightingArts || []).length})</summary>
-        <div class="showdown-array-actions">
-          <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="secretFightingArts">+ Add</button>
-        </div>
-        ${showdownListItems(
-          p.secretFightingArts,
-          'None',
-          (item, index) => renderShowdownMarkdownRulesRow(item, slot, 'secretFightingArts', index)
-        )}
-        </details>
-      </section>
-
-      <section class="showdown-page-panel" data-showdown-page-panel="traits"${activePage === 'traits' ? '' : ' hidden'}>
-        <details class="showdown-toggle" data-showdown-section="abilities" open>
-        <summary>Abilities (${(p.abilities || []).length})</summary>
-        <div class="showdown-array-actions">
-          <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="abilities">+ Add New</button>
-        </div>
-        ${showdownListItems(
-          p.abilities,
-          'None',
-          (_item, index) => `
-          <li class="showdown-array-row">
-            ${renderShowdownTextEntry(slot, 'abilities', index)}
-            <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="abilities" data-showdown-remove-index="${index}">Remove</button>
-          </li>`
-        )}
-        </details>
-        <details class="showdown-toggle" data-showdown-section="impairments" open>
-        <summary>Impairments (${(p.impairments || []).length})</summary>
-        <div class="showdown-array-actions">
-          <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="impairments">+ Add New</button>
-        </div>
-        ${showdownListItems(
-          p.impairments,
-          'None',
-          (_item, index) => `
-          <li class="showdown-array-row">
-            ${renderShowdownTextEntry(slot, 'impairments', index)}
-            <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="impairments" data-showdown-remove-index="${index}">Remove</button>
-          </li>`
-        )}
-        </details>
-        <details class="showdown-toggle" data-showdown-section="notes" open>
-        <summary>Notes (${(p.notes || []).length})</summary>
-        <div class="showdown-array-actions">
-          <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="notes">+ Add New</button>
-        </div>
-        ${showdownListItems(
-          p.notes,
-          'None',
-          (_item, index) => `
-          <li class="showdown-array-row">
-            ${renderShowdownTextEntry(slot, 'notes', index)}
-            <button type="button" class="btn btn-danger" data-showdown-remove-slot="${slot}" data-showdown-remove-array="notes" data-showdown-remove-index="${index}">Remove</button>
-          </li>`
-        )}
-        </details>
-      </section>
-
-      <section class="showdown-page-panel" data-showdown-page-panel="disorders"${activePage === 'disorders' ? '' : ' hidden'}>
-        <details class="showdown-toggle" data-showdown-section="disorders" open>
-        <summary>Disorders (${(p.disorders || []).length})</summary>
-        <div class="showdown-array-actions">
-          <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="disorders">+ Add</button>
-        </div>
-        ${showdownListItems(
-          p.disorders,
-          'None',
-          (item, index) => renderShowdownMarkdownRulesRow(item, slot, 'disorders', index)
-        )}
-        </details>
-      </section>
-
-      <section class="showdown-page-panel" data-showdown-page-panel="knowledge"${activePage === 'knowledge' ? '' : ' hidden'}>
-        <details class="showdown-toggle" data-showdown-section="tenetKnowledge" open>
-        <summary>Tenet Knowledge and Neurosis (${(p.tenetKnowledge || []).length})</summary>
-        <div class="showdown-array-neurosis showdown-array-row showdown-array-row-knowledge showdown-array-row-neurosis">
-          <div class="showdown-array-copy showdown-array-copy-knowledge">
-            <div class="showdown-neurosis-title">${iconLabel('icon-neurosis', escapeHtml(p.philosophyNeurosisName || 'Unnamed Neurosis'))}</div>
-            <div class="showdown-copy-section showdown-copy-section-rules showdown-copy-section-neurosis">
-              <span class="showdown-copy-label showdown-copy-section-label showdown-copy-section-label-rules">${iconLabel('icon-rules', 'Neurosis')}</span>
-              <span class="showdown-copy-section-value">${escapeHtml(p.philosophyNeurosis || '-')}</span>
-            </div>
-          </div>
-        </div>
-        ${showdownListItems(
-          p.tenetKnowledge,
-          'None',
-          (item, index) => renderShowdownKnowledgeRow(item, slot, 'tenetKnowledge', index)
-        )}
-        </details>
-        <details class="showdown-toggle" data-showdown-section="knowledge" open>
-        <summary>Knowledge (${(p.knowledge || []).length})</summary>
-        <div class="showdown-array-actions">
-          <button type="button" class="btn btn-secondary" data-showdown-add-slot="${slot}" data-showdown-add-array="knowledge">+ Add</button>
-        </div>
-        ${showdownListItems(
-          p.knowledge,
-          'None',
-          (item, index) => renderShowdownKnowledgeRow(item, slot, 'knowledge', index)
-        )}
-        </details>
-      </section>
-    `
-  }
-
-  function snapshotShowdownAccordionState(container) {
-    const state = {}
-    for (const details of container.querySelectorAll('details[data-showdown-section]')) {
-      const key = details.dataset.showdownSection
-      if (!key) continue
-      state[key] = details.open
-    }
-    return state
-  }
-
-  function restoreShowdownAccordionState(container, state) {
-    if (!state) return
-    for (const details of container.querySelectorAll('details[data-showdown-section]')) {
-      const key = details.dataset.showdownSection
-      if (!key) continue
-      if (!Object.prototype.hasOwnProperty.call(state, key)) continue
-      details.open = Boolean(state[key])
-    }
-  }
-
   function renderShowdown() {
     renderShowdownSlot('A')
     renderShowdownSlot('B')
@@ -3590,14 +2995,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const normalizedSlot = slot === 'A' ? 'A' : slot === 'B' ? 'B' : null
     if (!normalizedSlot) return
     const container = normalizedSlot === 'A' ? showdownCardA : showdownCardB
-    const state = snapshotShowdownAccordionState(container)
-    renderShowdownCard(
-      container,
-      showdownPeople[normalizedSlot]?.person,
-      normalizedSlot,
-      showdownPeople[normalizedSlot]?.fileName || ''
-    )
-    restoreShowdownAccordionState(container, state)
+    const person = showdownPeople[normalizedSlot]?.person || {}
+    const proficiency = ensureWeaponProficiency(person)
+    syncShowdownTextDraftState(normalizedSlot, person)
+    const activePage = normalizeShowdownPageKey(showdownPageBySlot[normalizedSlot])
+    showdownPageBySlot[normalizedSlot] = activePage
+    renderShowdownCard(container, {
+      person,
+      slotLabel: normalizedSlot,
+      armor: showdownArmor[normalizedSlot],
+      activePage,
+      pageConfig: SHOWDOWN_PAGE_CONFIG,
+      proficiency,
+      callbacks: {
+        buildShowdownGroupOptions,
+        clamp,
+        coerceInt,
+        coerceNumber,
+        escapeHtml,
+        getSelectedMatchmakerGroup,
+        getSelectedTinkerGroup,
+        getShowdownMarkdownContent,
+        getShowdownModifier,
+        iconLabel,
+        renderShowdownTextEntry,
+        showdownListItems
+      }
+    })
   }
 
   function escapeHtml(value) {
@@ -3610,22 +3034,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function syncShowdownTextDraftState(slot, person) {
-    if ((slot !== 'A' && slot !== 'B') || !person) return
-    if (!showdownTextDraftState[slot]) {
-      showdownTextDraftState[slot] = createEmptyShowdownTextDraftState()
-    }
-    for (const arrayName of TEXT_ENTRY_ARRAYS) {
-      if (!Array.isArray(person[arrayName])) person[arrayName] = []
-      const current = Array.isArray(showdownTextDraftState[slot][arrayName]) ? showdownTextDraftState[slot][arrayName] : []
-      showdownTextDraftState[slot][arrayName] = person[arrayName].map((entry, index) => {
-        const text = String(entry || '')
-        const previous = current[index]
-        if (previous && previous.isEditing) {
-          return { text, draft: String(previous.draft ?? text), isEditing: true }
-        }
-        return { text, draft: text, isEditing: false }
-      })
-    }
+    syncShowdownTextDraftSlotState(showdownTextDraftState, slot, person, TEXT_ENTRY_ARRAYS)
   }
 
   function renderShowdownTextEntry(slot, arrayName, index) {
@@ -3645,12 +3054,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!Array.isArray(person[arrayName])) person[arrayName] = []
     person[arrayName].push('')
     syncShowdownTextDraftState(slot, person)
-    const draft = showdownTextDraftState[slot]?.[arrayName]?.[person[arrayName].length - 1]
-    if (draft) {
-      draft.isEditing = true
-      draft.draft = ''
-      draft.text = ''
-    }
+    if (!beginShowdownTextDraft(showdownTextDraftState, slot, arrayName, person[arrayName].length - 1)) return
     renderShowdownSlot(slot)
     const label = getTextEntrySingularLabel(arrayName)
     setStatus('Added ' + label, 'success')
@@ -3659,10 +3063,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function editShowdownTextEntry(slot, arrayName, index) {
     if (!slot || !showdownPeople[slot]) return
     syncShowdownTextDraftState(slot, showdownPeople[slot].person)
-    const draft = showdownTextDraftState[slot]?.[arrayName]?.[index]
-    if (!draft) return
-    draft.isEditing = true
-    draft.draft = draft.text
+    if (!beginShowdownTextDraft(showdownTextDraftState, slot, arrayName, index)) return
     renderShowdownSlot(slot)
   }
 
@@ -3671,17 +3072,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const person = showdownPeople[slot].person
     if (!Array.isArray(person[arrayName]) || index < 0 || index >= person[arrayName].length) return
     syncShowdownTextDraftState(slot, person)
-    const draft = showdownTextDraftState[slot]?.[arrayName]?.[index]
-    if (!draft) return
-    const value = String(draft.draft || '').trim()
-    if (!value) {
+    const result = commitShowdownTextDraft(showdownTextDraftState, slot, arrayName, index)
+    if (result.status === 'empty') {
       setStatus('Text cannot be empty. Use Remove to delete the entry.', 'error')
       return
     }
-    person[arrayName][index] = value
-    draft.text = value
-    draft.draft = value
-    draft.isEditing = false
+    if (result.status !== 'committed') return
+    person[arrayName][index] = result.value
     renderShowdownSlot(slot)
   }
 
@@ -3802,29 +3199,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function resetShowdownSlotState(slot) {
     if (slot !== 'A' && slot !== 'B') return
     showdownPageBySlot[slot] = SHOWDOWN_DEFAULT_PAGE
-    showdownArmor[slot] = {
-      head: 0,
-      body: 0,
-      arms: 0,
-      waist: 0,
-      legs: 0,
-      bleedingTokens: 0,
-      proficiencyReminder: false,
-      insanityHeavy: false,
-      headHeavy: false,
-      bodyLight: false,
-      bodyHeavy: false,
-      armsLight: false,
-      armsHeavy: false,
-      waistLight: false,
-      waistHeavy: false,
-      legsLight: false,
-      legsHeavy: false
-    }
-    showdownModifiers[slot] = {}
-    for (const field of SHOWDOWN_FIELDS) {
-      showdownModifiers[slot][field] = { temporary: 0, tokensPositive: 0, tokensNegative: 0 }
-    }
+    showdownArmor[slot] = createShowdownArmorSlotState()
+    showdownModifiers[slot] = createShowdownModifierSlotState()
     showdownTextDraftState[slot] = createEmptyShowdownTextDraftState()
   }
 
@@ -3850,54 +3226,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function resetShowdownSessionState(clearPeople = false, clearSelections = false) {
     showdownDeparted = false
     showdownLockedSlots = { A: '', B: '' }
-    showdownPageBySlot = { A: SHOWDOWN_DEFAULT_PAGE, B: SHOWDOWN_DEFAULT_PAGE }
+    showdownPageBySlot = createShowdownPageState()
     resetShowdownModifiers()
-    showdownArmor = {
-      A: {
-        head: 0,
-        body: 0,
-        arms: 0,
-        waist: 0,
-        legs: 0,
-        bleedingTokens: 0,
-        proficiencyReminder: false,
-        insanityHeavy: false,
-        headHeavy: false,
-        bodyLight: false,
-        bodyHeavy: false,
-        armsLight: false,
-        armsHeavy: false,
-        waistLight: false,
-        waistHeavy: false,
-        legsLight: false,
-        legsHeavy: false
-      },
-      B: {
-        head: 0,
-        body: 0,
-        arms: 0,
-        waist: 0,
-        legs: 0,
-        bleedingTokens: 0,
-        proficiencyReminder: false,
-        insanityHeavy: false,
-        headHeavy: false,
-        bodyLight: false,
-        bodyHeavy: false,
-        armsLight: false,
-        armsHeavy: false,
-        waistLight: false,
-        waistHeavy: false,
-        legsLight: false,
-        legsHeavy: false
-      }
-    }
+    showdownArmor = createShowdownArmorState()
     if (clearPeople) {
       showdownPeople = { A: null, B: null }
-      showdownTextDraftState = {
-        A: createEmptyShowdownTextDraftState(),
-        B: createEmptyShowdownTextDraftState()
-      }
+      showdownTextDraftState = createShowdownTextDraftState()
       renderShowdown()
     }
     if (clearSelections) {
@@ -5025,10 +4359,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function mutateShowdownModifier(slot, field, kind, nextValue) {
     if (!showdownPeople[slot]) return
-    if (kind !== 'temporary' && kind !== 'tokensPositive' && kind !== 'tokensNegative') return
-    const modifier = getShowdownModifier(slot, field)
-    const normalizedValue = coerceNumber(nextValue, 0)
-    modifier[kind] = kind === 'temporary' ? normalizedValue : Math.max(0, normalizedValue)
+    if (!setShowdownModifierValue(showdownModifiers, slot, field, kind, nextValue)) return
     renderShowdownSlot(slot)
   }
 
@@ -5630,352 +4961,56 @@ document.addEventListener('DOMContentLoaded', () => {
   themeSelect.addEventListener('change', () => {
     applyTheme(themeSelect.value)
   })
-  showdownView.addEventListener('click', event => {
-    const rawTarget = event.target
-    const target =
-      rawTarget instanceof HTMLElement
-        ? rawTarget
-        : rawTarget && rawTarget.parentElement instanceof HTMLElement
-          ? rawTarget.parentElement
-          : null
-    if (!(target instanceof HTMLElement)) return
-
-    const pageButton = target.closest('button[data-showdown-page-slot][data-showdown-page]')
-    if (pageButton instanceof HTMLButtonElement) {
-      const slot = pageButton.dataset.showdownPageSlot
-      const page = pageButton.dataset.showdownPage
-      if ((slot === 'A' || slot === 'B') && page) {
-        showdownPageBySlot[slot] = normalizeShowdownPageKey(page)
-        renderShowdownSlot(slot)
-      }
-      return
-    }
-
-    if (target.dataset.showdownAddSlot && target.dataset.showdownAddArray) {
-      const slot = target.dataset.showdownAddSlot
-      const arrayName = target.dataset.showdownAddArray
-      if (!slot || !arrayName || !showdownPeople[slot]) return
-
-      if (isTextEntryArrayName(arrayName)) {
-        addShowdownTextEntry(slot, arrayName)
-        return
-      }
-
-      if (arrayName === 'tenetKnowledge') {
-        runBusy(() => openKnowledgeTemplatePicker({ arrayName, mode: 'showdown', slot })).catch(err => {
-          setStatus(err.message || 'Failed to open tenet knowledge options', 'error')
-        })
-        return
-      }
-
-      if (arrayName === 'knowledge') {
-        runBusy(() => openKnowledgeTemplatePicker({ arrayName, mode: 'showdown', slot })).catch(err => {
-          setStatus(err.message || 'Failed to open knowledge options', 'error')
-        })
-        return
-      }
-
-      runBusy(() => openAddPicker(arrayName, 'showdown', slot)).catch(err => {
-        setStatus(err.message || 'Failed to open showdown add picker', 'error')
-      })
-      return
-    }
-
-    if (target.dataset.showdownRemoveSlot && target.dataset.showdownRemoveArray) {
-      const slot = target.dataset.showdownRemoveSlot
-      const arrayName = target.dataset.showdownRemoveArray
-      const index = Number(target.dataset.showdownRemoveIndex)
-      removeShowdownArrayItem(slot, arrayName, index)
-      return
-    }
-
-    if (target.dataset.showdownEditSlot && target.dataset.showdownEditArray) {
-      const slot = target.dataset.showdownEditSlot
-      const arrayName = target.dataset.showdownEditArray
-      const index = Number(target.dataset.showdownEditIndex)
-      if (!slot || !isTextEntryArrayName(arrayName) || Number.isNaN(index)) return
-      editShowdownTextEntry(slot, arrayName, index)
-      return
-    }
-
-    if (target.dataset.showdownCommitSlot && target.dataset.showdownCommitArray) {
-      const slot = target.dataset.showdownCommitSlot
-      const arrayName = target.dataset.showdownCommitArray
-      const index = Number(target.dataset.showdownCommitIndex)
-      if (!slot || !isTextEntryArrayName(arrayName) || Number.isNaN(index)) return
-      commitShowdownTextEntry(slot, arrayName, index)
-      return
-    }
-
-    if (target.dataset.showdownMdArray) {
-      runBusy(() => openMarkdownFromReference(target.dataset.showdownMdArray, target.dataset.showdownMdFile)).catch(
-        err => {
-          setStatus(err.message || 'Failed to load markdown reference', 'error')
-        }
-      )
-      return
-    }
-
-    const showdownSaveTemplateButton = target.closest(
-      'button[data-showdown-save-template-slot][data-showdown-save-template-array][data-showdown-save-template-index]'
-    )
-    if (showdownSaveTemplateButton instanceof HTMLButtonElement) {
-      const slot = showdownSaveTemplateButton.dataset.showdownSaveTemplateSlot
-      const arrayName = showdownSaveTemplateButton.dataset.showdownSaveTemplateArray
-      const index = Number(showdownSaveTemplateButton.dataset.showdownSaveTemplateIndex)
-      const type = getKnowledgeTypeFromArrayName(arrayName)
-      if (!slot || !type || Number.isNaN(index) || !showdownPeople[slot]) return
-      const entries = showdownPeople[slot].person?.[arrayName]
-      if (!Array.isArray(entries) || !entries[index]) return
-      const template = normalizeKnowledgeTemplateForEntry(type, entries[index])
-      runWithButtonFeedback(showdownSaveTemplateButton, () =>
-        runBusy(async () => {
-          await window.api.saveKnowledgeTemplate(type, template)
-          await refreshKnowledgeTemplateCache(type)
-          setStatus(`Saved ${template.name || 'entry'} as reusable template`, 'success')
-          return true
-        })
-      ).catch(err => {
-        setStatus(err.message || 'Failed to save knowledge template', 'error')
-      })
-      return
-    }
-
-    if (target.dataset.showdownUpgradeSlot && target.dataset.showdownUpgradeArray) {
-      const slot = target.dataset.showdownUpgradeSlot
-      const arrayName = target.dataset.showdownUpgradeArray
-      const index = Number(target.dataset.showdownUpgradeIndex)
-      const type = getKnowledgeTypeFromArrayName(arrayName)
-      if (!slot || !type || Number.isNaN(index) || !showdownPeople[slot]) return
-      const entries = showdownPeople[slot].person?.[arrayName]
-      if (!Array.isArray(entries) || !entries[index]) return
-      const sourceItem = entries[index]
-      const nextMode = String(sourceItem.nextKnowledgeMode || 'noTemplate')
-
-      runBusy(async () => {
-        if (nextMode === 'maxLevel') {
-          setStatus('This entry is already set to MAX LEVEL', 'neutral')
-          return
-        }
-        if (nextMode === 'existingTemplate' && sourceItem.nextKnowledgeTemplate) {
-          await refreshKnowledgeTemplateCache(type)
-          const selected = knowledgeTemplateCache[type].find(
-            template => template.fileName === sourceItem.nextKnowledgeTemplate
-          )
-          if (selected) {
-            const upgraded = normalizeKnowledgeTemplateForEntry(type, selected.template)
-            upgraded.knowledgeLevel = Math.max(
-              Math.max(1, coerceNumber(sourceItem.knowledgeLevel, 1)) + 1,
-              coerceNumber(upgraded.knowledgeLevel, 1)
-            )
-            replaceKnowledgeEntryInShowdown(slot, arrayName, index, upgraded)
-            setStatus(`Upgraded ${sourceItem.name || 'knowledge'} from next template`, 'success')
-            return
-          }
-        }
-
-        if (nextMode === 'noTemplate') {
-          await openKnowledgeTemplatePicker({
-            arrayName,
-            mode: 'showdown',
-            slot,
-            action: 'upgrade',
-            index,
-            sourceItem,
-            forceScratchOnly: true
-          })
-          openKnowledgeScratchEditorForShowdownUpgrade()
-          return
-        }
-
-        await openKnowledgeTemplatePicker({
-          arrayName,
-          mode: 'showdown',
-          slot,
-          action: 'upgrade',
-          index,
-          sourceItem,
-          forceTemplateOnly: nextMode === 'existingTemplate',
-          forceScratchOnly: nextMode === 'noTemplate'
-        })
-      }).catch(err => {
-        setStatus(err.message || 'Failed to upgrade knowledge', 'error')
-      })
-      return
-    }
-
-    if (target.dataset.showdownObsSlot && target.dataset.showdownObsArray && target.dataset.showdownObsDelta) {
-      const slot = target.dataset.showdownObsSlot
-      const arrayName = target.dataset.showdownObsArray
-      const index = Number(target.dataset.showdownObsIndex)
-      if (!slot || !arrayName || Number.isNaN(index)) return
-      const entries = showdownPeople[slot]?.person?.[arrayName]
-      if (!Array.isArray(entries) || !entries[index]) return
-      const current = coerceNumber(entries[index].currentObservations, coerceNumber(entries[index].observations, 0))
-      const delta = coerceNumber(target.dataset.showdownObsDelta, 0)
-      mutateShowdownCurrentObservations(slot, arrayName, index, current + delta)
-      return
-    }
-
-    if (target.dataset.showdownProficiencySlot && target.dataset.showdownProficiencyDelta) {
-      const slot = target.dataset.showdownProficiencySlot
-      const field = target.dataset.showdownProficiencyField
-      if (!slot || field !== 'level') return
-      if (!showdownPeople[slot]) return
-      const current = coerceNumber(showdownPeople[slot].person?.weaponProficiency?.level, 0)
-      const delta = coerceNumber(target.dataset.showdownProficiencyDelta, 0)
-      mutateShowdownWeaponProficiency(slot, field, current + delta)
-      return
-    }
-
-    if (target.dataset.showdownField) {
-      const slot = target.dataset.showdownSlot
-      const field = target.dataset.showdownField
-      const kind = target.dataset.showdownKind || 'base'
-      const delta = coerceNumber(target.dataset.showdownDelta, 0)
-      if (kind === 'base') {
-        if (!showdownPeople[slot]) return
-        const current = coerceNumber(showdownPeople[slot].person[field], 0)
-        const min = target.dataset.showdownMin === '' ? null : coerceNumber(target.dataset.showdownMin, null)
-        const max = target.dataset.showdownMax === '' ? null : coerceNumber(target.dataset.showdownMax, null)
-        mutateShowdownStat(slot, field, current + delta, min, max)
-      } else {
-        const current = coerceNumber(getShowdownModifier(slot, field)[kind], 0)
-        mutateShowdownModifier(slot, field, kind, current + delta)
-      }
-      return
-    }
-
-    if (target.dataset.showdownSlot && target.dataset.showdownBulkArmorDelta) {
-      const slot = target.dataset.showdownSlot
-      const delta = coerceNumber(target.dataset.showdownBulkArmorDelta, 0)
-      if (!showdownArmor[slot] || !delta) return
-
-      for (const part of ['head', 'arms', 'body', 'waist', 'legs']) {
-        if (!Object.prototype.hasOwnProperty.call(showdownArmor[slot], part)) continue
-        showdownArmor[slot][part] = Math.max(0, coerceNumber(showdownArmor[slot][part], 0) + delta)
-      }
-      renderShowdownSlot(slot)
-      return
-    }
-
-    if (!target.dataset.showdownSlot || !target.dataset.showdownPart || !target.dataset.showdownDelta) return
-
-    const slot = target.dataset.showdownSlot
-    const part = target.dataset.showdownPart
-    const delta = coerceNumber(target.dataset.showdownDelta, 0)
-    if (!showdownArmor[slot] || !Object.prototype.hasOwnProperty.call(showdownArmor[slot], part)) return
-
-    showdownArmor[slot][part] = Math.max(0, coerceNumber(showdownArmor[slot][part], 0) + delta)
-    renderShowdownSlot(slot)
-    return
-  })
-
-  showdownView.addEventListener('input', event => {
-    const target = event.target
-    if (!(target instanceof HTMLElement)) return
-    if (target.dataset.showdownDraftSlot && target.dataset.showdownDraftArray) {
-      if (!(target instanceof HTMLTextAreaElement)) return
-      const slot = target.dataset.showdownDraftSlot
-      const arrayName = target.dataset.showdownDraftArray
-      const index = Number(target.dataset.showdownDraftIndex)
-      if (!slot || !isTextEntryArrayName(arrayName) || Number.isNaN(index)) return
-      if (!showdownPeople[slot]) return
-      syncShowdownTextDraftState(slot, showdownPeople[slot].person)
-      const draft = showdownTextDraftState[slot]?.[arrayName]?.[index]
-      if (!draft) return
-      draft.draft = target.value
-      return
-    }
-    if (target.tagName !== 'INPUT') return
-    if (target.dataset.showdownProficiencySlot && target.dataset.showdownProficiencyField) {
-      const slot = target.dataset.showdownProficiencySlot
-      const field = target.dataset.showdownProficiencyField
-      if (!slot || !field) return
-      if (field === 'type') {
-        updateShowdownWeaponProficiencyDraft(slot, field, target.value)
-        return
-      }
-      mutateShowdownWeaponProficiency(slot, field, target.value)
-      return
-    }
-    if (target.dataset.showdownField) {
-      const slot = target.dataset.showdownSlot
-      const field = target.dataset.showdownField
-      const kind = target.dataset.showdownKind || 'base'
-      if (kind === 'base') {
-        const min = target.dataset.showdownMin === '' ? null : coerceNumber(target.dataset.showdownMin, null)
-        const max = target.dataset.showdownMax === '' ? null : coerceNumber(target.dataset.showdownMax, null)
-        mutateShowdownStat(slot, field, target.value, min, max)
-      } else {
-        mutateShowdownModifier(slot, field, kind, target.value)
-      }
-      return
-    }
-    if (target.dataset.showdownObsSlot && target.dataset.showdownObsArray && target.dataset.showdownObsInput) {
-      const slot = target.dataset.showdownObsSlot
-      const arrayName = target.dataset.showdownObsArray
-      const index = Number(target.dataset.showdownObsIndex)
-      if (!slot || !arrayName || Number.isNaN(index)) return
-      mutateShowdownCurrentObservations(slot, arrayName, index, target.value)
-      return
-    }
-    const slot = target.dataset.showdownSlot
-    const part = target.dataset.showdownPart
-    if (!slot || !part || !showdownArmor[slot] || !Object.prototype.hasOwnProperty.call(showdownArmor[slot], part)) {
-      return
-    }
-    showdownArmor[slot][part] = Math.max(0, coerceNumber(target.value, 0))
-    target.value = String(showdownArmor[slot][part])
-  })
-
-  showdownView.addEventListener('change', event => {
-    const target = event.target
-    if (!(target instanceof HTMLElement)) return
-    if (target instanceof HTMLInputElement && target.dataset.showdownBoolSlot && target.dataset.showdownBoolField) {
-      const slot = target.dataset.showdownBoolSlot
-      const field = target.dataset.showdownBoolField
-      if (
-        !slot ||
-        (field !== 'isAlive' && field !== 'lifetimeReroll') ||
-        !showdownPeople[slot] ||
-        !showdownPeople[slot].person
-      ) {
-        return
-      }
-      showdownPeople[slot].person[field] = Boolean(target.checked)
-      return
-    }
-    if (target instanceof HTMLInputElement && target.dataset.showdownSlot && target.dataset.showdownArmorCheck) {
-      const slot = target.dataset.showdownSlot
-      const key = target.dataset.showdownArmorCheck
-      if (!showdownArmor[slot] || !Object.prototype.hasOwnProperty.call(showdownArmor[slot], key)) return
-      showdownArmor[slot][key] = Boolean(target.checked)
-      if (target.checked && key.endsWith('Heavy')) {
-        const lightKey = `${key.slice(0, -'Heavy'.length)}Light`
-        if (Object.prototype.hasOwnProperty.call(showdownArmor[slot], lightKey)) {
-          showdownArmor[slot][lightKey] = true
-          const lightInput = showdownView.querySelector(
-            `input[data-showdown-slot="${slot}"][data-showdown-armor-check="${lightKey}"]`
-          )
-          if (lightInput instanceof HTMLInputElement) lightInput.checked = true
-        }
-      }
-      return
-    }
-    if (target.tagName !== 'SELECT') return
-    if (target.dataset.showdownGroupSlot && target.dataset.showdownGroup) {
-      mutateShowdownAbilityGroup(target.dataset.showdownGroupSlot, target.dataset.showdownGroup, target.value)
-      return
-    }
-    if (target.dataset.showdownProficiencySlot && target.dataset.showdownProficiencyField === 'type') {
-      mutateShowdownWeaponProficiency(
-        target.dataset.showdownProficiencySlot,
-        'type',
-        target.value
-      )
+  const showdownController = createShowdownController({
+    element: showdownView,
+    getState: () => ({
+      knowledgeTemplateCache,
+      showdownArmor,
+      showdownPageBySlot,
+      showdownPeople,
+      showdownTextDraftState
+    }),
+    actions: {
+      addShowdownTextEntry,
+      commitShowdownTextEntry,
+      editShowdownTextEntry,
+      mutateShowdownAbilityGroup,
+      mutateShowdownCurrentObservations,
+      mutateShowdownModifier,
+      mutateShowdownStat,
+      mutateShowdownWeaponProficiency,
+      openAddPicker,
+      openKnowledgeScratchEditorForShowdownUpgrade,
+      openKnowledgeTemplatePicker,
+      openMarkdownFromReference,
+      refreshKnowledgeTemplateCache,
+      removeShowdownArrayItem,
+      renderShowdownSlot,
+      replaceKnowledgeEntryInShowdown,
+      runBusy,
+      runWithButtonFeedback,
+      setStatus,
+      syncShowdownTextDraftState,
+      updateShowdownWeaponProficiencyDraft
+    },
+    helpers: {
+      adjustShowdownArmorAll,
+      adjustShowdownArmorPart,
+      coerceNumber,
+      getKnowledgeTypeFromArrayName,
+      getShowdownModifier,
+      isTextEntryArrayName,
+      normalizeKnowledgeTemplateForEntry,
+      normalizeShowdownPageKey,
+      setShowdownArmorCheck,
+      setShowdownArmorPartValue,
+      updateShowdownTextDraft
+    },
+    services: {
+      saveKnowledgeTemplate: (type, template) => window.api.saveKnowledgeTemplate(type, template)
     }
   })
+  showdownController.bindEvents()
 
   addMarkdownCollection.addEventListener('change', () => {
     runBusy(loadAddPickerFiles).catch(err => {
