@@ -31,18 +31,23 @@ Use this checklist for every release (for example `1.1.0`, `1.2.0`).
 - `git tag v<version>` (example: `git tag v1.2.0`)
 - `git push origin v<version>`
 - Workflow `Release Publish` will automatically:
-- Build macOS + Windows artifacts
+- Build macOS, Windows, Linux x64, and Linux ARM64 artifacts
+- Verify the release tag matches the version in `package.json`
+- Run full verification and packaged-app smoke tests on both Linux architectures
+- Generate Linux SHA-256 checksum files
 - Create/update a GitHub Release for that tag
 - Attach artifacts to the Release page
 
-Optional Linux packaging (manual while Linux release packaging is stabilized):
-- GitHub -> Actions -> `Linux Package` -> `Run workflow`
-
 Alternative (manual trigger):
 - GitHub -> Actions -> `Release Publish` -> `Run workflow`
-- Optional input `tag`: `v<version>` (recommended)
+- Required input `tag`: `v<version>`
+- The tag must already exist and match the version in `package.json`
 
 ## 7) Artifact sanity check
 - Mac: verify `.dmg` and `.zip` exist
 - Windows: verify `.exe` outputs exist
+- Linux x64: verify `.tar.gz`, `.deb`, `.rpm`, and `SHA256SUMS-linux-x64.txt` exist
+- Linux ARM64: verify `.tar.gz`, `.deb`, `.rpm`, and `SHA256SUMS-linux-arm64.txt` exist
+- Confirm the Linux checksum files validate their three corresponding downloads
 - Launch each build once to confirm app starts
+- Record physical Fedora Asahi acceptance after Electron or Electron Builder upgrades; x86_64 installed-package feedback can continue after release without blocking publication

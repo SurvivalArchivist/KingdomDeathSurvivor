@@ -2,6 +2,12 @@ name: Linux Package
 
 on:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Git ref to package; defaults to the triggering ref"
+        required: false
+        type: string
 
 jobs:
   package-linux:
@@ -31,6 +37,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -123,7 +131,14 @@ jobs:
 
           file "$executable"
           readelf -lW "$executable" | grep -E 'Type|LOAD'
-          sha256sum "${tarballs[0]}" "${debs[0]}" "${rpms[0]}"
+          tarball_name="${tarballs[0]#release/}"
+          deb_name="${debs[0]#release/}"
+          rpm_name="${rpms[0]#release/}"
+          (
+            cd release
+            sha256sum "$tarball_name" "$deb_name" "$rpm_name" > "SHA256SUMS-linux-${{ matrix.arch }}.txt"
+            cat "SHA256SUMS-linux-${{ matrix.arch }}.txt"
+          )
           echo "Linux ${{ matrix.arch }} core artifact validation passed."
 
       - name: Smoke Test Packaged Application
@@ -141,4 +156,5 @@ jobs:
             release/*.tar.gz
             release/*.deb
             release/*.rpm
+            release/SHA256SUMS-linux-${{ matrix.arch }}.txt
           if-no-files-found: error

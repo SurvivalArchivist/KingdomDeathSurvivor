@@ -1,34 +1,42 @@
-## KDM Survivors Console 3.0.1
+## KDM Survivors Console 3.1.0
 
-> [!CAUTION]
-> # BREAKING CAMPAIGN RESET
-> **Do not install 3.0.1 over a campaign you need to keep using.** Survivor files from earlier versions are rejected. Before installing, back up the survivor folder and app configuration. Then start with a new survivor folder and reselect every Data Source in Settings.
+Version 3.1.0 adds first-class Linux x86_64 and ARM64 releases. The core Linux formats are RPM, DEB, and `tar.gz`, built and tested natively on both architectures alongside the existing macOS and Windows releases.
 
-Version 3.0.1 removes the deferred legacy config, survivor-schema, template-folder, and `philosophyTenet` compatibility paths. It retains the complete LAN survivor-data feature set introduced in 3.0.0.
+### Linux Highlights
+- Native x64 and ARM64 builds run the full test suite and launch the real packaged Electron application before publication.
+- RPM and DEB architecture metadata and the packaged executable's ELF architecture are checked automatically.
+- Separate SHA-256 checksum files are included for Linux x64 and ARM64 downloads.
+- The ARM64 RPM has passed installed-package acceptance on Fedora Linux Asahi Remix under KDE Wayland with a 16 KiB-page kernel.
+- AppImage and Flatpak remain experimental and are not included in the core tagged release.
 
-### Breaking Changes
-- Survivor JSON must use schema version `6`; missing, invalid, older, and future versions are rejected.
-- Legacy config containing only `dataPath` is ignored; configure current Data Sources again in Settings.
-- The dedicated Tenet Knowledges Data Source and fallback are removed. Knowledge and Tenet Knowledge templates both use `knowledges`.
-- The deprecated `philosophyTenet` survivor field is no longer accepted.
-
-### Highlights
-- New Settings modes: `Local Files`, `LAN Host`, and `LAN Client`.
-- LAN Host serves survivor list, summary, load, save, delete, health, and live update endpoints from the configured local survivor folder.
-- LAN Client reads and writes through the host while preserving the existing app workflow.
-- Settlement refreshes automatically on connected clients when host survivor data changes.
-- Automatic LAN discovery lets clients scan for hosts and fill the host address/port, with manual entry still available as a fallback.
-- Compact navbar status shows Local, Hosting, Connected, Reconnecting, Offline, and Error states.
-- Reliability hardening covers reconnects, disconnected write blocking, pre-save health checks, stale revision conflicts, validation failures, and clearer host unavailable/server error messages.
-- Settings now includes explicit Start Host, Stop Host, Connect, Disconnect, displayed host URLs, and manual survivor-data backup export.
-
-### Notes
-- LAN discovery is best-effort and can be blocked by operating system firewalls, VPNs, or router broadcast settings. Manual host address entry remains supported.
-- The hosting machine remains authoritative for survivor files. Before a long session, use the Settings backup export if you want a quick copy of the survivor folder.
+### Compatibility
+- Version 3.1.0 keeps survivor schema version `6` from 3.0.1; there is no new data migration in this release.
+- Survivor files from before the 3.0.1 campaign reset remain unsupported. Back up older data before changing folders or versions.
+- Linux RPM and DEB packages are currently unsigned. Download them only from this repository's GitHub Release page and verify their checksums when possible.
 
 ### Downloads
 - Windows: use the `setup.exe` asset for installation, or `portable.exe` if you specifically want the portable build.
 - macOS: use the `.dmg` asset first (recommended), or `.zip` if needed.
+- Fedora Linux: use the `.rpm` matching `x86_64` or `aarch64`.
+- Ubuntu/Debian Linux: use the `.deb` matching `amd64` or `arm64`.
+- Other Linux distributions: use the `.tar.gz` matching `x64` or `arm64`.
+- Linux SHA-256 checksum files are provided separately for x64 and ARM64 assets.
+
+### Linux Installation
+
+Fedora/RPM-based systems:
+
+```bash
+sudo dnf install ./KDM\ Survivors\ Console-3.1.0-linux-aarch64.rpm
+```
+
+Ubuntu/Debian-based systems:
+
+```bash
+sudo apt install ./KDM\ Survivors\ Console-3.1.0-linux-amd64.deb
+```
+
+Replace the architecture suffix with the one appropriate for the device.
 
 ### macOS First-Launch Note
 Unsigned builds can be blocked by Gatekeeper even when the app is valid.

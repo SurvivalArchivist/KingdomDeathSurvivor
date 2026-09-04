@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and the project generally follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Version `3.0.1` is an explicitly documented exception because it performs the planned campaign reset within the existing v3 release line.
 
+## [3.1.0] - 2026-09-04
+
+### Added
+- Added first-class Linux core release artifacts for x86_64 and ARM64: `tar.gz`, DEB, and RPM packages.
+- Added native x64 and ARM64 CI packaging with package-architecture, ELF, checksum, and packaged Electron launch validation.
+- Added separate SHA-256 checksum files for each Linux architecture's release artifacts.
+
+### Changed
+- Tagged releases now build and publish Linux core packages alongside macOS and Windows artifacts.
+- Upgraded Electron Builder to 26.15.7 and declared Node.js `>=22.12.0` for development and packaging.
+- Manual release publishing now requires an existing version tag and verifies that it matches `package.json`.
+
+### Fixed
+- Aligned the generated Linux desktop entry name with the packaged application executable.
+- Verified the installed ARM64 RPM on Fedora Linux Asahi Remix under KDE Wayland with a 16 KiB-page kernel.
+
 ## [3.0.1] - 2026-08-10
 
 > [!CAUTION]
