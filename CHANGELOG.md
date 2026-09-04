@@ -7,6 +7,9 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Changed
+- Updated GitHub-hosted CI workflows to Node 24-based releases of checkout, setup-node, upload-artifact, and download-artifact, removing the deprecated Node 20 action runtime dependency.
+
 ## [3.1.1] - 2026-09-04
 
 ### Changed
