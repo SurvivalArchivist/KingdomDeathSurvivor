@@ -1,6 +1,6 @@
 # Engineering Roadmap
 
-Last updated: 2026-04-19
+Last updated: 2026-09-04
 
 ## Purpose
 This document captures high-leverage follow-up work identified after reviewing the current app, codebase structure, and recent delivery history. It is meant to be a practical roadmap we can revisit, not a commitment to implement every item immediately.
@@ -8,12 +8,15 @@ This document captures high-leverage follow-up work identified after reviewing t
 ## Current Read
 - The app baseline is healthy: standard verification passed cleanly at the time this roadmap was written.
 - The highest-value work now is less about fixing obvious breakage and more about improving scale, safety, and maintainability.
+- LAN survivor-data Phases 1–7 are complete: Host/Client CRUD, status, reconnect behavior, SSE Settlement refresh, discovery, backup export, offline read recovery, and real-world acceptance are all in place.
 - Settlement summary loading has already landed, which removes the biggest recent data-fetch cost from settlement refreshes.
 - Settlement name/trait search is now debounced, which removes the most obvious interactive rerender churn while typing.
 - Showdown end-save handling is now hardened against partial-save outcomes and keeps the departed session recoverable when only one survivor save succeeds.
 - Create/Edit/default-template flows now prompt before reset/back/navigation when the current form has unsaved changes, and the create action rail shows a lightweight unsaved indicator while the form is dirty.
 - Renderer workflow coverage now includes rename-without-duplicate handling, departed slot-lock behavior, and template-driven knowledge upgrades in both Create and Showdown.
 - Settlement workflow coverage now exercises newer/derived column sorting, combined filter behavior, row-button showdown assignment swapping, and settlement-to-showdown resume behavior.
+- Renderer workflow coverage now also verifies a departed Showdown survives navigation through Create and Settlement without reloading or unlocking its survivor slots.
+- Bulk-update coverage now verifies processing continues after per-survivor save failures and reports accurate updated/unchanged/failed totals.
 - Knowledge template and upgrade helper logic now has a browser-safe module boundary, loaded ahead of `renderer.js` from `index.html` without changing Electron security settings or adding a bundler.
 - Settlement filtering, sorting, and derived-value helpers now also live behind a browser-safe helper boundary, reducing renderer responsibility without moving settlement event wiring yet.
 - Settlement table rendering and settlement-specific event wiring now also live behind the settlement helper boundary, leaving the renderer responsible mainly for state ownership and cross-surface callbacks.
@@ -25,6 +28,16 @@ This document captures high-leverage follow-up work identified after reviewing t
 2. Continue extracting focused renderer seams incrementally using browser-safe helper files or other renderer-compatible patterns.
 3. Revisit deeper settlement filtering/render optimization only if profiling still shows pressure.
 4. Revisit secondary markdown and bulk-update ergonomics only if they become a clearer bottleneck.
+
+## Recently Completed: LAN Survivor Data
+Status:
+- Completed on 2026-09-04 after a final offline-read recovery pass.
+- Local Files, LAN Host, and LAN Client modes share the survivor-provider boundary; the host remains authoritative for LAN survivor CRUD.
+- Offline startup and failed survivor reads leave the app/current view usable and provide consistent reconnect guidance.
+- Settlement refreshes from host push events. Create/Edit and Showdown intentionally require explicit refreshes to protect active in-memory work.
+- Automatic discovery is a convenience feature; manual host entry remains the supported fallback.
+
+Future LAN changes are maintenance-driven rather than roadmap blockers. Repeat real Host/Client acceptance after substantial Electron, network, or provider changes.
 
 ## Recently Completed: Settlement Summary Loading
 Status:
@@ -123,8 +136,8 @@ Current pressure points:
 - Renderer smoke suite in [test/renderer.smoke.test.js](/Users/mikehodges/Documents/Kingdom Death Survivors/test/renderer.smoke.test.js:1)
 
 Recommended next tests:
-- View-transition and resume behavior across Settlement/Create/Showdown.
-- Bulk update completion detail and any future per-survivor failure surfacing.
+- Additional view-transition cases only when new stateful views or navigation rules are introduced; the current Settlement/Create/Showdown departed-session path is covered.
+- Per-survivor bulk-update failure details if the UI is expanded beyond its current aggregate completion summary.
 - Settlement column-visibility toggles if that surface gets refactored.
 
 Expected benefit:

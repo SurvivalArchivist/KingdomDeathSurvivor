@@ -1,6 +1,6 @@
 # LAN Implementation Handoff
 
-Last updated: 2026-05-12
+Last updated: 2026-09-04
 
 ## Purpose
 This is the working progress file for the v3 LAN survivor-data effort. Use it with:
@@ -9,7 +9,7 @@ This is the working progress file for the v3 LAN survivor-data effort. Use it wi
 - `docs/ai/MODEL_HANDOFF.md` for recent repo-wide changes
 
 ## Current Phase
-Phase 7 is underway: reliability, recovery, and live LAN refresh.
+Phases 1–7 are complete. LAN survivor data has passed a real-world Host/Client trial and is now a maintained feature rather than an active implementation workstream.
 
 Completed so far:
 - Added `src/survivorProvider.js`
@@ -61,8 +61,9 @@ Completed so far:
 - If LAN host startup fails after saving settings, main rolls `lanHostEnabled` back to false and the renderer reverts the checkbox to the last known good state.
 - Automatic LAN discovery is implemented with best-effort UDP host advertisements; LAN Client Settings can scan, select a discovered host, and fill the host address/port automatically.
 
-Not implemented yet:
-- Discovery is best-effort on local networks; manual host URL entry remains the fallback when routers/firewalls block UDP broadcast.
+Operational boundary:
+- Discovery is best-effort on local networks; manual host URL entry remains the supported fallback when routers/firewalls block UDP broadcast.
+- Settlement accepts host-pushed refreshes. Create/Edit and Showdown deliberately retain in-memory state and use explicit reload/refresh actions so remote changes cannot silently discard active work.
 
 ## Important Design Decisions
 - `Local Files` remains the default provider mode.
@@ -91,9 +92,10 @@ Not implemented yet:
 - `docs/ai/LAN_SURVIVOR_PLAN.md`: full staged plan
 
 ## Next Recommended Step
-Continue Phase 6 / Phase 7 reliability:
-- Improve in-view recovery copy for failed reads while offline.
-- Completed a real-world LAN Host / LAN Client trial successfully; the LAN solution behaved as expected with no blocking issue reported.
+No required LAN implementation remains. Treat future work as maintenance:
+- repeat Host/Client acceptance after major Electron, networking, or provider changes
+- respond to real network/firewall issues reported by users
+- consider host-side client visibility only if operational experience shows a need
 
 ## Verification From This Slice
 - `node --check src/survivorProvider.js`
