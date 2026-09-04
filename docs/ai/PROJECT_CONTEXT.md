@@ -120,5 +120,5 @@ Electron desktop companion app for Kingdom Death survivor management with:
   - Linux: `flatpak`, `AppImage`, `deb`, `rpm`, `tar.gz`
 - Release automation (`.github/workflows/release-publish.yml`) currently builds/publishes macOS + Windows artifacts for `v*` tags.
 - Linux packaging is currently handled by manual workflows (`Linux Package`, `Linux Flatpak Debug`) while Linux release packaging is stabilized.
-- Linux CI includes a post-build smoke check that asserts required Linux artifact types exist before upload/publish.
-- Linux CI configures the `flathub` remote and installs `org.freedesktop.Platform//24.08`, `org.freedesktop.Sdk//24.08`, and `org.electronjs.Electron2.BaseApp//24.08` with `sudo flatpak` before Flatpak packaging.
+- `Linux Package` uses native pinned GitHub runners for x64 (`ubuntu-24.04`) and ARM64 (`ubuntu-24.04-arm`). Each matrix job runs full verification, builds the explicitly selected tarball/DEB/RPM architecture, validates package architecture metadata and the executable ELF machine, launches the packaged app under Xvfb to verify renderer/preload readiness, logs ELF segments/checksums, and uploads a separate architecture artifact set.
+- Flatpak remains isolated in `Linux Flatpak Debug`; that workflow configures the `flathub` remote and installs `org.freedesktop.Platform//24.08`, `org.freedesktop.Sdk//24.08`, and `org.electronjs.Electron2.BaseApp//24.08` before packaging.

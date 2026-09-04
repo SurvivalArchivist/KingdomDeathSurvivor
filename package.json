@@ -2,6 +2,7 @@
   "name": "kingdom-death-survivors",
   "version": "3.0.1",
   "description": "Desktop companion app for Kingdom Death survivor management.",
+  "desktopName": "kingdom-death-survivors.desktop",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -12,7 +13,10 @@
     "package:win": "electron-builder --win nsis portable",
     "package:linux": "electron-builder --linux AppImage deb rpm tar.gz flatpak",
     "package:linux:release": "electron-builder --linux AppImage deb rpm tar.gz",
+    "package:linux:x64": "electron-builder --linux tar.gz deb rpm --x64",
+    "package:linux:arm64": "electron-builder --linux tar.gz deb rpm --arm64",
     "package:dir": "electron-builder --dir",
+    "smoke:linux:packaged": "bash scripts/smoke-linux-packaged.sh",
     "build:mac:local": "bash scripts/build-macos-local.sh",
     "test": "npm run test:unit && npm run test:integration && npm run test:main && npm run test:renderer",
     "test:unit": "node --test test/compile.test.js",
@@ -24,6 +28,9 @@
   "author": "KDM Survivors Console Maintainers <maintainers@kdm-survivors.local>",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "build": {
     "appId": "com.kdm.survivors",
     "productName": "KDM Survivors Console",
@@ -67,6 +74,7 @@
       "category": "Utility",
       "maintainer": "KDM Survivors Console Maintainers <maintainers@kdm-survivors.local>",
       "icon": "ui/assets/linux-icons",
+      "syncDesktopName": true,
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },
     "flatpak": {
@@ -87,7 +95,7 @@
   },
   "devDependencies": {
     "electron": "41.10.4",
-    "electron-builder": "24.13.3"
+    "electron-builder": "26.15.7"
   },
   "dependencies": {
     "ajv": "8.20.0",

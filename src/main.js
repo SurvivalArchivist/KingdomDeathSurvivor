@@ -25,6 +25,12 @@ const appIconPngPath = path.join(__dirname, '..', 'ui', 'assets', 'app-icon.png'
 const LAN_DISCOVERY_PORT = 3766
 const LAN_DISCOVERY_STALE_MS = 15000
 const LAN_DISCOVERY_ADVERTISE_MS = 3000
+const SMOKE_TEST_ARG = '--smoke-test'
+const SMOKE_TEST_TIMEOUT_MS = 20000
+const SMOKE_TEST_SUCCESS_MARKER = 'KDM_PACKAGED_SMOKE_TEST_OK'
+const isSmokeTest = process.argv.includes(SMOKE_TEST_ARG)
+let smokeTestFinished = false
+let smokeTestTimeout = null
 const markdown = new MarkdownIt({
   html: false,
   linkify: true,
@@ -39,6 +45,52 @@ function getAppIconPath() {
 function sendFullScreenState(windowRef = mainWindow) {
   if (!windowRef || typeof windowRef.isDestroyed === 'function' && windowRef.isDestroyed()) return
   windowRef.webContents.send('window-full-screen-changed', Boolean(windowRef.isFullScreen()))
+}
+
+function finishSmokeTest(exitCode, message) {
+  if (smokeTestFinished) return
+  smokeTestFinished = true
+  if (smokeTestTimeout) clearTimeout(smokeTestTimeout)
+  smokeTestTimeout = null
+
+  const output = String(message || '').trim()
+  if (exitCode === 0) console.log(`${SMOKE_TEST_SUCCESS_MARKER} ${output}`.trim())
+  else console.error(`KDM_PACKAGED_SMOKE_TEST_FAILED ${output}`.trim())
+
+  setImmediate(() => app.exit(exitCode))
+}
+
+function configureSmokeTest(windowRef) {
+  smokeTestTimeout = setTimeout(() => {
+    finishSmokeTest(1, `renderer did not become ready within ${SMOKE_TEST_TIMEOUT_MS}ms`)
+  }, SMOKE_TEST_TIMEOUT_MS)
+
+  windowRef.webContents.once('did-fail-load', (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
+    if (isMainFrame === false) return
+    finishSmokeTest(1, `renderer load failed (${errorCode}): ${errorDescription || validatedUrl || 'unknown error'}`)
+  })
+
+  windowRef.webContents.once('did-finish-load', async () => {
+    try {
+      const result = await windowRef.webContents.executeJavaScript(`(() => ({
+        title: document.title,
+        readyState: document.readyState,
+        hasNavigation: Boolean(document.getElementById('navDataSources')),
+        hasSettingsView: Boolean(document.getElementById('dataSourcesView')),
+        hasPreloadApi: typeof window.api?.getAppSettings === 'function'
+      }))()`)
+      const isReady =
+        result?.title === 'KDM Survivors' &&
+        result?.readyState === 'complete' &&
+        result?.hasNavigation === true &&
+        result?.hasSettingsView === true &&
+        result?.hasPreloadApi === true
+      if (!isReady) throw new Error(`unexpected renderer state: ${JSON.stringify(result)}`)
+      finishSmokeTest(0, JSON.stringify(result))
+    } catch (err) {
+      finishSmokeTest(1, err?.message || 'renderer verification failed')
+    }
+  })
 }
 
 function createWindow() {
@@ -60,7 +112,11 @@ function createWindow() {
   }
   mainWindow.on('enter-full-screen', () => sendFullScreenState(mainWindow))
   mainWindow.on('leave-full-screen', () => sendFullScreenState(mainWindow))
-  mainWindow.loadFile(path.join(__dirname, '..', 'ui', 'components', 'index.html'))
+  if (isSmokeTest) configureSmokeTest(mainWindow)
+  const loadPromise = mainWindow.loadFile(path.join(__dirname, '..', 'ui', 'components', 'index.html'))
+  if (isSmokeTest && loadPromise && typeof loadPromise.catch === 'function') {
+    loadPromise.catch(err => finishSmokeTest(1, err?.message || 'renderer load failed'))
+  }
 }
 
 function getSurvivorProvider() {
@@ -535,6 +591,7 @@ app.whenReady().then(() => {
     if (!dockIcon.isEmpty()) app.dock.setIcon(dockIcon)
   }
   createWindow()
+  if (isSmokeTest) return
   syncLanHostService().catch(err => {
     console.error('Failed to start LAN survivor host:', err)
   })

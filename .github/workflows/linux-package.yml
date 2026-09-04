@@ -5,7 +5,26 @@ on:
 
 jobs:
   package-linux:
-    runs-on: ubuntu-latest
+    name: Core packages (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+            package_script: package:linux:x64
+            deb_arch: amd64
+            rpm_arch: x86_64
+            elf_machine: Advanced Micro Devices X86-64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            package_script: package:linux:arm64
+            deb_arch: arm64
+            rpm_arch: aarch64
+            elf_machine: AArch64
 
     steps:
       - name: Checkout
@@ -16,6 +35,16 @@ jobs:
         with:
           node-version: 24
           cache: npm
+
+      - name: Record Build Environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          uname -a
+          uname -m
+          getconf PAGESIZE
+          node --version
+          npm --version
 
       - name: Install Dependencies (with retry)
         shell: bash
@@ -34,46 +63,79 @@ jobs:
             sleep 15
           done
 
-      - name: Run Tests
-        run: npm test
+      - name: Verify
+        run: npm run verify
 
       - name: Install Linux Packaging Tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm flatpak flatpak-builder
+          sudo apt-get install -y binutils file libatspi2.0-0 libcrypt1 libgtk-3-0 libnotify4 libnss3 libsecret-1-0 libuuid1 libxss1 libxtst6 rpm xdg-utils xvfb
 
-      - name: Configure Flatpak Runtime
-        run: |
-          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.electronjs.Electron2.BaseApp//24.08
+      - name: Build Linux Core Artifacts
+        run: npm run ${{ matrix.package_script }} -- --publish never
 
-      - name: Build Linux Artifacts
-        run: |
-          npm run package:linux:release -- --publish never
-          npx electron-builder --linux flatpak --publish never
-
-      - name: Smoke Check Linux Artifacts
+      - name: Validate Linux Core Artifacts
         shell: bash
         run: |
           set -euo pipefail
-          checks=(
-            "release/*.AppImage"
-            "release/*.deb"
-            "release/*.rpm"
-            "release/*.tar.gz"
-            "release/*.flatpak"
-          )
-          for pattern in "${checks[@]}"; do
-            if ! compgen -G "$pattern" > /dev/null; then
-              echo "Missing expected artifact: $pattern"
-              exit 1
-            fi
-          done
-          echo "Linux artifact smoke check passed."
+          shopt -s nullglob
+
+          tarballs=(release/*-linux-${{ matrix.arch }}.tar.gz)
+          debs=(release/*.deb)
+          rpms=(release/*.rpm)
+
+          if [[ ${#tarballs[@]} -ne 1 ]]; then
+            echo "Expected exactly one ${{ matrix.arch }} tarball; found ${#tarballs[@]}"
+            exit 1
+          fi
+          if [[ ${#debs[@]} -ne 1 ]]; then
+            echo "Expected exactly one ${{ matrix.arch }} DEB; found ${#debs[@]}"
+            exit 1
+          fi
+          if [[ ${#rpms[@]} -ne 1 ]]; then
+            echo "Expected exactly one ${{ matrix.arch }} RPM; found ${#rpms[@]}"
+            exit 1
+          fi
+
+          deb_arch="$(dpkg-deb --field "${debs[0]}" Architecture)"
+          rpm_arch="$(rpm -qp --queryformat '%{ARCH}' "${rpms[0]}")"
+          if [[ "$deb_arch" != "${{ matrix.deb_arch }}" ]]; then
+            echo "Unexpected DEB architecture: $deb_arch"
+            exit 1
+          fi
+          if [[ "$rpm_arch" != "${{ matrix.rpm_arch }}" ]]; then
+            echo "Unexpected RPM architecture: $rpm_arch"
+            exit 1
+          fi
+
+          executable="release/linux-${{ matrix.arch }}-unpacked/kingdom-death-survivors"
+          if [[ ! -x "$executable" ]]; then
+            echo "Packaged executable is missing or not executable: $executable"
+            exit 1
+          fi
+          if ! readelf -h "$executable" | grep -Eq "Machine:[[:space:]]+${{ matrix.elf_machine }}$"; then
+            echo "Packaged executable has the wrong ELF architecture"
+            readelf -h "$executable"
+            exit 1
+          fi
+
+          file "$executable"
+          readelf -lW "$executable" | grep -E 'Type|LOAD'
+          sha256sum "${tarballs[0]}" "${debs[0]}" "${rpms[0]}"
+          echo "Linux ${{ matrix.arch }} core artifact validation passed."
+
+      - name: Smoke Test Packaged Application
+        shell: bash
+        run: |
+          xvfb-run -a npm run smoke:linux:packaged -- \
+            "release/linux-${{ matrix.arch }}-unpacked/kingdom-death-survivors"
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-packages
-          path: release/**
+          name: linux-core-${{ matrix.arch }}
+          path: |
+            release/*.tar.gz
+            release/*.deb
+            release/*.rpm
           if-no-files-found: error
