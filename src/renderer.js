@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const settlementHelpers = window.KDMSettlementHelpers
   const showdownState = window.KDMShowdownState
   const showdownViewModule = window.KDMShowdownView
+  const showdownSessionModule = window.KDMShowdownSession
   const showdownControllerModule = window.KDMShowdownController
   if (!knowledgeTemplateHelpers) {
     console.error('Knowledge template helpers not available')
@@ -24,6 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('Showdown view module not available')
     return
   }
+  if (!showdownSessionModule) {
+    console.error('Showdown session module not available')
+    return
+  }
   if (!showdownControllerModule) {
     console.error('Showdown controller module not available')
     return
@@ -32,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     buildBlankKnowledgeEntry,
     buildUpgradedScratchKnowledge,
     canUpgradeKnowledgeEntry,
+    settlementKnowledgeOptions,
     getKnowledgeEntryTypeFromRowType,
     getKnowledgeTemplateLabel,
     getKnowledgeTypeFromArrayName,
@@ -67,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateShowdownTextDraft
   } = showdownState
   const { renderShowdownCard } = showdownViewModule
+  const { createShowdownSession } = showdownSessionModule
   const { createShowdownController } = showdownControllerModule
   const TENET_KNOWLEDGE_LIMIT = 1
   const KNOWLEDGE_LIMIT = 5
@@ -603,19 +610,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const TEXT_ENTRY_ARRAYS = ['abilities', 'impairments', 'notes']
   let showdownArmor = createShowdownArmorState()
   let showdownModifiers = createShowdownModifierState()
-  const WEAPON_PROFICIENCY_TYPES = [
-    '',
-    'Axe',
-    'Bow',
-    'Club',
-    'Fist & Tooth',
-    'Grand Weapon',
-    'Katar',
-    'Lantern Glaive',
-    'Spear',
-    'Sword',
-    'Whip'
-  ]
   const BULK_EDIT_FIELD_CONFIG = {
     lumi: { label: 'Lumi', min: 0 },
     movement: { label: 'Movement', min: 1 },
@@ -954,11 +948,6 @@ document.addEventListener('DOMContentLoaded', () => {
     person.tinker = value === 'tinker'
   }
 
-  function buildShowdownGroupOptions(currentValue, options) {
-    return options
-      .map(([value, label]) => `<option value="${value}"${currentValue === value ? ' selected' : ''}>${label}</option>`)
-      .join('')
-  }
 
   function stepShowdownPage(slot, direction) {
     if (slot !== 'A' && slot !== 'B') return false
@@ -1143,7 +1132,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function refreshLanStatusAfterSurvivorOperation(task) {
     try {
-      return await task()
+      const result = await task()
+      if (result?.settlementWarning) window.alert(result.settlementWarning)
+      return result
     } finally {
       if (isLanClientMode()) await refreshLanConnectionStatus()
     }
@@ -1893,10 +1884,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function resetShowdownModifiers() {
-    showdownModifiers = createShowdownModifierState()
-  }
-
   function getShowdownModifier(slot, field) {
     return ensureShowdownModifier(showdownModifiers, slot, field) || createShowdownModifier()
   }
@@ -2607,7 +2594,16 @@ document.addEventListener('DOMContentLoaded', () => {
     })
 
     knowledgeTemplateSelect.innerHTML = ''
+    let previousUnlocked = false
     for (const template of templates) {
+      if (previousUnlocked && !template.unlocked) {
+        const separator = document.createElement('option')
+        separator.value = ''
+        separator.textContent = '-----'
+        separator.disabled = true
+        knowledgeTemplateSelect.appendChild(separator)
+      }
+      previousUnlocked = Boolean(template.unlocked)
       const option = document.createElement('option')
       option.value = template.fileName
       option.textContent =
@@ -2626,7 +2622,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hasTemplates) {
       const preferred = String(knowledgeTemplatePickerState.preferredTemplateFile || '').trim()
       const preferredIndex = preferred ? templates.findIndex(template => template.fileName === preferred) : -1
-      knowledgeTemplateSelect.selectedIndex = preferredIndex >= 0 ? preferredIndex : 0
+      const selectedIndex = preferredIndex >= 0 ? preferredIndex : 0
+      const unlockedCount = templates.filter(template => template.unlocked).length
+      const hasSeparator = unlockedCount > 0 && unlockedCount < templates.length
+      knowledgeTemplateSelect.selectedIndex = selectedIndex + (hasSeparator && selectedIndex >= unlockedCount ? 1 : 0)
     }
     syncControlState()
   }
@@ -2643,8 +2642,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }) {
     const type = getKnowledgeTypeFromArrayName(arrayName)
     if (!type) return
-    await refreshKnowledgeTemplateCache(type)
-    const templates = knowledgeTemplateCache[type]
+    await refreshKnowledgeTemplateCache()
+    let settlement = null
+    try {
+      settlement = await window.api.getSettlementRecord()
+      if (settlement.pendingOperations) setStatus(`${settlement.pendingOperations} settlement registration(s) still pending recovery.`, 'error')
+    } catch (err) {
+      setStatus(`Settlement knowledge unavailable: ${err.message}. Showing local templates only.`, 'error')
+    }
+    // Slot limits remain distinct, but both template folders share one discovery pool.
+    const otherType = type === 'knowledge' ? 'tenetKnowledge' : 'knowledge'
+    const templates = settlementKnowledgeOptions([...knowledgeTemplateCache[type], ...knowledgeTemplateCache[otherType]], settlement)
     knowledgeTemplatePickerState.mode = mode
     knowledgeTemplatePickerState.action = action
     knowledgeTemplatePickerState.type = arrayName
@@ -2888,24 +2896,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const records = Array.isArray(summaryPayload?.records) ? summaryPayload.records : []
     if (!hasDataFolder || records.length === 0) {
       settlementRecords = []
-      populateShowdownSelectors([])
-      applyShowdownLockSelections()
+      showdownSession.populateShowdownSelectors([])
+      showdownSession.applyShowdownLockSelections()
       renderSettlementTable()
       return
     }
 
     settlementRecords = records.filter(Boolean)
-    populateShowdownSelectors(getAliveShowdownFiles())
-    applyShowdownLockSelections()
+    showdownSession.populateShowdownSelectors(getAliveShowdownFiles())
+    showdownSession.applyShowdownLockSelections()
     renderSettlementTable()
   }
 
-  function showdownListItems(items, emptyText, renderItem) {
-    if (!Array.isArray(items) || items.length === 0) {
-      return `<ul><li>${escapeHtml(emptyText)}</li></ul>`
-    }
-    return `<ul>${items.map((item, index) => renderItem(item, index)).join('')}</ul>`
-  }
 
   function iconLabel(iconId, label) {
     if (!iconId) return label
@@ -2973,18 +2975,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return showdownMarkdownContentPending.has(cacheKey) ? 'Loading text...' : ''
   }
 
-  function buildShowdownProficiencyTypeOptions(currentType) {
-    const normalizedCurrent = String(currentType || '').trim()
-    const options = [...WEAPON_PROFICIENCY_TYPES]
-    if (normalizedCurrent && !options.includes(normalizedCurrent)) options.push(normalizedCurrent)
-    return options
-      .map(type => {
-        const selected = type === normalizedCurrent ? ' selected' : ''
-        const label = type || 'None'
-        return `<option value="${type}"${selected}>${label}</option>`
-      })
-      .join('')
-  }
 
   function renderShowdown() {
     renderShowdownSlot('A')
@@ -3002,13 +2992,13 @@ document.addEventListener('DOMContentLoaded', () => {
     showdownPageBySlot[normalizedSlot] = activePage
     renderShowdownCard(container, {
       person,
+      textDraftState: showdownTextDraftState[normalizedSlot],
       slotLabel: normalizedSlot,
       armor: showdownArmor[normalizedSlot],
       activePage,
       pageConfig: SHOWDOWN_PAGE_CONFIG,
       proficiency,
       callbacks: {
-        buildShowdownGroupOptions,
         clamp,
         coerceInt,
         coerceNumber,
@@ -3018,8 +3008,7 @@ document.addEventListener('DOMContentLoaded', () => {
         getShowdownMarkdownContent,
         getShowdownModifier,
         iconLabel,
-        renderShowdownTextEntry,
-        showdownListItems
+        getTextEntryPlaceholder
       }
     })
   }
@@ -3037,342 +3026,6 @@ document.addEventListener('DOMContentLoaded', () => {
     syncShowdownTextDraftSlotState(showdownTextDraftState, slot, person, TEXT_ENTRY_ARRAYS)
   }
 
-  function renderShowdownTextEntry(slot, arrayName, index) {
-    const entry = showdownTextDraftState[slot]?.[arrayName]?.[index]
-    if (entry?.isEditing) {
-      const placeholder = getTextEntryPlaceholder(arrayName)
-      return '<textarea class="showdown-inline-text" data-showdown-draft-slot="' + slot + '" data-showdown-draft-array="' + arrayName + '" data-showdown-draft-index="' + index + '" placeholder="' + placeholder + '" rows="3">' + escapeHtml(entry.draft) + '</textarea>' +
-        '<button type="button" class="btn btn-secondary" data-showdown-commit-slot="' + slot + '" data-showdown-commit-array="' + arrayName + '" data-showdown-commit-index="' + index + '">Save/Commit</button>'
-    }
-    return '<p class="showdown-text-paragraph">' + escapeHtml(entry?.text || '') + '</p>' +
-      '<button type="button" class="btn btn-secondary" data-showdown-edit-slot="' + slot + '" data-showdown-edit-array="' + arrayName + '" data-showdown-edit-index="' + index + '">Edit</button>'
-  }
-
-  function addShowdownTextEntry(slot, arrayName) {
-    if (!slot || !showdownPeople[slot]) return
-    const person = showdownPeople[slot].person
-    if (!Array.isArray(person[arrayName])) person[arrayName] = []
-    person[arrayName].push('')
-    syncShowdownTextDraftState(slot, person)
-    if (!beginShowdownTextDraft(showdownTextDraftState, slot, arrayName, person[arrayName].length - 1)) return
-    renderShowdownSlot(slot)
-    const label = getTextEntrySingularLabel(arrayName)
-    setStatus('Added ' + label, 'success')
-  }
-
-  function editShowdownTextEntry(slot, arrayName, index) {
-    if (!slot || !showdownPeople[slot]) return
-    syncShowdownTextDraftState(slot, showdownPeople[slot].person)
-    if (!beginShowdownTextDraft(showdownTextDraftState, slot, arrayName, index)) return
-    renderShowdownSlot(slot)
-  }
-
-  function commitShowdownTextEntry(slot, arrayName, index) {
-    if (!slot || !showdownPeople[slot]) return
-    const person = showdownPeople[slot].person
-    if (!Array.isArray(person[arrayName]) || index < 0 || index >= person[arrayName].length) return
-    syncShowdownTextDraftState(slot, person)
-    const result = commitShowdownTextDraft(showdownTextDraftState, slot, arrayName, index)
-    if (result.status === 'empty') {
-      setStatus('Text cannot be empty. Use Remove to delete the entry.', 'error')
-      return
-    }
-    if (result.status !== 'committed') return
-    person[arrayName][index] = result.value
-    renderShowdownSlot(slot)
-  }
-
-  function getShowdownSurvivorLabel(slot) {
-    if (!slot || !showdownPeople[slot]) return `Survivor ${slot || '?'}`
-    return String(showdownPeople[slot].person?.name || showdownPeople[slot].fileName || `Survivor ${slot}`).trim()
-  }
-
-  async function syncSuccessfulShowdownSave(slot, saveResult, options = {}) {
-    if (!slot || !showdownPeople[slot]) return
-    const nextFileName = String(saveResult?.fileName || showdownPeople[slot].fileName || '').trim()
-    if (!nextFileName) return
-    try {
-      const latest = await refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(nextFileName))
-      showdownPeople[slot] = {
-        fileName: nextFileName,
-        person: deepClone(latest)
-      }
-      syncShowdownTextDraftState(slot, showdownPeople[slot].person)
-      if (currentPage === 'showdown') renderShowdownSlot(slot)
-      return
-    } catch {
-      const stamp = new Date().toISOString()
-      showdownPeople[slot].fileName = nextFileName
-      showdownPeople[slot].person.revision = coerceInt(showdownPeople[slot].person?.revision, 0) + 1
-      showdownPeople[slot].person.updatedAt = stamp
-      showdownPeople[slot].person.lastUpdated = stamp
-      if (options.markReturned) showdownPeople[slot].person.lastReturned = stamp
-    }
-  }
-
-  function formatShowdownSaveFailureMessage(results) {
-    const successes = results.filter(result => result.ok)
-    const failures = results.filter(result => !result.ok)
-    const successMessage =
-      successes.length > 0 ? `Saved ${successes.map(result => result.label).join(' and ')}. ` : ''
-    const failureMessage = failures
-      .map(result => {
-        if (result.errorType === 'conflict') return `${result.label} failed with a stale revision conflict: ${result.message}`
-        if (result.errorType === 'validation') return `${result.label} failed validation: ${result.message}`
-        if (result.errorType === 'host-unavailable' || result.errorType === 'disconnected') {
-          return `${result.label} could not reach the LAN host: ${result.message}`
-        }
-        if (result.errorType === 'server-error') return `${result.label} failed with a LAN host server error: ${result.message}`
-        return `${result.label} failed: ${result.message}`
-      })
-      .join(' ')
-    return `Could not end showdown. ${successMessage}${failureMessage} Showdown remains departed so you can retry safely.`
-  }
-
-  async function saveShowdownSurvivors(options = {}) {
-    if (!showdownPeople.A || !showdownPeople.B) return
-    if (!(await ensureCanWriteSurvivorData('saving showdown survivors'))) {
-      throw new Error(getLanClientBlockedMessage('saving showdown survivors'))
-    }
-    const slots = ['A', 'B']
-    const settledResults = await Promise.allSettled(
-      slots.map(slot =>
-        refreshLanStatusAfterSurvivorOperation(() =>
-          window.api.savePerson(showdownPeople[slot].person, {
-            expectedFileName: showdownPeople[slot].fileName,
-            markReturned: Boolean(options.markReturned)
-          })
-        )
-      )
-    )
-    const results = []
-    for (let index = 0; index < slots.length; index += 1) {
-      const slot = slots[index]
-      const settled = settledResults[index]
-      const label = getShowdownSurvivorLabel(slot)
-      if (settled.status === 'fulfilled' && settled.value && settled.value.ok !== false) {
-        await syncSuccessfulShowdownSave(slot, settled.value, options)
-        results.push({
-          slot,
-          label,
-          ok: true,
-          fileName: String(settled.value.fileName || showdownPeople[slot].fileName || '')
-        })
-        continue
-      }
-      const message =
-        settled.status === 'rejected'
-          ? settled.reason?.message || 'Failed to save survivor while leaving showdown'
-          : settled.value?.message || 'Failed to save survivor while leaving showdown'
-      const errorType = settled.status === 'fulfilled' ? settled.value?.errorType || '' : ''
-      results.push({
-        slot,
-        label,
-        ok: false,
-        errorType,
-        message
-      })
-    }
-    if (results.some(result => !result.ok)) {
-      const error = new Error(formatShowdownSaveFailureMessage(results))
-      error.showdownSaveResults = results
-      throw error
-    }
-    return results
-  }
-
-  function applyShowdownLockSelections() {
-    if (!showdownDeparted) return
-    if (showdownLockedSlots.A) showdownSelectA.value = showdownLockedSlots.A
-    if (showdownLockedSlots.B) showdownSelectB.value = showdownLockedSlots.B
-  }
-
-  function hasShowdownSelectionMismatch() {
-    const selectedA = String(showdownSelectA.value || '')
-    const selectedB = String(showdownSelectB.value || '')
-    return (
-      Boolean(showdownPeople.A && showdownPeople.A.fileName !== selectedA) ||
-      Boolean(showdownPeople.B && showdownPeople.B.fileName !== selectedB)
-    )
-  }
-
-  function resetShowdownSlotState(slot) {
-    if (slot !== 'A' && slot !== 'B') return
-    showdownPageBySlot[slot] = SHOWDOWN_DEFAULT_PAGE
-    showdownArmor[slot] = createShowdownArmorSlotState()
-    showdownModifiers[slot] = createShowdownModifierSlotState()
-    showdownTextDraftState[slot] = createEmptyShowdownTextDraftState()
-  }
-
-  function reconcileShowdownMemoryForSelectionChange() {
-    if (showdownDeparted) return false
-    let changed = false
-    const selectedA = String(showdownSelectA.value || '')
-    const selectedB = String(showdownSelectB.value || '')
-    if (showdownPeople.A && showdownPeople.A.fileName !== selectedA) {
-      showdownPeople.A = null
-      resetShowdownSlotState('A')
-      changed = true
-    }
-    if (showdownPeople.B && showdownPeople.B.fileName !== selectedB) {
-      showdownPeople.B = null
-      resetShowdownSlotState('B')
-      changed = true
-    }
-    if (changed) renderShowdown()
-    return changed
-  }
-
-  function resetShowdownSessionState(clearPeople = false, clearSelections = false) {
-    showdownDeparted = false
-    showdownLockedSlots = { A: '', B: '' }
-    showdownPageBySlot = createShowdownPageState()
-    resetShowdownModifiers()
-    showdownArmor = createShowdownArmorState()
-    if (clearPeople) {
-      showdownPeople = { A: null, B: null }
-      showdownTextDraftState = createShowdownTextDraftState()
-      renderShowdown()
-    }
-    if (clearSelections) {
-      forceShowdownReselection = true
-      showdownSelectA.value = ''
-      showdownSelectB.value = ''
-    }
-    syncControlState()
-    if (currentPage === 'settlement') renderSettlementTable()
-  }
-
-  function departShowdownSession() {
-    if (!showdownPeople.A || !showdownPeople.B) {
-      setStatus('Open showdown with two survivors first', 'error')
-      return
-    }
-    if (showdownDeparted) {
-      setStatus('Showdown is already departed', 'neutral')
-      return
-    }
-    showdownDeparted = true
-    showdownLockedSlots = {
-      A: showdownPeople.A.fileName || '',
-      B: showdownPeople.B.fileName || ''
-    }
-    applyShowdownLockSelections()
-    syncControlState()
-    if (currentPage === 'settlement') renderSettlementTable()
-    setStatus(
-      `Showdown departed. Locked ${showdownPeople.A.person?.name || showdownLockedSlots.A} and ${
-        showdownPeople.B.person?.name || showdownLockedSlots.B
-      }.`,
-      'success'
-    )
-  }
-
-  async function finalizeShowdownSession() {
-    if (!showdownDeparted) {
-      setStatus('Departed must be active before ending showdown', 'error')
-      return
-    }
-    const confirmed = window.confirm(
-      'Are you sure you want to return? This will save current showdown survivor stats to settlement.'
-    )
-    if (!confirmed) return
-    setStatus('Saving showdown survivors...', 'neutral')
-    await saveShowdownSurvivors({ markReturned: true })
-    resetShowdownSessionState(true, true)
-    setPage('settlement')
-    try {
-      await refreshPeople({ silentStatus: true, updateRefreshTimestamp: true })
-    } catch {
-      // Showdown has already ended and saves completed; settlement auto-refresh will recover.
-    }
-    setStatus('Showdown over. Survivor records saved.', 'success')
-  }
-
-  async function refreshSelectedShowdownSurvivors() {
-    if (showdownDeparted) {
-      setStatus('Cannot refresh while departed. End showdown first.', 'error')
-      return
-    }
-
-    const fileA = String(showdownSelectA.value || '')
-    const fileB = String(showdownSelectB.value || '')
-    if (!fileA || !fileB) {
-      setStatus('Select two survivors for showdown', 'error')
-      return
-    }
-    if (fileA === fileB) {
-      setStatus('Choose two different survivors for showdown', 'error')
-      return
-    }
-
-    const [personA, personB] = await Promise.all([
-      refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(fileA)),
-      refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(fileB))
-    ])
-    if (!personA?.isAlive || !personB?.isAlive) {
-      throw new Error('Only alive survivors can enter showdown')
-    }
-
-    showdownPeople.A = { fileName: fileA, person: deepClone(personA) }
-    showdownPeople.B = { fileName: fileB, person: deepClone(personB) }
-    resetShowdownSlotState('A')
-    resetShowdownSlotState('B')
-    renderShowdown()
-    setStatus('Showdown survivors refreshed from settlement data', 'success')
-  }
-
-  async function openShowdownView() {
-    if (showdownDeparted && showdownPeople.A && showdownPeople.B) {
-      applyShowdownLockSelections()
-      renderShowdown()
-      setPage('showdown')
-      setStatus('Resumed departed showdown session', 'neutral')
-      return
-    }
-
-    const fileA = showdownSelectA.value
-    const fileB = showdownSelectB.value
-    if (!fileA || !fileB) {
-      setStatus('Select two survivors for showdown', 'error')
-      return
-    }
-    if (fileA === fileB) {
-      setStatus('Choose two different survivors for showdown', 'error')
-      return
-    }
-
-    reconcileShowdownMemoryForSelectionChange()
-    const loadTasks = []
-    if (!showdownPeople.A || showdownPeople.A.fileName !== fileA) {
-      loadTasks.push(
-        refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(fileA)).then(person => {
-          if (!person?.isAlive) throw new Error('Only alive survivors can enter showdown')
-          showdownPeople.A = { fileName: fileA, person: deepClone(person) }
-          resetShowdownSlotState('A')
-        })
-      )
-    }
-    if (!showdownPeople.B || showdownPeople.B.fileName !== fileB) {
-      loadTasks.push(
-        refreshLanStatusAfterSurvivorOperation(() => window.api.loadPerson(fileB)).then(person => {
-          if (!person?.isAlive) throw new Error('Only alive survivors can enter showdown')
-          showdownPeople.B = { fileName: fileB, person: deepClone(person) }
-          resetShowdownSlotState('B')
-        })
-      )
-    }
-    if (loadTasks.length > 0) await Promise.all(loadTasks)
-    if (!showdownPeople.A || !showdownPeople.B) {
-      throw new Error('Failed to load selected survivors for showdown')
-    }
-    renderShowdown()
-    setPage('showdown')
-    setStatus(
-      `Showdown ready: ${showdownPeople.A.person?.name || fileA} vs ${showdownPeople.B.person?.name || fileB}`,
-      'success'
-    )
-  }
 
   function showHover(title, preview, x, y) {
     hoverTitle.textContent = title
@@ -3397,8 +3050,8 @@ document.addEventListener('DOMContentLoaded', () => {
       option.textContent = file
       peopleList.appendChild(option)
     }
-    populateShowdownSelectors(files)
-    applyShowdownLockSelections()
+    showdownSession.populateShowdownSelectors(files)
+    showdownSession.applyShowdownLockSelections()
     syncControlState()
   }
 
@@ -3408,56 +3061,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .map(record => record.fileName)
       .filter(Boolean)
       .sort((a, b) => a.localeCompare(b))
-  }
-
-  function populateShowdownSelectors(files) {
-    const previousA = showdownSelectA.value
-    const previousB = showdownSelectB.value
-    showdownSelectA.innerHTML = ''
-    showdownSelectB.innerHTML = ''
-
-    for (const file of files) {
-      const optionA = document.createElement('option')
-      optionA.value = file
-      optionA.textContent = file
-      showdownSelectA.appendChild(optionA)
-
-      const optionB = document.createElement('option')
-      optionB.value = file
-      optionB.textContent = file
-      showdownSelectB.appendChild(optionB)
-    }
-
-    if (files.length === 0) {
-      showdownSelectA.value = ''
-      showdownSelectB.value = ''
-      return
-    }
-
-    if (forceShowdownReselection) {
-      showdownSelectA.value = ''
-      showdownSelectB.value = ''
-      return
-    }
-
-    showdownSelectA.value = files.includes(previousA) ? previousA : files[0]
-    showdownSelectB.value = files.includes(previousB) ? previousB : files[Math.min(1, files.length - 1)]
-    ensureDistinctShowdownSelection('A')
-  }
-
-  function ensureDistinctShowdownSelection(changed) {
-    const options = [...showdownSelectA.options].map(option => option.value)
-    if (options.length < 2) return
-
-    if (showdownSelectA.value === showdownSelectB.value) {
-      if (changed === 'A') {
-        const alternative = options.find(value => value !== showdownSelectA.value)
-        if (alternative) showdownSelectB.value = alternative
-      } else {
-        const alternative = options.find(value => value !== showdownSelectB.value)
-        if (alternative) showdownSelectA.value = alternative
-      }
-    }
   }
 
   function renderArrayRows(container, items, type) {
@@ -4350,76 +3953,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setStatus(`Unable to locate markdown file ${fileName}`, 'error')
   }
 
-  function mutateShowdownStat(slot, field, nextValue, min = null, max = null) {
-    if (!showdownPeople[slot]) return
-    const person = showdownPeople[slot].person
-    person[field] = clamp(coerceNumber(nextValue, 0), min, max)
-    renderShowdownSlot(slot)
-  }
-
-  function mutateShowdownModifier(slot, field, kind, nextValue) {
-    if (!showdownPeople[slot]) return
-    if (!setShowdownModifierValue(showdownModifiers, slot, field, kind, nextValue)) return
-    renderShowdownSlot(slot)
-  }
-
-  function mutateShowdownWeaponProficiency(slot, field, nextValue) {
-    if (!showdownPeople[slot]) return
-    const person = showdownPeople[slot].person
-    const proficiency = ensureWeaponProficiency(person)
-    if (field === 'type') {
-      proficiency.type = String(nextValue || '').trim()
-      renderShowdownSlot(slot)
-      return
-    }
-    if (field === 'level') {
-      proficiency.level = clamp(coerceInt(nextValue, 0), 0, 8)
-      renderShowdownSlot(slot)
-    }
-  }
-
-  function updateShowdownWeaponProficiencyDraft(slot, field, nextValue) {
-    if (!showdownPeople[slot]) return
-    const person = showdownPeople[slot].person
-    const proficiency = ensureWeaponProficiency(person)
-    if (field === 'type') {
-      proficiency.type = String(nextValue || '')
-    }
-  }
-
-  function removeShowdownArrayItem(slot, arrayName, index) {
-    if (!showdownPeople[slot]) return
-    const person = showdownPeople[slot].person
-    if (!Array.isArray(person[arrayName])) return
-    person[arrayName].splice(index, 1)
-    if (isTextEntryArrayName(arrayName)) {
-      syncShowdownTextDraftState(slot, person)
-    }
-    renderShowdownSlot(slot)
-  }
-
-  function mutateShowdownAbilityGroup(slot, group, value) {
-    if (!showdownPeople[slot] || !showdownPeople[slot].person) return
-    if (group === 'courageGroup') {
-      applyMatchmakerGroup(showdownPeople[slot].person, value)
-      renderShowdownSlot(slot)
-      return
-    }
-    if (group === 'understandingGroup') {
-      applyTinkerGroup(showdownPeople[slot].person, value)
-      renderShowdownSlot(slot)
-    }
-  }
-
-  function mutateShowdownCurrentObservations(slot, arrayName, index, nextValue) {
-    if (!showdownPeople[slot]) return
-    const person = showdownPeople[slot].person
-    if (!Array.isArray(person[arrayName])) return
-    if (index < 0 || index >= person[arrayName].length) return
-    person[arrayName][index].currentObservations = Math.max(0, coerceNumber(nextValue, 0))
-    renderShowdownSlot(slot)
-  }
-
   async function init() {
     await runBusy(async () => {
       let initialSurvivorReadError = null
@@ -4642,43 +4175,7 @@ document.addEventListener('DOMContentLoaded', () => {
           )
         })
       },
-      assignShowdownSlot(slot, fileName) {
-        if (showdownDeparted) {
-          setStatus('Cannot change showdown slots while departed. End showdown first.', 'error')
-          return
-        }
-        const selectedRecord = settlementRecords.find(record => record.fileName === fileName)
-        if (selectedRecord && !selectedRecord.person?.isAlive) {
-          setStatus('Dead survivors cannot enter showdown', 'error')
-          return
-        }
-
-        const currentA = showdownSelectA.value
-        const currentB = showdownSelectB.value
-
-        if (slot === 'A') {
-          const shouldSwap = fileName === currentB && currentA && currentA !== fileName
-          showdownSelectA.value = fileName
-          if (shouldSwap) {
-            showdownSelectB.value = currentA
-          } else {
-            ensureDistinctShowdownSelection('A')
-          }
-        } else {
-          const shouldSwap = fileName === currentA && currentB && currentB !== fileName
-          showdownSelectB.value = fileName
-          if (shouldSwap) {
-            showdownSelectA.value = currentB
-          } else {
-            ensureDistinctShowdownSelection('B')
-          }
-        }
-        if (forceShowdownReselection) forceShowdownReselection = false
-        reconcileShowdownMemoryForSelectionChange()
-        syncControlState()
-        renderSettlementTable()
-        setStatus(`Assigned ${fileName} to Survivor ${slot}`, 'success')
-      },
+      assignShowdownSlot: (slot, fileName) => showdownSession.assignShowdownSlot(slot, fileName),
       toggleExtraFilters() {
         settlementExtraFiltersOpen = !settlementExtraFiltersOpen
         syncSettlementExtraFilters()
@@ -4814,45 +4311,14 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('blur', () => {
     syncSettlementAutoRefresh()
   })
-  showdownSelectA.addEventListener('change', () => {
-    if (showdownDeparted) {
-      applyShowdownLockSelections()
-      setStatus('Showdown slots are locked while departed', 'neutral')
-    }
-    if (forceShowdownReselection) forceShowdownReselection = false
-    ensureDistinctShowdownSelection('A')
-    reconcileShowdownMemoryForSelectionChange()
-    syncControlState()
-    if (currentPage === 'settlement') renderSettlementTable()
-  })
 
   syncSettlementExtraFilters()
-  showdownSelectB.addEventListener('change', () => {
-    if (showdownDeparted) {
-      applyShowdownLockSelections()
-      setStatus('Showdown slots are locked while departed', 'neutral')
-    }
-    if (forceShowdownReselection) forceShowdownReselection = false
-    ensureDistinctShowdownSelection('B')
-    reconcileShowdownMemoryForSelectionChange()
-    syncControlState()
-    if (currentPage === 'settlement') renderSettlementTable()
-  })
-  openShowdownButton.addEventListener('click', () => {
-    runBusy(openShowdownView).catch(err => {
-      showSurvivorReadFailure(
-        err,
-        'opening Showdown',
-        'Failed to open showdown view',
-        'The current view was kept unchanged.'
-      )
-    })
-  })
+
   navShowdownButton.addEventListener('click', () => {
     if (currentPage === 'showdown') return
     if (!confirmDiscardCreateChanges('open showdown')) return
     runBusy(async () => {
-      if (showdownPeople.A && showdownPeople.B && !hasShowdownSelectionMismatch()) {
+      if (showdownPeople.A && showdownPeople.B && !showdownSession.hasShowdownSelectionMismatch()) {
         setPage('showdown')
         renderShowdown()
         syncControlState()
@@ -4862,8 +4328,8 @@ document.addEventListener('DOMContentLoaded', () => {
         )
         return
       }
-      reconcileShowdownMemoryForSelectionChange()
-      await openShowdownView()
+      showdownSession.reconcileShowdownMemoryForSelectionChange()
+      await showdownSession.openShowdownView()
     }).catch(err => {
       showSurvivorReadFailure(
         err,
@@ -4961,39 +4427,81 @@ document.addEventListener('DOMContentLoaded', () => {
   themeSelect.addEventListener('change', () => {
     applyTheme(themeSelect.value)
   })
-  const showdownController = createShowdownController({
+  // Shared composition dependencies; each module consumes only its own responsibilities.
+  // Accessors keep session resets visible without creating a second state owner.
+  const showdownConfig = {
     element: showdownView,
+    documentRef: document,
+    elements: { showdownSelectA, showdownSelectB, openShowdownButton, refreshShowdownSurvivorsButton, departShowdownButton, showdownOverButton },
+    session: {
+      get showdownPeople() { return showdownPeople },
+      set showdownPeople(value) { showdownPeople = value },
+      get showdownDeparted() { return showdownDeparted },
+      set showdownDeparted(value) { showdownDeparted = value },
+      get showdownLockedSlots() { return showdownLockedSlots },
+      set showdownLockedSlots(value) { showdownLockedSlots = value },
+      get showdownPageBySlot() { return showdownPageBySlot },
+      set showdownPageBySlot(value) { showdownPageBySlot = value },
+      get showdownArmor() { return showdownArmor },
+      set showdownArmor(value) { showdownArmor = value },
+      get showdownModifiers() { return showdownModifiers },
+      set showdownModifiers(value) { showdownModifiers = value },
+      get showdownTextDraftState() { return showdownTextDraftState },
+      set showdownTextDraftState(value) { showdownTextDraftState = value },
+      get forceShowdownReselection() { return forceShowdownReselection },
+      set forceShowdownReselection(value) { forceShowdownReselection = value },
+    },
     getState: () => ({
+      currentPage,
+      settlementRecords,
       knowledgeTemplateCache,
       showdownArmor,
+      showdownModifiers,
       showdownPageBySlot,
       showdownPeople,
       showdownTextDraftState
     }),
     actions: {
-      addShowdownTextEntry,
-      commitShowdownTextEntry,
-      editShowdownTextEntry,
-      mutateShowdownAbilityGroup,
-      mutateShowdownCurrentObservations,
-      mutateShowdownModifier,
-      mutateShowdownStat,
-      mutateShowdownWeaponProficiency,
+      ensureCanWriteSurvivorData,
+      getLanClientBlockedMessage,
+      refreshLanStatusAfterSurvivorOperation,
+      renderShowdown,
+      syncControlState,
+      renderSettlementTable,
+      setPage,
+      refreshPeople,
+      showSurvivorReadFailure,
       openAddPicker,
       openKnowledgeScratchEditorForShowdownUpgrade,
       openKnowledgeTemplatePicker,
       openMarkdownFromReference,
       refreshKnowledgeTemplateCache,
-      removeShowdownArrayItem,
       renderShowdownSlot,
       replaceKnowledgeEntryInShowdown,
       runBusy,
       runWithButtonFeedback,
       setStatus,
-      syncShowdownTextDraftState,
-      updateShowdownWeaponProficiencyDraft
+      syncShowdownTextDraftState
     },
     helpers: {
+      deepClone,
+      SHOWDOWN_DEFAULT_PAGE,
+      createShowdownArmorSlotState,
+      createShowdownModifierSlotState,
+      createEmptyShowdownTextDraftState,
+      createShowdownPageState,
+      createShowdownArmorState,
+      createShowdownTextDraftState,
+      createShowdownModifierState,
+      applyMatchmakerGroup,
+      applyTinkerGroup,
+      beginShowdownTextDraft,
+      clamp,
+      coerceInt,
+      commitShowdownTextDraft,
+      ensureWeaponProficiency,
+      getTextEntrySingularLabel,
+      setShowdownModifierValue,
       adjustShowdownArmorAll,
       adjustShowdownArmorPart,
       coerceNumber,
@@ -5007,9 +4515,16 @@ document.addEventListener('DOMContentLoaded', () => {
       updateShowdownTextDraft
     },
     services: {
+      loadPerson: fileName => window.api.loadPerson(fileName),
+      savePerson: (person, options) => window.api.savePerson(person, options),
+      confirm: message => window.confirm(message),
+      alert: message => window.alert(message),
       saveKnowledgeTemplate: (type, template) => window.api.saveKnowledgeTemplate(type, template)
     }
-  })
+  }
+  const showdownSession = createShowdownSession(showdownConfig)
+  const showdownController = createShowdownController(showdownConfig)
+  showdownSession.bindEvents()
   showdownController.bindEvents()
 
   addMarkdownCollection.addEventListener('change', () => {
@@ -5021,26 +4536,6 @@ document.addEventListener('DOMContentLoaded', () => {
   knowledgeTemplateSearch.addEventListener('input', renderKnowledgeTemplateOptions)
   knowledgeEntryNextMode.addEventListener('change', syncKnowledgeScratchEditorState)
   peopleList.addEventListener('change', syncControlState)
-  refreshShowdownSurvivorsButton.addEventListener('click', () => {
-    runBusy(refreshSelectedShowdownSurvivors).catch(err => {
-      showSurvivorReadFailure(
-        err,
-        'refreshing Showdown survivors',
-        'Failed to refresh showdown survivors',
-        'The in-memory Showdown survivors were kept unchanged.'
-      )
-    })
-  })
-  departShowdownButton.addEventListener('click', departShowdownSession)
-  showdownOverButton.addEventListener('click', () => {
-    runBusy(finalizeShowdownSession).catch(err => {
-      const message = err.message || 'Failed to close showdown session'
-      setStatus(message, 'error')
-      if (currentPage === 'showdown') {
-        window.alert(`Could not return from showdown:\n\n${message}`)
-      }
-    })
-  })
 
   loadPersonButton.addEventListener('click', () => {
     runBusy(async () => {

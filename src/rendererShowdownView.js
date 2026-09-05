@@ -1,8 +1,12 @@
 (function attachShowdownView(globalScope) {
+  function buildShowdownGroupOptions(currentValue, options) {
+    return options
+      .map(([value, label]) => `<option value="${value}"${currentValue === value ? ' selected' : ''}>${label}</option>`)
+      .join('')
+  }
   function buildShowdownCardMarkup(options) {
-    const { person, slotLabel, armor, activePage, pageConfig, proficiency, callbacks } = options
+    const { person, slotLabel, armor, activePage, pageConfig, proficiency, textDraftState, callbacks } = options
     const {
-      buildShowdownGroupOptions,
       clamp,
       coerceInt,
       coerceNumber,
@@ -12,9 +16,26 @@
       getShowdownMarkdownContent,
       getShowdownModifier,
       iconLabel,
-      renderShowdownTextEntry,
-      showdownListItems
+      getTextEntryPlaceholder
     } = callbacks
+    function renderShowdownTextEntry(slot, arrayName, index) {
+      const entry = textDraftState?.[arrayName]?.[index]
+      if (entry?.isEditing) {
+        const placeholder = getTextEntryPlaceholder(arrayName)
+        return '<textarea class="showdown-inline-text" data-showdown-draft-slot="' + slot + '" data-showdown-draft-array="' + arrayName + '" data-showdown-draft-index="' + index + '" placeholder="' + placeholder + '" rows="3">' + escapeHtml(entry.draft) + '</textarea>' +
+          '<button type="button" class="btn btn-secondary" data-showdown-commit-slot="' + slot + '" data-showdown-commit-array="' + arrayName + '" data-showdown-commit-index="' + index + '">Save/Commit</button>'
+      }
+      return '<p class="showdown-text-paragraph">' + escapeHtml(entry?.text || '') + '</p>' +
+        '<button type="button" class="btn btn-secondary" data-showdown-edit-slot="' + slot + '" data-showdown-edit-array="' + arrayName + '" data-showdown-edit-index="' + index + '">Edit</button>'
+    }
+
+    function showdownListItems(items, emptyText, renderItem) {
+      if (!Array.isArray(items) || items.length === 0) {
+        return `<ul><li>${escapeHtml(emptyText)}</li></ul>`
+      }
+      return `<ul>${items.map((item, index) => renderItem(item, index)).join('')}</ul>`
+    }
+
     const p = person || {}
     const slot = slotLabel === 'A' ? 'A' : 'B'
     const vitalStats = [

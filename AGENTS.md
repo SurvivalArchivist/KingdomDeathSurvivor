@@ -55,12 +55,14 @@ Before making significant changes, check:
 - Survivor filenames are `{survivor-id}_{name-slug}.json`; the display name can change without changing identity, and history should key by `id`.
 - Template-backed systems include knowledge, tenet knowledge, and neuroses; preserve current compatibility behavior when changing related UI.
 - Multi-user safety is optimistic, not lock-based: avoid introducing save flows that silently overwrite stale data.
+- One Survivors folder owns one settlement record. Knowledge and Tenet Knowledge share settlement unlock identity (normalized name + level); only successful survivor saves count. Preserve the durable registration journal and never replay survivor writes during recovery. Keep `settlement.json` and `settlement-journal.json` out of survivor CRUD.
 
 ## Implementation Notes
 - Prefer targeted edits over broad rewrites.
 - When cleaning up UI, start by removing unnecessary containers and reducing special-case styling before introducing new components.
 - Keep CSS responsibilities clear: shared shell/layout rules in base styles, view-specific differences only where truly necessary.
 - When a view has drifted, first ask whether the fix belongs in shared styles rather than another local override.
+- Knowledge pickers prioritize settlement unlocks, then a disabled separator and remaining templates; keep stored definitions usable when source templates are missing. See `docs/ai/SETTLEMENT_RECORD.md` for persistence/recovery boundaries.
 
 ## Verification
 Use the standard verification baseline after meaningful changes:

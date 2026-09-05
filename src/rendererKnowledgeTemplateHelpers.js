@@ -73,7 +73,35 @@
     return current >= req && nextMode !== 'maxLevel'
   }
 
+  function settlementKnowledgeOptions(templates, settlement) {
+    const key = entry => JSON.stringify([String(entry?.name || '').trim().toLowerCase(), Math.max(1, Number(entry?.knowledgeLevel) || 1)])
+    const available = new Map()
+    for (const template of templates) {
+      const identity = key(template.template)
+      if (!available.has(identity)) available.set(identity, template)
+    }
+    const unlocked = []
+    const seen = new Set()
+    for (const entry of settlement?.knowledges || []) {
+      const identity = key(entry.definition)
+      if (seen.has(identity)) continue
+      seen.add(identity)
+      const local = available.get(identity)
+      unlocked.push({ fileName: local?.fileName || `settlement:${entry.id}`, name: entry.definition.name, template: entry.definition, unlocked: true })
+      available.delete(identity)
+    }
+    const sort = (a, b) => a.name.localeCompare(b.name) || getTemplateLevel(a) - getTemplateLevel(b)
+    const usedFiles = new Set()
+    return [...unlocked.sort(sort), ...Array.from(available.values()).sort(sort)].map((template, index) => {
+      // Separate template folders may contain the same filename for different definitions.
+      const fileName = usedFiles.has(template.fileName) ? `picker:${index}:${template.fileName}` : template.fileName
+      usedFiles.add(fileName)
+      return { ...template, fileName }
+    })
+  }
+
   globalScope.KDMKnowledgeTemplateHelpers = {
+    settlementKnowledgeOptions,
     buildBlankKnowledgeEntry,
     buildUpgradedScratchKnowledge,
     canUpgradeKnowledgeEntry,

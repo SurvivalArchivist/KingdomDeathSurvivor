@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
+const settlementService = require('./settlementService')
 const Ajv2020 = require('ajv/dist/2020')
 
 const KNOWLEDGE_TEMPLATE_TYPE_FOLDERS = {
@@ -400,6 +401,7 @@ function resolveIncomingRevision(person) {
 }
 
 function savePerson(basePath, person, options = {}) {
+  if (settlementService.reserved(path.basename(String(options.expectedFileName || '')))) throw new Error('Reserved settlement filename')
   fs.mkdirSync(basePath, { recursive: true })
   const normalizedPerson = preparePersonForValidation(person)
   normalizedPerson.id = normalizeSurvivorId(normalizedPerson.id)
@@ -486,7 +488,21 @@ function savePerson(basePath, person, options = {}) {
     }
   }
 
-  atomicWriteJson(targetPath, personToSave)
+  const settlementOperation = settlementService.prepare(basePath, targetFileName, personToSave)
+  try {
+    atomicWriteJson(targetPath, personToSave)
+  } catch (err) {
+    try { settlementService.failed(basePath, settlementOperation, err) } catch (journalError) {
+      console.warn('Could not record failed survivor save:', journalError.message)
+    }
+    throw err
+  }
+  try {
+    settlementService.committed(basePath, settlementOperation)
+  } catch (err) {
+    // Survivor is already committed. The prepared journal retains recovery evidence.
+    console.warn('Survivor saved; settlement registration pending:', err.message)
+  }
   if (expectedPath && expectedPath !== targetPath && fs.existsSync(expectedPath)) {
     fs.unlinkSync(expectedPath)
   }
@@ -494,6 +510,7 @@ function savePerson(basePath, person, options = {}) {
 }
 
 function loadPerson(basePath, fileName) {
+  if (settlementService.reserved(path.basename(String(fileName)))) throw new Error('Reserved settlement filename')
   if (typeof fileName !== 'string' || !fileName.endsWith('.json')) {
     throw new Error('Invalid person filename')
   }
@@ -520,7 +537,7 @@ function listPeople(basePath) {
 
   return fs
     .readdirSync(basePath, { withFileTypes: true })
-    .filter(entry => entry.isFile() && entry.name.endsWith('.json'))
+    .filter(entry => entry.isFile() && entry.name.endsWith('.json') && !settlementService.reserved(entry.name))
     .map(entry => entry.name)
     .sort((a, b) => a.localeCompare(b))
 }
@@ -601,7 +618,14 @@ function createPersonSettlementSummary(fileName, person) {
   }
 }
 
+function getSettlementRecord(basePath) {
+  return settlementService.getRecord(basePath, () => listPeople(basePath).flatMap(fileName => {
+    try { return [{ fileName, person: loadPerson(basePath, fileName) }] } catch { return [] }
+  }))
+}
+
 function listPeopleSummaries(basePath) {
+  if (fs.existsSync(basePath)) getSettlementRecord(basePath)
   const fileNames = listPeople(basePath)
   const records = []
   let unreadableCount = 0
@@ -623,6 +647,8 @@ function listPeopleSummaries(basePath) {
 }
 
 function deletePerson(basePath, fileName) {
+  if (settlementService.reserved(path.basename(String(fileName)))) throw new Error('Reserved settlement filename')
+  settlementService.recover(basePath)
   if (typeof fileName !== 'string' || !fileName.endsWith('.json')) {
     throw new Error('Invalid person filename')
   }
@@ -1044,6 +1070,8 @@ function listNeurosisTemplates(basePath) {
 }
 
 module.exports = {
+  getSettlementRecord,
+  getSettlementWarning: settlementService.warning,
   SOURCE_KEYS,
   ensureFolderStructure,
   saveConfig,

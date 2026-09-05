@@ -70,6 +70,11 @@ Electron desktop companion app for Kingdom Death survivor management with:
 
 ## Knowledge / Tenet Knowledge Rules
 
+- `settlement.json` in the authoritative Survivors folder records permanent knowledge discoveries. Knowledge and Tenet Knowledge share identity by normalized name + level, while survivor slot limits stay distinct.
+- Successful survivor saves journal settlement registration through `settlementService.js`; failed/unsaved changes do not unlock knowledge. `settlement-journal.json` retains pending work and numbered audit history. Recovery retries registration, never survivor writes.
+- Local Files and LAN Host use the same storage path; LAN Clients read the host settlement. Missing records are seeded from valid saved survivors on settlement lookup/summary refresh. Both metadata filenames are reserved from survivor CRUD.
+- Knowledge pickers show stored settlement definitions first, a disabled separator, then remaining unique templates from both knowledge libraries. Definitions remain available without their source templates. See `docs/ai/SETTLEMENT_RECORD.md` for recovery and release checks.
+
 ## Schema Compatibility Policy
 - Version `3.0.1` is an explicit new-campaign reset; pre-reset survivor/config compatibility is not supported.
 - Survivor records require an explicit `schemaVersion` of `6`.
@@ -103,6 +108,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - `src/preload.js`: secure API bridge
 - `src/dataService.js`: file I/O, validation, template persistence
 - `src/renderer.js`: UI state/events/rendering
+- Showdown is composed in `renderer.js` with explicit dependencies: `rendererShowdownState.js` owns state-only operations; `rendererShowdownView.js` owns card markup/DOM restoration; `rendererShowdownController.js` owns card interactions; `rendererShowdownSession.js` owns selection, lifecycle, persistence, and partial-save recovery. Renderer remains the state owner; session accessors and fresh state snapshots prevent stale references after resets.
 - `src/validation/person.schema.json`: survivor schema
 - `ui/components/index.html`, `ui/components/styles.css`: UI structure/styles
 

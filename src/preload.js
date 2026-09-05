@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('load-markdown-file', collectionId, fileName),
   saveKnowledgeTemplate: (type, template) => ipcRenderer.invoke('save-knowledge-template', type, template),
   listKnowledgeTemplates: type => ipcRenderer.invoke('list-knowledge-templates', type),
+  getSettlementRecord: () => ipcRenderer.invoke('get-settlement-record'),
   saveNeurosisTemplate: template => ipcRenderer.invoke('save-neurosis-template', template),
   listNeurosisTemplates: () => ipcRenderer.invoke('list-neurosis-templates')
 })

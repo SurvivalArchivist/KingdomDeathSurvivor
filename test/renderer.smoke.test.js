@@ -841,6 +841,9 @@ function setupRendererHarness(options = {}) {
       calls.push({ name: 'listKnowledgeTemplates', args: [type] })
       return []
     },
+    async getSettlementRecord() {
+      return { knowledges: [] }
+    },
     async saveNeurosisTemplate(template) {
       calls.push({ name: 'saveNeurosisTemplate', args: [deepClone(template)] })
       return { ok: true, fileName: 'neurosis-template.json' }
@@ -901,18 +904,21 @@ function setupRendererHarness(options = {}) {
   const showdownStatePath = path.join(__dirname, '..', 'src', 'rendererShowdownState.js')
   const showdownViewPath = path.join(__dirname, '..', 'src', 'rendererShowdownView.js')
   const showdownControllerPath = path.join(__dirname, '..', 'src', 'rendererShowdownController.js')
+  const showdownSessionPath = path.join(__dirname, '..', 'src', 'rendererShowdownSession.js')
   const rendererPath = path.join(__dirname, '..', 'src', 'renderer.js')
   delete require.cache[knowledgeHelperPath]
   delete require.cache[settlementHelperPath]
   delete require.cache[showdownStatePath]
   delete require.cache[showdownViewPath]
   delete require.cache[showdownControllerPath]
+  delete require.cache[showdownSessionPath]
   delete require.cache[rendererPath]
   require(knowledgeHelperPath)
   require(settlementHelperPath)
   require(showdownStatePath)
   require(showdownViewPath)
   require(showdownControllerPath)
+  require(showdownSessionPath)
   require(rendererPath)
   fakeDocument.dispatchEvent(new FakeEvent('DOMContentLoaded', { target: fakeDocument }))
 
@@ -1885,6 +1891,77 @@ test('showdown page and accordion state survive slot rerenders', async t => {
 
   assert.match(showdownCardA.innerHTML, /data-showdown-page="traits"[^>]*aria-pressed="true"/)
   assert.equal(showdownCardA.querySelector('details[data-showdown-section="abilities"]')?.open, false)
+})
+
+test('knowledge picker puts shared settlement unlocks first and applies definitions without source templates', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api) {
+      api.getSettlementRecord = async () => ({ knowledges: [
+        { id: 'unlocked', definition: { name: 'Zebra', rules: 'Stored rules', knowledgeLevel: 1 } },
+        { id: 'missing-template', definition: { name: 'Lost Template', rules: 'Available without source', knowledgeLevel: 2 } }
+      ] })
+      api.listKnowledgeTemplates = async type => type === 'knowledge' ? [
+        { fileName: 'alpha.json', name: 'Alpha', template: { name: 'Alpha', knowledgeLevel: 1 } },
+        { fileName: 'zebra.json', name: 'Zebra', template: { name: 'Zebra', knowledgeLevel: 1 } }
+      ] : [{ fileName: 'tenet.json', name: 'Tenet Source', template: { name: 'Tenet Source', knowledgeLevel: 1 } }]
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+  harness.click('navCreate')
+  await harness.flush(12)
+  harness.click('createAddKnowledge')
+  await harness.flush(12)
+  const select = harness.document.getElementById('knowledgeTemplateSelect')
+  assert.deepEqual(select.children.map(option => option.textContent), ['Lost Template (L2)', 'Zebra (L1)', '-----', 'Alpha (L1)', 'Tenet Source (L1)'])
+  assert.equal(select.children[2].disabled, true)
+  const search = harness.document.getElementById('knowledgeTemplateSearch')
+  search.value = 'Alpha'
+  harness.dispatch(search, 'input')
+  assert.deepEqual(select.children.map(option => option.textContent), ['Alpha (L1)'])
+  search.value = ''
+  harness.dispatch(search, 'input')
+  select.value = 'settlement:missing-template'
+  harness.click('knowledgeTemplateUse')
+  await harness.flush(12)
+  const row = harness.document.getElementById('createKnowledge').querySelector('.ve-row')
+  assert.equal(row.querySelector('[data-field="name"]').value, 'Lost Template')
+  assert.equal(row.querySelector('[data-field="currentObservations"]').value, '0')
+  harness.click('createAddTenetKnowledge')
+  await harness.flush(12)
+  assert.deepEqual(select.children.slice(0, 3).map(option => option.textContent), ['Lost Template (L2)', 'Zebra (L1)', '-----'])
+})
+
+test('knowledge picker reports settlement read failure and retains available local templates', async t => {
+  const harness = setupRendererHarness({ customizeApi(api) {
+    api.getSettlementRecord = async () => { throw new Error('Host unavailable') }
+    api.listKnowledgeTemplates = async () => [{ fileName: 'local.json', name: 'Local', template: { name: 'Local', knowledgeLevel: 1 } }]
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+  harness.click('navCreate')
+  await harness.flush(12)
+  harness.click('createAddKnowledge')
+  await harness.flush(12)
+  assert.match(harness.document.getElementById('status').innerText, /Settlement knowledge unavailable: Host unavailable/)
+  const select = harness.document.getElementById('knowledgeTemplateSelect')
+  assert.deepEqual(select.children.map(option => option.textContent), ['Local (L1)'])
+})
+
+test('survivor save warns about pending settlement registration without treating the save as failed', async t => {
+  const harness = setupRendererHarness({ customizeApi(api) {
+    const save = api.savePerson
+    api.savePerson = async (...args) => ({ ...await save(...args), settlementWarning: 'Survivor saved; registration pending' })
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+  harness.click('navCreate')
+  await harness.flush(12)
+  harness.document.getElementById('createSurvivorName').value = 'New Survivor'
+  harness.click('createSurvivorSubmit')
+  await harness.flush(20)
+  assert.ok(harness.alerts.some(message => message.includes('registration pending')))
+  assert.ok(findDbPersonByName(harness.db, 'New Survivor'))
 })
 
 test('create knowledge upgrade applies the configured next template', async t => {

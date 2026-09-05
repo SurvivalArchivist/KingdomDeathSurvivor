@@ -1,6 +1,6 @@
 # Engineering Roadmap
 
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 
 ## Purpose
 This document captures high-leverage follow-up work identified after reviewing the current app, codebase structure, and recent delivery history. It is meant to be a practical roadmap we can revisit, not a commitment to implement every item immediately.
@@ -25,7 +25,7 @@ This document captures high-leverage follow-up work identified after reviewing t
 - The largest structural pressure point remains renderer complexity.
 
 ## Recommended Order
-1. Continue the active Showdown renderer decomposition from Step 6 below using the explicit State/View/Controller boundaries now defined.
+1. Complete release acceptance for the settlement knowledge record and unlock-first picker described in `docs/ai/SETTLEMENT_RECORD.md`. Showdown Step 9 was manually accepted by the user; no merge or release has been performed.
 2. After Showdown is complete, split the existing Settlement helper when Settlement next needs meaningful feature or maintenance work; do not interrupt the active refactor solely to reorganize it.
 3. Revisit deeper settlement filtering/render optimization only if profiling still shows pressure.
 4. Revisit secondary markdown and bulk-update ergonomics only if they become a clearer bottleneck.
@@ -38,19 +38,22 @@ Target Showdown ownership:
 
 - `rendererShowdownState.js`: constants, normalization, state factories, and state-only operations.
 - `rendererShowdownView.js`: survivor-card markup, DOM assignment, and page/accordion snapshot and restoration behavior. Async markdown content remains supplied through explicit callbacks.
-- `rendererShowdownController.js`: Showdown-specific delegated events, mutation coordination, selection/refresh/depart/completion lifecycle, and partial-save recovery. Cross-view navigation, global busy/status presentation, and application initialization remain in `renderer.js` and are passed in as callbacks.
+- `rendererShowdownController.js`: delegated card events and inline mutation coordination; reads fresh state for each operation.
+- `rendererShowdownSession.js`: selectors, assignment, refresh/open/depart/completion lifecycle, resets, survivor saves, and partial-save recovery. Live session accessors preserve renderer-owned state across resets. Cross-view navigation and global UI services are injected callbacks.
 - `renderer.js`: application composition and cross-view coordination. It should not regain view-specific markup or state transition details once they move behind a module boundary.
 
-Current helper audit (2026-09-04):
+Current helper audit (2026-09-05):
 
 | Module | Assessment | Direction |
 | --- | --- | --- |
 | `rendererKnowledgeTemplateHelpers.js` (85 lines) | Healthy and cohesive. Its exported functions all cover knowledge-template normalization, labels, eligibility, and upgrade construction without DOM or event ownership. | Keep as one module; rename only if a broader renderer naming cleanup becomes worthwhile. |
 | `rendererShowdownState.js` (240 lines) | Healthy and cohesive. It contains only constants, factories, normalization, and state-only operations. | Keep as the State module; do not add markup, DOM, async I/O, or lifecycle coordination. |
-| `rendererShowdownView.js` (561 lines) | Large but cohesive: its public card-render operation owns markup generation, DOM assignment, and accordion preservation while receiving card data and formatting/content dependencies explicitly. | Keep as the View module. Split further only if independently changing card subviews emerge; do not split by line count alone. |
+| `rendererShowdownView.js` (582 lines) | Large but cohesive: owns card and inline text markup, DOM assignment, and accordion preservation with explicit data/content dependencies. | Keep together unless independently changing card subviews emerge; do not split by line count alone. |
+| `rendererShowdownController.js` (499 lines) | Cohesive card interactions and mutation coordination after lifecycle extraction. | Keep delegated events together; do not add session persistence here. |
+| `rendererShowdownSession.js` (494 lines) | Cohesive session transitions and save/retry behavior, separated from card interactions. | Keep save reconciliation with lifecycle; do not add card markup or inline editing here. |
 | `rendererSettlementHelpers.js` (400 lines) | A moderate mini-monolith. It combines pure filtering/sorting/derived-data logic with table rendering, search-timer ownership, column visibility, and all Settlement event binding. | Defer until after Showdown, then split into `rendererSettlementData.js`, `rendererSettlementView.js`, and `rendererSettlementController.js` as part of the next meaningful Settlement change. Preserve current behavior and avoid a reorganization-only detour now. |
 
-The 5,881-line `renderer.js` remains the primary structural pressure point. Completing controller-level ownership boundaries there has higher value than splitting already-cohesive modules.
+The 5,076-line `renderer.js` remains the primary structural pressure point. Step 8 split the former 956-line controller at the interaction/lifecycle boundary, removed redundant renderer forwarding functions and unused proficiency-option code, and moved the remaining Showdown markup helpers into View. The renderer composes explicit dependencies for both factories; each consumes only its own dependencies. No further line-count-driven splits are planned.
 
 ## Active: Showdown Renderer Decomposition
 
@@ -62,6 +65,9 @@ Status:
 - Step 3 completed on 2026-09-04.
 - Step 4 completed on 2026-09-04.
 - Step 5 completed on 2026-09-04.
+- Step 6 completed on 2026-09-05. The controller owns delegated click/input/change handlers and inline text, stat, modifier, proficiency, ability-group, observation, and removal coordination. Each operation reads current state through `getState()`; rendering, shared template/markdown actions, and global UI services are injected. Session lifecycle remains renderer-owned.
+- Step 7 completed on 2026-09-05. The controller now owns selector population/assignment, selection changes, refresh/open/depart/completion, session resets, survivor saves, and partial-save reconciliation. An explicit session accessor interface keeps replaced state objects visible to the renderer and controller. Global navigation, status/busy handling, LAN-aware API wrappers, and Settlement refresh are injected; renderer forwarding functions support existing cross-view callers.
+- Step 8 completed on 2026-09-05. Separated Session lifecycle from Controller card interactions, narrowed public exports and consumed dependencies, removed obsolete renderer wrappers/dead code, and completed View markup ownership. Updated browser/test module loading and expanded syntax coverage to all renderer modules. Focused smoke 41/41 and full verification 229/229 passed. Manual acceptance remains Step 9.
 - No production behavior changed in Step 1. Five regression tests were added to lock down the current Showdown behavior before extraction.
 - Step 2 added the browser-safe `src/rendererShowdownHelpers.js` boundary and moved only Showdown constants, fresh-state factories, and page-key normalization into it. DOM rendering, event wiring, mutations, and session persistence remain in `renderer.js`.
 - Step 3 moved page stepping, modifier validation/clamping, armor counter/check handling, and inline text-draft synchronization/edit/commit operations behind explicit state arguments in the helper. Renderer wrappers still own rendering, user feedback, delegated events, and lifecycle persistence.
@@ -79,15 +85,8 @@ Completed Step 1 coverage:
 
 Resume directly here:
 
-1. **Next — Step 6:** create `rendererShowdownController.js` and move inline text-entry/card mutation coordination plus Showdown-specific delegated events behind a small initializer boundary.
-2. Inject renderer-owned state access, rendering, markdown/template actions, and status/busy services through explicit callbacks. Do not move selection, refresh, depart, completion, or partial-save lifecycle coordination in the same step.
-3. Run the focused renderer suite, then the standard repository verification before considering Step 6 complete.
-
-Planned sequence after Step 6:
-
-7. Move selection, refresh, depart, completion, and partial-save lifecycle coordination into the Controller while keeping application navigation and global UI services injected from `renderer.js`.
-8. Remove superseded renderer code, tighten module exports/dependencies, and document the final ownership boundary.
-9. Run full automated verification and a short manual Showdown acceptance pass before merging.
+1. **Completed — Step 9:** final automated verification passed on 2026-09-05 (229/229 tests, clean diff checks); the user subsequently reported that manual testing looked fine. Showdown refactor acceptance is complete; no merge performed.
+2. The user requested a pre-release settlement knowledge record and unlock-first picker. Implementation/recovery rules and the new feature's separate manual checks are in `docs/ai/SETTLEMENT_RECORD.md`.
 
 ## Recently Completed: LAN Survivor Data
 Status:

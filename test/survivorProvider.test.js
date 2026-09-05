@@ -10,6 +10,22 @@ const {
 } = require('../src/survivorProvider')
 
 class ConflictError extends Error {}
+
+test('LAN client reads host settlement and preserves pending-registration warnings', async () => {
+  const requests = []
+  const provider = createLanClientSurvivorProvider({
+    settings: { lanHostAddress: 'host', lanPort: 3765 },
+    dataService: {},
+    fetchImpl: async (url, options) => {
+      requests.push([url, options.method])
+      return { ok: true, json: async () => url.endsWith('/settlement') ? { id: 'host-settlement', knowledges: [] } : { ok: true, fileName: 'alice.json', settlementWarning: 'Registration pending' } }
+    }
+  })
+  assert.equal((await provider.getSettlementRecord()).id, 'host-settlement')
+  assert.equal(await provider.savePerson({ name: 'Alice' }), 'alice.json')
+  assert.equal(provider.getSettlementWarning(), 'Registration pending')
+  assert.equal(requests[0][0], 'http://host:3765/settlement')
+})
 class ValidationError extends Error {
   constructor(message, validationErrors) {
     super(message)

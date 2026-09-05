@@ -679,6 +679,8 @@ ipcMain.handle('list-people', async () => {
   return getSurvivorProvider().listPeople()
 })
 
+ipcMain.handle('get-settlement-record', async () => getSurvivorProvider().getSettlementRecord())
+
 ipcMain.handle('list-people-summaries', async () => {
   return getSurvivorProvider().listPeopleSummaries()
 })
@@ -690,11 +692,13 @@ ipcMain.handle('load-person', async (_event, fileName) => {
 ipcMain.handle('save-person', async (_event, person, options) => {
   try {
     const appSettings = dataService.getSavedAppSettings(app)
-    const fileName = await getSurvivorProvider().savePerson(person, {
+    const provider = getSurvivorProvider()
+    const fileName = await provider.savePerson(person, {
       ...(options && typeof options === 'object' ? options : {}),
       editorName: appSettings.userName || ''
     })
-    return { ok: true, fileName }
+    const settlementWarning = provider.getSettlementWarning?.()
+    return { ok: true, fileName, ...(settlementWarning ? { settlementWarning } : {}) }
   } catch (err) {
     const payload = getSurvivorErrorPayload(err)
     if (payload) return payload

@@ -189,6 +189,11 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
         return
       }
 
+      if (method === 'GET' && parts.length === 1 && parts[0] === 'settlement') {
+        sendJson(res, 200, dataService.getSettlementRecord(dataPath))
+        return
+      }
+
       if (method === 'GET' && parts.length === 2 && parts[0] === 'survivors' && parts[1] === 'summaries') {
         sendJson(res, 200, dataService.listPeopleSummaries(dataPath))
         return
@@ -206,7 +211,8 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
             ...getOptionsPayload(body),
             editorName: settings.userName || settings.lanDisplayName || ''
           })
-          sendJson(res, 200, { ok: true, fileName })
+          const settlementWarning = dataService.getSettlementWarning?.(dataPath)
+          sendJson(res, 200, { ok: true, fileName, ...(settlementWarning ? { settlementWarning } : {}) })
           broadcastSurvivorDataChange('save', fileName)
         } catch (err) {
           const response = handleSaveError(err)
@@ -223,7 +229,8 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
             expectedFileName: getOptionsPayload(body).expectedFileName || parts[1],
             editorName: settings.userName || settings.lanDisplayName || ''
           })
-          sendJson(res, 200, { ok: true, fileName })
+          const settlementWarning = dataService.getSettlementWarning?.(dataPath)
+          sendJson(res, 200, { ok: true, fileName, ...(settlementWarning ? { settlementWarning } : {}) })
           broadcastSurvivorDataChange('save', fileName)
         } catch (err) {
           const response = handleSaveError(err)
