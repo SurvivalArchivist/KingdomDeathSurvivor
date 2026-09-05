@@ -7,7 +7,14 @@ const compileTargets = [
   path.join('src', 'main.js'),
   path.join('src', 'preload.js'),
   path.join('src', 'renderer.js'),
+  path.join('src', 'rendererKnowledgeTemplateHelpers.js'),
+  path.join('src', 'rendererSettlementHelpers.js'),
+  path.join('src', 'rendererShowdownState.js'),
+  path.join('src', 'rendererShowdownView.js'),
+  path.join('src', 'rendererShowdownController.js'),
+  path.join('src', 'rendererShowdownSession.js'),
   path.join('src', 'dataService.js'),
+  path.join('src', 'settlementService.js'),
   path.join('src', 'lanSurvivorHost.js'),
   path.join('src', 'survivorProvider.js')
 ]

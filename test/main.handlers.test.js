@@ -636,6 +636,13 @@ test('list-neurosis-templates handler returns empty when no neuroses folder', as
 // Tests for data source handlers
 // ============================================
 
+test('settlement IPC reads from the authoritative provider', async t => {
+  const record = { id: 'settlement', knowledges: [] }
+  const harness = makeHarness({ dataService: { getSettlementRecord() { return record } } })
+  t.after(() => harness.cleanup())
+  assert.deepEqual(await harness.handlers.get('get-settlement-record')(), record)
+})
+
 test('get-saved-data-sources handler returns data sources', async t => {
   const dataSources = {
     survivors: '/tmp/survivors',

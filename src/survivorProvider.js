@@ -20,6 +20,12 @@ function createLocalSurvivorProvider({ app, dataService, mode = SURVIVOR_DATA_MO
 
   return {
     mode,
+    getSettlementRecord() {
+      return dataService.getSettlementRecord(getDataPath())
+    },
+    getSettlementWarning() {
+      return dataService.getSettlementWarning?.(getDataPath()) || null
+    },
     listPeople() {
       return dataService.listPeople(getDataPath())
     },
@@ -94,6 +100,7 @@ function createLanClientSurvivorProvider({ settings, dataService, fetchImpl = gl
   if (settings?.lanClientConnected === false) throw createLanClientError('LAN client is disconnected', null, 'disconnected')
 
   const baseUrl = normalizeLanHostBaseUrl(settings)
+  let settlementWarning = null
 
   async function requestJson(path, options = {}) {
     let response
@@ -126,6 +133,10 @@ function createLanClientSurvivorProvider({ settings, dataService, fetchImpl = gl
 
   return {
     mode: SURVIVOR_DATA_MODES.LAN_CLIENT,
+    getSettlementRecord() {
+      return requestJson('/settlement')
+    },
+    getSettlementWarning() { return settlementWarning },
     listPeople() {
       return requestJson('/survivors')
     },
@@ -141,6 +152,7 @@ function createLanClientSurvivorProvider({ settings, dataService, fetchImpl = gl
         method: expectedFileName ? 'PUT' : 'POST',
         body: JSON.stringify({ person, options })
       })
+      settlementWarning = response?.settlementWarning || null
       return response?.fileName
     },
     deletePerson(fileName) {

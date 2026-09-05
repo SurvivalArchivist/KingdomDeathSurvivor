@@ -1,6 +1,17 @@
-## KDM Survivors Console 3.1.1
+## KDM Survivors Console 3.2.0
 
-Version 3.1.1 completes the LAN survivor-data reliability roadmap and hardens Linux release filenames. It is a compatible patch release for the existing macOS, Windows, Linux x86_64, and Linux ARM64 builds.
+Version 3.2.0 introduces persistent settlement knowledge discovery and completes the Showdown renderer refactor for macOS, Windows, Linux x86_64, and Linux ARM64.
+
+### Settlement Knowledge
+- Successful survivor saves unlock knowledge in a shared settlement record. Knowledge and Tenet Knowledge count toward the same discovery pool; removing knowledge later does not erase the unlock.
+- Knowledge pickers show unlocked settlement knowledge first, followed by a separator and remaining templates. Stored definitions remain selectable when the original template is missing.
+- Works in Local Files and LAN Host/Client modes, with the host owning shared settlement data.
+- A durable registration journal records outcomes and retries unfinished settlement updates without replaying stale survivor saves.
+- Existing saved survivors seed the settlement record. Back up the entire Survivors folder, including the new `settlement.json` and `settlement-journal.json` files.
+
+### Showdown Maintenance
+- Split Showdown state, card rendering, interactions, and session lifecycle into focused modules while preserving Depart, cross-view resume, completion, and save-failure recovery behavior.
+- Expanded automated verification to 246 passing tests; manual Showdown and settlement feature checks were accepted by the user before release.
 
 ### LAN Reliability
 - LAN Client startup remains usable when the configured host is offline.
@@ -17,7 +28,8 @@ Version 3.1.1 completes the LAN survivor-data reliability roadmap and hardens Li
 - AppImage and Flatpak remain experimental and are not included in the core tagged release.
 
 ### Compatibility
-- Version 3.1.1 keeps survivor schema version `6` from 3.0.1; there is no new data migration in this release.
+- Version 3.2.0 keeps survivor schema version `6` from 3.0.1. Settlement metadata uses its own schema version `1`.
+- Upgrade the LAN host and clients together. Older apps do not understand the new settlement metadata files; avoid opening an upgraded Survivors folder with an older version.
 - Survivor files from before the 3.0.1 campaign reset remain unsupported. Back up older data before changing folders or versions.
 - Linux RPM and DEB packages are currently unsigned. Download them only from this repository's GitHub Release page and verify their checksums when possible.
 
@@ -34,13 +46,13 @@ Version 3.1.1 completes the LAN survivor-data reliability roadmap and hardens Li
 Fedora/RPM-based systems:
 
 ```bash
-sudo dnf install ./kingdom-death-survivors-3.1.1-linux-arm64.rpm
+sudo dnf install ./kingdom-death-survivors-3.2.0-linux-arm64.rpm
 ```
 
 Ubuntu/Debian-based systems:
 
 ```bash
-sudo apt install ./kingdom-death-survivors-3.1.1-linux-x64.deb
+sudo apt install ./kingdom-death-survivors-3.2.0-linux-x64.deb
 ```
 
 Replace the architecture suffix with the one appropriate for the device.

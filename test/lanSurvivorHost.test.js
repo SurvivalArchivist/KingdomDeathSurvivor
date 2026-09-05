@@ -119,6 +119,22 @@ test('LAN survivor host exposes health and survivor read endpoints', async t => 
   assert.deepEqual(calls.filter(call => call[0] === 'listPeople'), [['listPeople', '/tmp/survivors']])
 })
 
+test('LAN host serves its settlement and returns registration warnings without failing survivor saves', async t => {
+  const record = { id: 'settlement-host', knowledges: [] }
+  const { host } = makeHost({
+    getSettlementRecord(basePath) {
+      assert.equal(basePath, '/tmp/survivors')
+      return record
+    },
+    getSettlementWarning() { return 'Survivor saved; registration pending' }
+  })
+  t.after(() => host.stop())
+  assert.deepEqual(await requestJson(host, '/settlement'), { status: 200, body: record })
+  const result = await requestJson(host, '/survivors', { method: 'POST', body: JSON.stringify({ person: { name: 'Alice' } }) })
+  assert.equal(result.body.ok, true)
+  assert.match(result.body.settlementWarning, /pending/)
+})
+
 test('LAN survivor host saves and deletes survivors through dataService', async t => {
   const { calls, host } = makeHost()
 

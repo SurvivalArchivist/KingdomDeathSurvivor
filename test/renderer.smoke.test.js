@@ -171,6 +171,7 @@ class FakeElement {
     this.id = ''
     this.value = ''
     this.checked = false
+    this.open = false
     this.disabled = false
     this.textContent = ''
     this.innerText = ''
@@ -226,6 +227,20 @@ class FakeElement {
     if (this.tagName === 'SELECT') {
       this.value = ''
       this._selectedIndex = -1
+    }
+
+    const detailsPattern = /<details\b([^>]*)>/gi
+    let detailsMatch = detailsPattern.exec(this._innerHtml)
+    while (detailsMatch) {
+      const attributes = detailsMatch[1] || ''
+      const sectionMatch = attributes.match(/data-showdown-section=["']([^"']+)["']/i)
+      if (sectionMatch) {
+        const details = new FakeElement(this.ownerDocument, 'details')
+        details.dataset.showdownSection = sectionMatch[1]
+        details.open = /(?:^|\s)open(?:\s|$)/i.test(attributes)
+        this.appendChild(details)
+      }
+      detailsMatch = detailsPattern.exec(this._innerHtml)
     }
   }
 
@@ -826,6 +841,9 @@ function setupRendererHarness(options = {}) {
       calls.push({ name: 'listKnowledgeTemplates', args: [type] })
       return []
     },
+    async getSettlementRecord() {
+      return { knowledges: [] }
+    },
     async saveNeurosisTemplate(template) {
       calls.push({ name: 'saveNeurosisTemplate', args: [deepClone(template)] })
       return { ok: true, fileName: 'neurosis-template.json' }
@@ -883,12 +901,24 @@ function setupRendererHarness(options = {}) {
 
   const knowledgeHelperPath = path.join(__dirname, '..', 'src', 'rendererKnowledgeTemplateHelpers.js')
   const settlementHelperPath = path.join(__dirname, '..', 'src', 'rendererSettlementHelpers.js')
+  const showdownStatePath = path.join(__dirname, '..', 'src', 'rendererShowdownState.js')
+  const showdownViewPath = path.join(__dirname, '..', 'src', 'rendererShowdownView.js')
+  const showdownControllerPath = path.join(__dirname, '..', 'src', 'rendererShowdownController.js')
+  const showdownSessionPath = path.join(__dirname, '..', 'src', 'rendererShowdownSession.js')
   const rendererPath = path.join(__dirname, '..', 'src', 'renderer.js')
   delete require.cache[knowledgeHelperPath]
   delete require.cache[settlementHelperPath]
+  delete require.cache[showdownStatePath]
+  delete require.cache[showdownViewPath]
+  delete require.cache[showdownControllerPath]
+  delete require.cache[showdownSessionPath]
   delete require.cache[rendererPath]
   require(knowledgeHelperPath)
   require(settlementHelperPath)
+  require(showdownStatePath)
+  require(showdownViewPath)
+  require(showdownControllerPath)
+  require(showdownSessionPath)
   require(rendererPath)
   fakeDocument.dispatchEvent(new FakeEvent('DOMContentLoaded', { target: fakeDocument }))
 
@@ -1625,6 +1655,313 @@ test('showdown temp combat modifiers can go negative while tokens clamp at zero'
   await harness.flush()
 
   assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Tokens \(\+\)<\/span>[\s\S]*showdown-static-value">0</)
+})
+
+test('refresh showdown survivors replaces persisted data only before departure', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const showdownSelectA = harness.document.getElementById('showdownSelectA')
+  const showdownSelectB = harness.document.getElementById('showdownSelectB')
+  const showdownView = harness.document.getElementById('showdownView')
+  const showdownCardA = harness.document.getElementById('showdownCardA')
+  const status = harness.document.getElementById('status')
+
+  showdownSelectA.value = 'alice.json'
+  showdownSelectB.value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush()
+
+  const lumiButton = harness.document.createElement('button')
+  lumiButton.dataset.showdownSlot = 'A'
+  lumiButton.dataset.showdownField = 'lumi'
+  lumiButton.dataset.showdownKind = 'base'
+  lumiButton.dataset.showdownDelta = '1'
+  lumiButton.dataset.showdownMin = '0'
+  lumiButton.dataset.showdownMax = ''
+  showdownView.dispatchEvent(new FakeEvent('click', { target: lumiButton }))
+  await harness.flush()
+  assert.match(showdownCardA.innerHTML, /Lumi[\s\S]*?data-showdown-field="lumi"[\s\S]*?showdown-static-value">1</)
+
+  harness.db['alice.json'].lumi = 7
+  harness.click('refreshShowdownSurvivors')
+  await harness.flush(12)
+
+  assert.match(status.innerText, /Showdown survivors refreshed from settlement data/)
+  assert.match(showdownCardA.innerHTML, /Lumi[\s\S]*?data-showdown-field="lumi"[\s\S]*?showdown-static-value">7</)
+
+  harness.click('departShowdown')
+  await harness.flush()
+  harness.db['alice.json'].lumi = 9
+  harness.click('refreshShowdownSurvivors')
+  await harness.flush()
+
+  assert.match(status.innerText, /Cannot refresh while departed/)
+  assert.match(showdownCardA.innerHTML, /Lumi[\s\S]*?data-showdown-field="lumi"[\s\S]*?showdown-static-value">7</)
+})
+
+test('successful showdown end saves both survivors, clears selections, and resets temporary state', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const showdownSelectA = harness.document.getElementById('showdownSelectA')
+  const showdownSelectB = harness.document.getElementById('showdownSelectB')
+  const showdownView = harness.document.getElementById('showdownView')
+  const showdownCardA = harness.document.getElementById('showdownCardA')
+  const sessionState = harness.document.getElementById('showdownSessionState')
+  const settlementView = harness.document.getElementById('settlementView')
+
+  showdownSelectA.value = 'alice.json'
+  showdownSelectB.value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush()
+
+  const tempButton = harness.document.createElement('button')
+  tempButton.dataset.showdownSlot = 'A'
+  tempButton.dataset.showdownField = 'strength'
+  tempButton.dataset.showdownKind = 'temporary'
+  tempButton.dataset.showdownDelta = '2'
+  showdownView.dispatchEvent(new FakeEvent('click', { target: tempButton }))
+
+  const tokenButton = harness.document.createElement('button')
+  tokenButton.dataset.showdownSlot = 'A'
+  tokenButton.dataset.showdownField = 'strength'
+  tokenButton.dataset.showdownKind = 'tokensPositive'
+  tokenButton.dataset.showdownDelta = '1'
+  showdownView.dispatchEvent(new FakeEvent('click', { target: tokenButton }))
+
+  const armorButton = harness.document.createElement('button')
+  armorButton.dataset.showdownSlot = 'A'
+  armorButton.dataset.showdownBulkArmorDelta = '1'
+  showdownView.dispatchEvent(new FakeEvent('click', { target: armorButton }))
+
+  const bleedingButton = harness.document.createElement('button')
+  bleedingButton.dataset.showdownSlot = 'A'
+  bleedingButton.dataset.showdownPart = 'bleedingTokens'
+  bleedingButton.dataset.showdownDelta = '1'
+  showdownView.dispatchEvent(new FakeEvent('click', { target: bleedingButton }))
+
+  for (const key of ['proficiencyReminder', 'bodyHeavy']) {
+    const checkbox = harness.document.createElement('input')
+    checkbox.dataset.showdownSlot = 'A'
+    checkbox.dataset.showdownArmorCheck = key
+    checkbox.checked = true
+    showdownView.dispatchEvent(new FakeEvent('change', { target: checkbox }))
+  }
+  await harness.flush()
+
+  const saveBaseline = harness.calls.length
+  harness.click('departShowdown')
+  await harness.flush()
+  harness.click('showdownOver')
+  await harness.flush(16)
+
+  const showdownSaves = harness.calls
+    .slice(saveBaseline)
+    .filter(entry => entry.name === 'savePerson' && entry.args[1]?.markReturned === true)
+  assert.equal(showdownSaves.length, 2)
+  assert.deepEqual(
+    showdownSaves.map(entry => entry.args[1].expectedFileName).sort(),
+    ['alice.json', 'bob.json']
+  )
+  assert.equal(showdownSelectA.value, '')
+  assert.equal(showdownSelectB.value, '')
+  assert.equal(sessionState.textContent, 'Session not departed')
+  assert.ok(!settlementView.classList.contains('hidden'))
+
+  showdownSelectA.value = personFileName(findDbPersonByName(harness.db, 'Alice'))
+  showdownSelectB.value = personFileName(findDbPersonByName(harness.db, 'Bob'))
+  harness.click('openShowdown')
+  await harness.flush(12)
+
+  assert.equal((showdownCardA.innerHTML.match(/showdown-armor-value">0</g) || []).length, 5)
+  assert.match(showdownCardA.innerHTML, /Bleeding Tokens[\s\S]*?showdown-static-value">0</)
+  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Temp<\/span>[\s\S]*?showdown-static-value">0</)
+  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Tokens \(\+\)<\/span>[\s\S]*?showdown-static-value">0</)
+
+  const reminderTag = showdownCardA.innerHTML.match(
+    /<input\b[^>]*data-showdown-armor-check="proficiencyReminder"[^>]*>/
+  )?.[0]
+  const bodyHeavyTag = showdownCardA.innerHTML.match(
+    /<input\b[^>]*data-showdown-armor-check="bodyHeavy"[^>]*>/
+  )?.[0]
+  assert.ok(reminderTag)
+  assert.ok(bodyHeavyTag)
+  assert.doesNotMatch(reminderTag, /\bchecked\b/)
+  assert.doesNotMatch(bodyHeavyTag, /\bchecked\b/)
+})
+
+test('showdown inline abilities, impairments, and notes edits persist on successful end', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(_api, context) {
+      context.db['alice.json'] = makePerson('Alice', {
+        abilities: ['Dash'],
+        impairments: ['Broken Arm'],
+        notes: ['Carry lantern']
+      })
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const showdownSelectA = harness.document.getElementById('showdownSelectA')
+  const showdownSelectB = harness.document.getElementById('showdownSelectB')
+  const showdownView = harness.document.getElementById('showdownView')
+  const showdownCardA = harness.document.getElementById('showdownCardA')
+
+  showdownSelectA.value = 'alice.json'
+  showdownSelectB.value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush()
+
+  const replacements = {
+    abilities: 'Survivor Dash',
+    impairments: 'Mended Arm',
+    notes: 'Carry two lanterns'
+  }
+  for (const [arrayName, replacement] of Object.entries(replacements)) {
+    const editButton = harness.document.createElement('button')
+    editButton.dataset.showdownEditSlot = 'A'
+    editButton.dataset.showdownEditArray = arrayName
+    editButton.dataset.showdownEditIndex = '0'
+    showdownView.dispatchEvent(new FakeEvent('click', { target: editButton }))
+
+    const textarea = harness.document.createElement('textarea')
+    textarea.dataset.showdownDraftSlot = 'A'
+    textarea.dataset.showdownDraftArray = arrayName
+    textarea.dataset.showdownDraftIndex = '0'
+    textarea.value = replacement
+    showdownView.dispatchEvent(new FakeEvent('input', { target: textarea }))
+
+    const commitButton = harness.document.createElement('button')
+    commitButton.dataset.showdownCommitSlot = 'A'
+    commitButton.dataset.showdownCommitArray = arrayName
+    commitButton.dataset.showdownCommitIndex = '0'
+    showdownView.dispatchEvent(new FakeEvent('click', { target: commitButton }))
+    await harness.flush()
+
+    assert.match(showdownCardA.innerHTML, new RegExp(replacement))
+  }
+
+  harness.click('departShowdown')
+  await harness.flush()
+  harness.click('showdownOver')
+  await harness.flush(16)
+
+  const alice = findDbPersonByName(harness.db, 'Alice')
+  assert.deepEqual(alice?.abilities, [replacements.abilities])
+  assert.deepEqual(alice?.impairments, [replacements.impairments])
+  assert.deepEqual(alice?.notes, [replacements.notes])
+})
+
+test('showdown page and accordion state survive slot rerenders', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const showdownSelectA = harness.document.getElementById('showdownSelectA')
+  const showdownSelectB = harness.document.getElementById('showdownSelectB')
+  const showdownView = harness.document.getElementById('showdownView')
+  const showdownCardA = harness.document.getElementById('showdownCardA')
+
+  showdownSelectA.value = 'alice.json'
+  showdownSelectB.value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush()
+
+  const traitsPageButton = harness.document.createElement('button')
+  traitsPageButton.dataset.showdownPageSlot = 'A'
+  traitsPageButton.dataset.showdownPage = 'traits'
+  showdownView.dispatchEvent(new FakeEvent('click', { target: traitsPageButton }))
+  await harness.flush()
+
+  const abilitiesDetails = showdownCardA.querySelector('details[data-showdown-section="abilities"]')
+  assert.ok(abilitiesDetails)
+  abilitiesDetails.open = false
+
+  const rerenderButton = harness.document.createElement('button')
+  rerenderButton.dataset.showdownSlot = 'A'
+  rerenderButton.dataset.showdownField = 'strength'
+  rerenderButton.dataset.showdownKind = 'temporary'
+  rerenderButton.dataset.showdownDelta = '1'
+  showdownView.dispatchEvent(new FakeEvent('click', { target: rerenderButton }))
+  await harness.flush()
+
+  assert.match(showdownCardA.innerHTML, /data-showdown-page="traits"[^>]*aria-pressed="true"/)
+  assert.equal(showdownCardA.querySelector('details[data-showdown-section="abilities"]')?.open, false)
+})
+
+test('knowledge picker puts shared settlement unlocks first and applies definitions without source templates', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api) {
+      api.getSettlementRecord = async () => ({ knowledges: [
+        { id: 'unlocked', definition: { name: 'Zebra', rules: 'Stored rules', knowledgeLevel: 1 } },
+        { id: 'missing-template', definition: { name: 'Lost Template', rules: 'Available without source', knowledgeLevel: 2 } }
+      ] })
+      api.listKnowledgeTemplates = async type => type === 'knowledge' ? [
+        { fileName: 'alpha.json', name: 'Alpha', template: { name: 'Alpha', knowledgeLevel: 1 } },
+        { fileName: 'zebra.json', name: 'Zebra', template: { name: 'Zebra', knowledgeLevel: 1 } }
+      ] : [{ fileName: 'tenet.json', name: 'Tenet Source', template: { name: 'Tenet Source', knowledgeLevel: 1 } }]
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+  harness.click('navCreate')
+  await harness.flush(12)
+  harness.click('createAddKnowledge')
+  await harness.flush(12)
+  const select = harness.document.getElementById('knowledgeTemplateSelect')
+  assert.deepEqual(select.children.map(option => option.textContent), ['Lost Template (L2)', 'Zebra (L1)', '-----', 'Alpha (L1)', 'Tenet Source (L1)'])
+  assert.equal(select.children[2].disabled, true)
+  const search = harness.document.getElementById('knowledgeTemplateSearch')
+  search.value = 'Alpha'
+  harness.dispatch(search, 'input')
+  assert.deepEqual(select.children.map(option => option.textContent), ['Alpha (L1)'])
+  search.value = ''
+  harness.dispatch(search, 'input')
+  select.value = 'settlement:missing-template'
+  harness.click('knowledgeTemplateUse')
+  await harness.flush(12)
+  const row = harness.document.getElementById('createKnowledge').querySelector('.ve-row')
+  assert.equal(row.querySelector('[data-field="name"]').value, 'Lost Template')
+  assert.equal(row.querySelector('[data-field="currentObservations"]').value, '0')
+  harness.click('createAddTenetKnowledge')
+  await harness.flush(12)
+  assert.deepEqual(select.children.slice(0, 3).map(option => option.textContent), ['Lost Template (L2)', 'Zebra (L1)', '-----'])
+})
+
+test('knowledge picker reports settlement read failure and retains available local templates', async t => {
+  const harness = setupRendererHarness({ customizeApi(api) {
+    api.getSettlementRecord = async () => { throw new Error('Host unavailable') }
+    api.listKnowledgeTemplates = async () => [{ fileName: 'local.json', name: 'Local', template: { name: 'Local', knowledgeLevel: 1 } }]
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+  harness.click('navCreate')
+  await harness.flush(12)
+  harness.click('createAddKnowledge')
+  await harness.flush(12)
+  assert.match(harness.document.getElementById('status').innerText, /Settlement knowledge unavailable: Host unavailable/)
+  const select = harness.document.getElementById('knowledgeTemplateSelect')
+  assert.deepEqual(select.children.map(option => option.textContent), ['Local (L1)'])
+})
+
+test('survivor save warns about pending settlement registration without treating the save as failed', async t => {
+  const harness = setupRendererHarness({ customizeApi(api) {
+    const save = api.savePerson
+    api.savePerson = async (...args) => ({ ...await save(...args), settlementWarning: 'Survivor saved; registration pending' })
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+  harness.click('navCreate')
+  await harness.flush(12)
+  harness.document.getElementById('createSurvivorName').value = 'New Survivor'
+  harness.click('createSurvivorSubmit')
+  await harness.flush(20)
+  assert.ok(harness.alerts.some(message => message.includes('registration pending')))
+  assert.ok(findDbPersonByName(harness.db, 'New Survivor'))
 })
 
 test('create knowledge upgrade applies the configured next template', async t => {
