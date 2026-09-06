@@ -1,4 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const startupRoleGate = document.getElementById('startupRoleGate')
+  const startupChooseHostButton = document.getElementById('startupChooseHost')
+  const startupChooseClientButton = document.getElementById('startupChooseClient')
+  const startupChooseLocalButton = document.getElementById('startupChooseLocal')
+  const startupRoleStatus = document.getElementById('startupRoleStatus')
+  const appHeader = document.getElementById('appHeader')
+  const appShell = document.getElementById('appShell')
   if (!window.api) {
     console.error('API bridge not available')
     return
@@ -98,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsDateFormat = document.getElementById('settingsDateFormat')
   const settingsFastMode = document.getElementById('settingsFastMode')
   const settingsSurvivorDataMode = document.getElementById('settingsSurvivorDataMode')
+  const settingsLocalModeOption = document.getElementById('settingsLocalModeOption')
   const settingsLanDisplayName = document.getElementById('settingsLanDisplayName')
   const settingsLanHostAddress = document.getElementById('settingsLanHostAddress')
   const settingsLanPort = document.getElementById('settingsLanPort')
@@ -137,6 +145,81 @@ document.addEventListener('DOMContentLoaded', () => {
   const showdownCardA = document.getElementById('showdownCardA')
   const showdownCardB = document.getElementById('showdownCardB')
   const workspace = document.querySelector('.workspace')
+  const settlementRecordView = document.getElementById('settlementRecordView')
+  const navSettlementRecord = document.getElementById('navSettlementRecord')
+  const settlementName = document.getElementById('settlementName')
+  const settlementType = document.getElementById('settlementType')
+  const settlementTypeStatus = document.getElementById('settlementTypeStatus')
+  const settlementYearControl = document.getElementById('settlementYearControl')
+  const settlementLanternYear = document.getElementById('settlementLanternYear')
+  const incrementSettlementLanternYearButton = document.getElementById('incrementSettlementLanternYear')
+  const saveSettlementNameButton = document.getElementById('saveSettlementName')
+  const refreshSettlementRecordButton = document.getElementById('refreshSettlementRecord')
+  const setVignetteTemplateButton = document.getElementById('setVignetteTemplate')
+  const restoreVignetteTemplateButton = document.getElementById('restoreVignetteTemplate')
+  const settlementTemplateStatus = document.getElementById('settlementTemplateStatus')
+  const settlementRecordStatus = document.getElementById('settlementRecordStatus')
+  const settlementReturnsSection = document.getElementById('settlementReturnsSection')
+  const settlementReturnList = document.getElementById('settlementReturnList')
+  const settlementKnowledgeList = document.getElementById('settlementKnowledgeList')
+  let settlementRecord = null
+  const settlementRecordDirty = () =>
+    settlementRecord &&
+    (settlementName.value !== (settlementRecord.name || '') ||
+      settlementType.value !== (settlementRecord.settlementType || 'campaign') ||
+      (settlementType.value === 'campaign' && Number(settlementLanternYear.value) !== Number(settlementRecord.lanternYear || 0)))
+  const settlementNameDirty = settlementRecordDirty
+  const settlementRecordEditable = () => appSettings.survivorDataMode === 'lan-host'
+  const settlementTypeEditable = () => settlementRecordEditable() && !settlementRecord?.settlementTypeLocked
+  const settlementHasVignetteTemplate = () =>
+    settlementRecord &&
+    Array.isArray(settlementRecord.vignetteTemplate?.survivors) &&
+    settlementRecord.vignetteTemplate.survivors.length > 0
+
+  async function loadSettlementRecordView() {
+    settlementRecord = null
+    settlementName.value = ''
+    settlementType.value = 'campaign'
+    settlementLanternYear.value = '0'
+    settlementTypeStatus.textContent = ''
+    settlementTemplateStatus.textContent = ''
+    settlementReturnList.textContent = ''
+    settlementKnowledgeList.textContent = ''
+    settlementRecordStatus.textContent = 'Loading settlement…'
+    try {
+      settlementRecord = await window.api.getSettlementRecord()
+      settlementName.value = settlementRecord.name || ''
+      settlementType.value = settlementRecord.settlementType === 'vignette' ? 'vignette' : 'campaign'
+      settlementLanternYear.value = String(Math.max(0, Number(settlementRecord.lanternYear) || 0))
+      settlementTypeStatus.textContent = settlementRecord.settlementTypeLocked
+        ? 'Settlement type is permanent and can no longer be changed.'
+        : 'Settlement type becomes permanent when the Host saves the settlement.'
+      const entries = [...settlementRecord.knowledges].sort((a, b) =>
+        a.definition.name.localeCompare(b.definition.name) || a.definition.knowledgeLevel - b.definition.knowledgeLevel)
+      settlementKnowledgeList.innerHTML = entries.length ? entries.map(({ definition }) =>
+        `<details class="settlement-knowledge"><summary>${escapeHtml(definition.name)} · Level ${escapeHtml(String(definition.knowledgeLevel))}</summary><p>${escapeHtml(definition.rules || 'No rules recorded.')}</p></details>`
+      ).join('') : '<p class="muted">No knowledge unlocked yet. Knowledge is registered when survivors are saved.</p>'
+      const returns = Array.isArray(settlementRecord.returns) ? [...settlementRecord.returns] : []
+      returns.sort((a, b) => String(b.returnedAt || '').localeCompare(String(a.returnedAt || '')))
+      settlementReturnList.innerHTML = returns.length
+        ? `<ul class="settlement-return-list">${returns.map(entry =>
+            `<li><strong>${escapeHtml(entry.survivorName)}</strong><span>Lantern Year ${escapeHtml(String(entry.lanternYear))}</span><span>${entry.isAlive ? 'Alive' : 'Dead'}</span><time datetime="${escapeHtml(entry.returnedAt)}">${escapeHtml(new Date(entry.returnedAt).toLocaleString())}</time></li>`
+          ).join('')}</ul>`
+        : '<p class="muted">No survivor returns recorded yet.</p>'
+      if (settlementType.value === 'vignette') {
+        const template = settlementRecord.vignetteTemplate
+        const savedAt = template?.savedAt ? ` · saved ${new Date(template.savedAt).toLocaleString()}` : ''
+        settlementTemplateStatus.textContent = settlementHasVignetteTemplate()
+          ? `${template.survivors.length} survivor template${template.survivors.length === 1 ? '' : 's'}${savedAt}`
+          : 'No vignette template set.'
+      }
+      settlementRecordStatus.textContent = `${entries.length} unlocked knowledge${settlementRecordEditable() ? '' : ' · Read-only — only the Host can edit.'}${settlementRecord.pendingOperations ? ` · ${settlementRecord.pendingOperations} settlement updates pending recovery.` : ''}`
+    } catch (err) {
+      settlementRecordStatus.textContent = `Unable to load settlement: ${err.message}`
+    }
+    syncControlState()
+  }
+
   const settlementView = document.getElementById('settlementView')
   const bulkUpdatesView = document.getElementById('bulkUpdatesView')
   const createSurvivorView = document.getElementById('createSurvivorView')
@@ -576,6 +659,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let lanStatusRefreshTimer = null
   let lanConnectionState = 'local'
   let discoveredLanHosts = []
+  let developmentMode = false
+  let startupRoleGateActive = false
+  let startupRoleChosen = false
   let appSettings = {
     userName: '',
     dateFormat: 'en-GB',
@@ -791,6 +877,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function confirmDiscardCreateChanges(actionLabel = 'continue') {
+    if (currentPage === 'settlementRecord' && settlementNameDirty()) {
+      if (!window.confirm(`You have unsaved settlement changes. Discard them and ${actionLabel}?`)) return false
+      settlementName.value = settlementRecord.name || ''
+      settlementType.value = settlementRecord.settlementType || 'campaign'
+      settlementLanternYear.value = String(Math.max(0, Number(settlementRecord.lanternYear) || 0))
+    }
     if (!hasUnsavedCreateChanges()) return true
     const subject =
       createViewMode === 'defaultTemplate'
@@ -1309,6 +1401,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function syncStartupRoleGate() {
+    startupChooseLocalButton.classList.toggle('hidden', !developmentMode)
+    settingsLocalModeOption.hidden = !developmentMode
+    settingsLocalModeOption.disabled = !developmentMode
+    startupRoleGate.classList.toggle('hidden', !startupRoleGateActive)
+    startupRoleGate.setAttribute('aria-hidden', startupRoleGateActive ? 'false' : 'true')
+    appHeader.inert = startupRoleGateActive
+    appShell.inert = startupRoleGateActive
+    if (startupRoleGateActive) startupChooseHostButton.focus()
+  }
+
+  async function chooseStartupRole(mode) {
+    if (!['lan-host', 'lan-client'].includes(mode) && !(developmentMode && mode === 'local')) return
+    startupChooseHostButton.disabled = true
+    startupChooseClientButton.disabled = true
+    startupChooseLocalButton.disabled = true
+    startupRoleStatus.textContent = `Preparing ${mode === 'lan-host' ? 'Host' : mode === 'lan-client' ? 'Client' : 'Local Development'} mode…`
+    try {
+      const requested = normalizeAppSettings({
+        ...appSettings,
+        survivorDataMode: mode,
+        lanHostEnabled: mode === 'lan-host' ? false : appSettings.lanHostEnabled,
+        lanClientConnected: mode === 'lan-client' ? false : appSettings.lanClientConnected
+      })
+      appSettings = normalizeAppSettings(await window.api.saveAppSettings(requested))
+      startupRoleChosen = true
+      startupRoleGateActive = false
+      startupRoleStatus.textContent = ''
+      syncStartupRoleGate()
+      syncLanSettingsUi()
+      setPage('dataSources')
+      await init()
+    } catch (err) {
+      startupRoleStatus.textContent = err.message || 'Unable to save the selected role.'
+    } finally {
+      startupChooseHostButton.disabled = false
+      startupChooseClientButton.disabled = false
+      startupChooseLocalButton.disabled = false
+    }
+  }
+
   function renderDiscoveredLanHosts(hosts = discoveredLanHosts) {
     discoveredLanHosts = Array.isArray(hosts) ? hosts : []
     const previousValue = settingsLanDiscoveredHosts.value
@@ -1634,6 +1767,30 @@ document.addEventListener('DOMContentLoaded', () => {
     addDisorderButton.disabled = busy
     addTenetKnowledgeButton.disabled = busy
     addKnowledgeButton.disabled = busy
+    navSettlementRecord.disabled = busy || appSettings.survivorDataMode === 'local'
+    navSettlementRecord.title = appSettings.survivorDataMode === 'local' ? 'Settlement requires LAN Host or LAN Client mode.' : ''
+    settlementName.disabled = busy || !settlementRecord || !settlementRecordEditable()
+    settlementType.disabled = busy || !settlementRecord || !settlementTypeEditable()
+    settlementType.title = settlementRecord?.settlementTypeLocked
+      ? 'Settlement type is permanent once set.'
+      : ''
+    settlementYearControl.classList.toggle('hidden', settlementType.value !== 'campaign')
+    incrementSettlementLanternYearButton.classList.toggle('hidden', settlementType.value !== 'campaign')
+    settlementReturnsSection.classList.toggle('hidden', settlementType.value !== 'campaign')
+    settlementLanternYear.disabled =
+      busy || !settlementRecord || !settlementRecordEditable() || settlementType.value !== 'campaign'
+    incrementSettlementLanternYearButton.disabled = settlementLanternYear.disabled
+    saveSettlementNameButton.disabled = busy || !settlementRecord || !settlementRecordEditable() || !settlementRecordDirty()
+    setVignetteTemplateButton.disabled =
+      busy || !settlementRecord || !settlementRecordEditable() || settlementType.value !== 'vignette' || settlementRecordDirty()
+    restoreVignetteTemplateButton.disabled =
+      busy ||
+      !settlementRecord ||
+      !settlementRecordEditable() ||
+      settlementType.value !== 'vignette' ||
+      settlementRecordDirty() ||
+      !settlementHasVignetteTemplate()
+    refreshSettlementRecordButton.disabled = busy || !hasDataFolder
     settlementNameSearch.disabled = !hasDataFolder || busy
     settlementTraitSearch.disabled = !hasDataFolder || busy
     settlementToggleExtraFiltersButton.disabled = !hasDataFolder || busy
@@ -1890,6 +2047,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setPage(page) {
     const nextPage =
+      page === 'settlementRecord' ||
       page === 'showdown' ||
       page === 'settlement' ||
       page === 'bulkUpdates' ||
@@ -1898,6 +2056,7 @@ document.addEventListener('DOMContentLoaded', () => {
       page === 'dataSources'
         ? page
         : 'technical'
+    if (nextPage === 'settlementRecord' && appSettings.survivorDataMode === 'local') return
     currentPage = nextPage
     inShowdownMode = nextPage === 'showdown'
 
@@ -1905,6 +2064,8 @@ document.addEventListener('DOMContentLoaded', () => {
     dataSourcesView.classList.toggle('hidden', nextPage !== 'dataSources')
     workspace.classList.toggle('hidden', nextPage !== 'technical')
     showdownView.classList.toggle('hidden', nextPage !== 'showdown')
+    settlementRecordView.classList.toggle('hidden', nextPage !== 'settlementRecord')
+    navSettlementRecord.classList.toggle('is-active', nextPage === 'settlementRecord')
     settlementView.classList.toggle('hidden', nextPage !== 'settlement')
     bulkUpdatesView.classList.toggle('hidden', nextPage !== 'bulkUpdates')
     createSurvivorView.classList.toggle('hidden', nextPage !== 'create' && nextPage !== 'defaultTemplate')
@@ -2646,7 +2807,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let settlement = null
     try {
       settlement = await window.api.getSettlementRecord()
-      if (settlement.pendingOperations) setStatus(`${settlement.pendingOperations} settlement registration(s) still pending recovery.`, 'error')
+      if (settlement.pendingOperations) setStatus(`${settlement.pendingOperations} settlement update(s) still pending recovery.`, 'error')
     } catch (err) {
       setStatus(`Settlement knowledge unavailable: ${err.message}. Showing local templates only.`, 'error')
     }
@@ -3956,9 +4117,15 @@ document.addEventListener('DOMContentLoaded', () => {
   async function init() {
     await runBusy(async () => {
       let initialSurvivorReadError = null
+      if (typeof window.api.getRuntimeInfo === 'function') {
+        const runtimeInfo = await window.api.getRuntimeInfo()
+        developmentMode = Boolean(runtimeInfo?.isDevelopmentMode)
+      }
       if (typeof window.api.getAppSettings === 'function') {
         appSettings = normalizeAppSettings(await window.api.getAppSettings())
       }
+      startupRoleGateActive = appSettings.survivorDataMode === 'local' && !startupRoleChosen
+      syncStartupRoleGate()
       settingsUserName.value = appSettings.userName
       settingsDateFormat.value = appSettings.dateFormat
       syncLanSettingsUi()
@@ -3968,6 +4135,14 @@ document.addEventListener('DOMContentLoaded', () => {
       updateSettlementLastRefreshed(null)
       dataSources = { ...dataSources, ...(await window.api.getSavedDataSources()) }
       renderDataSources()
+      if (startupRoleGateActive && !developmentMode) {
+        peopleCount.textContent = '0 people loaded'
+        settlementRecords = []
+        renderSettlementTable()
+        updateSettlementLastRefreshed(null)
+        setPage('dataSources')
+        return
+      }
       await refreshLanHostInfo()
       await refreshDiscoveredLanHosts()
       await refreshLanConnectionStatus()
@@ -4259,6 +4434,15 @@ document.addEventListener('DOMContentLoaded', () => {
       handleSettingsPersistError(err, 'Failed to disconnect LAN client')
     })
   })
+  startupChooseHostButton.addEventListener('click', () => {
+    chooseStartupRole('lan-host')
+  })
+  startupChooseClientButton.addEventListener('click', () => {
+    chooseStartupRole('lan-client')
+  })
+  startupChooseLocalButton.addEventListener('click', () => {
+    chooseStartupRole('local')
+  })
   settingsLanRefreshDiscovery.addEventListener('click', () => {
     runBusy(() => refreshDiscoveredLanHosts({ showStatus: true })).catch(err => {
       setStatus(err.message || 'Failed to scan LAN hosts', 'error')
@@ -4387,16 +4571,102 @@ document.addEventListener('DOMContentLoaded', () => {
   createOpenDefaultTemplate.addEventListener('click', () => {
     openDefaultTemplateEditor()
   })
+  navSettlementRecord.addEventListener('click', () => {
+    if (currentPage === 'settlementRecord' || appSettings.survivorDataMode === 'local') return
+    if (!confirmDiscardCreateChanges('open Settlement')) return
+    runBusy(async () => {
+      setPage('settlementRecord')
+      await loadSettlementRecordView()
+    }).catch(err => setStatus(err.message, 'error'))
+  })
+  settlementName.addEventListener('input', () => {
+    syncControlState()
+    if (settlementRecordDirty()) settlementRecordStatus.textContent = 'Unsaved settlement changes'
+  })
+  settlementType.addEventListener('change', () => {
+    settlementTemplateStatus.textContent =
+      settlementType.value === 'vignette' && settlementRecord?.settlementType !== 'vignette'
+        ? 'Save Settlement before setting a vignette template.'
+        : ''
+    syncControlState()
+    if (settlementRecordDirty()) settlementRecordStatus.textContent = 'Unsaved settlement changes'
+  })
+  settlementLanternYear.addEventListener('input', () => {
+    syncControlState()
+    if (settlementRecordDirty()) settlementRecordStatus.textContent = 'Unsaved settlement changes'
+  })
+  incrementSettlementLanternYearButton.addEventListener('click', () => {
+    if (settlementLanternYear.disabled) return
+    settlementLanternYear.value = String(Math.max(0, Number(settlementLanternYear.value) || 0) + 1)
+    syncControlState()
+    settlementRecordStatus.textContent = 'Unsaved settlement changes'
+  })
+  refreshSettlementRecordButton.addEventListener('click', () => {
+    if (!confirmDiscardCreateChanges('refresh Settlement')) return
+    runBusy(loadSettlementRecordView).catch(err => setStatus(err.message, 'error'))
+  })
+  saveSettlementNameButton.addEventListener('click', () => {
+    if (!settlementRecordEditable() || !settlementRecord) return
+    runBusy(async () => {
+      const result = await window.api.saveSettlementSettings({
+        id: settlementRecord.id,
+        revision: settlementRecord.revision,
+        name: settlementName.value,
+        settlementType: settlementType.value,
+        lanternYear: Number(settlementLanternYear.value)
+      })
+      if (!result.ok) throw new Error(result.message || 'Unable to save settlement.')
+      settlementRecord = result.record
+      settlementName.value = settlementRecord.name || ''
+      settlementType.value = settlementRecord.settlementType || 'campaign'
+      settlementLanternYear.value = String(Math.max(0, Number(settlementRecord.lanternYear) || 0))
+      await loadSettlementRecordView()
+      settlementRecordStatus.textContent = 'Settlement saved.'
+    }).catch(err => { settlementRecordStatus.textContent = err.message })
+  })
+  setVignetteTemplateButton.addEventListener('click', () => {
+    if (!settlementRecordEditable() || !settlementRecord || settlementRecordDirty() || settlementType.value !== 'vignette') return
+    if (!window.confirm('Set the current survivor files as this vignette template?')) return
+    runBusy(async () => {
+      const result = await window.api.saveSettlementVignetteTemplate({
+        id: settlementRecord.id,
+        revision: settlementRecord.revision,
+        name: settlementName.value,
+        settlementType: settlementType.value
+      })
+      if (!result.ok) throw new Error(result.message || 'Unable to set vignette template.')
+      settlementRecord = result.record
+      await loadSettlementRecordView()
+      settlementTemplateStatus.textContent = 'Vignette template saved.'
+    }).catch(err => { settlementTemplateStatus.textContent = err.message })
+  })
+  restoreVignetteTemplateButton.addEventListener('click', () => {
+    if (!settlementRecordEditable() || !settlementRecord || settlementRecordDirty() || settlementType.value !== 'vignette') return
+    if (!window.confirm('Restore survivors to the saved vignette template? Current survivor files will be backed up first.')) return
+    runBusy(async () => {
+      const result = await window.api.restoreSettlementVignetteTemplate({
+        id: settlementRecord.id,
+        revision: settlementRecord.revision,
+        name: settlementName.value,
+        settlementType: settlementType.value
+      })
+      if (!result.ok) throw new Error(result.message || 'Unable to restore vignette template.')
+      settlementRecord = result.record
+      await refreshPeople()
+      await loadSettlementRecordView()
+      settlementTemplateStatus.textContent = `Restored ${result.restoredCount} survivor${result.restoredCount === 1 ? '' : 's'}. Backup: ${result.backupPath}`
+    }).catch(err => { settlementTemplateStatus.textContent = err.message })
+  })
   navSettlementButton.addEventListener('click', () => {
     if (currentPage === 'settlement') return
-    if (!confirmDiscardCreateChanges('open settlement')) return
+    if (!confirmDiscardCreateChanges('open Survivors')) return
     runBusy(async () => {
       if (inShowdownMode) {
-        setStatus('Showdown session kept active while in Settlement view.', 'neutral')
+        setStatus('Showdown session kept active while in Survivors view.', 'neutral')
       }
       setPage('settlement')
     }).catch(err => {
-      setStatus(err.message || 'Failed to open settlement view', 'error')
+      setStatus(err.message || 'Failed to open survivors view', 'error')
     })
   })
   navBulkUpdatesButton.addEventListener('click', () => {
@@ -4824,14 +5094,14 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   createSurvivorBack.addEventListener('click', () => {
-    if (!confirmDiscardCreateChanges(createViewMode === 'defaultTemplate' ? 'return to settings' : 'return to settlement')) return
+    if (!confirmDiscardCreateChanges(createViewMode === 'defaultTemplate' ? 'return to settings' : 'return to Survivors')) return
     if (createViewMode === 'defaultTemplate') {
       setPage('dataSources')
       setStatus('Returned to settings view', 'neutral')
       return
     }
     setPage('settlement')
-    setStatus('Returned to settlement view', 'neutral')
+    setStatus('Returned to survivors view', 'neutral')
   })
 
   createSurvivorSubmit.addEventListener('click', () => {
@@ -5053,7 +5323,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inShowdownMode) {
       runBusy(async () => {
         setPage('settlement')
-        setStatus('Showdown session kept active in memory. Returned to settlement view.', 'neutral')
+        setStatus('Showdown session kept active in memory. Returned to survivors view.', 'neutral')
       }).catch(err => {
         setStatus(err.message || 'Failed to leave showdown view', 'error')
       })

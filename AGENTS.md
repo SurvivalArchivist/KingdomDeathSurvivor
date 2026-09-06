@@ -40,6 +40,8 @@ Before making significant changes, check:
 - Keep the Create/View Survivor sticky action rail flattened across all themes; its buttons should remain standalone without a panel-like background, border, blur, padding, or shadow around the group.
 
 ## Current UX Expectations
+- Production startup requires a persisted LAN Host or LAN Client role. New installs and legacy Local Files configurations remain behind the startup role gate until a role is selected. Local Development is available only when launched with `npm run dev`; packaged builds and ordinary `npm start` must hide and reject Local mode below the renderer.
+- `Survivors` is the survivor roster (legacy internal settlement view IDs remain). `Settlement` is a separate record tab: LAN Host edits the settlement name/type and Vignette template controls, LAN Client views only, and Local Development sees a disabled tab. Enforce direct settlement-write permissions at the provider boundary and reject remote settlement writes.
 - `Technical View` exists as functionality but should not drive the primary navigation layout unless explicitly requested.
 - The top navigation should not grow taller between sections or modes.
 - Showdown session behavior is important and should remain intact:
@@ -57,6 +59,8 @@ Before making significant changes, check:
 - Template-backed systems include knowledge, tenet knowledge, and neuroses; preserve current compatibility behavior when changing related UI.
 - Multi-user safety is optimistic, not lock-based: avoid introducing save flows that silently overwrite stale data.
 - One Survivors folder owns one settlement record. Knowledge and Tenet Knowledge share settlement unlock identity (normalized name + level); only successful survivor saves count. Preserve the durable registration journal and never replay survivor writes during recovery. Keep `settlement.json` and `settlement-journal.json` out of survivor CRUD.
+- Settlement type is `campaign` or `vignette` and becomes permanent after the Host's first Settlement save. Campaign behaves normally. Vignette templates snapshot the current survivor JSON records into `settlement.json`; restore creates a timestamped `settlement-backups/` survivor-file backup, replaces survivor JSON with the template, clears settlement knowledge/journal state, and rebuilds discoveries from the restored survivors.
+- Campaign settlements store a non-negative Lantern Year that the LAN Host controls manually. Successful `markReturned` survivor saves add an idempotent settlement return entry containing survivor identity/name, the current Lantern Year, return timestamp, and alive/dead state. Create these return entries only through LAN Host or LAN Client save paths; Local Development may update a survivor's `lastReturned` but must not add settlement return history.
 
 ## Implementation Notes
 - Prefer targeted edits over broad rewrites.
@@ -76,3 +80,5 @@ For docs-only updates, note that verification was not required.
 - Record important product or UI direction changes in `docs/ai/MODEL_HANDOFF.md`.
 - Keep `docs/ai/PROJECT_CONTEXT.md` focused on stable, canonical project facts.
 - Keep this file opinionated and practical: it should tell future agents how to work in this repo, not just describe the repo abstractly.
+
+Client survivor saves still register unlocked knowledge in the host settlement record through the existing journal/recovery flow. Host-only editing applies to direct Settlement tab edits, not automatic knowledge registration from saved survivors.

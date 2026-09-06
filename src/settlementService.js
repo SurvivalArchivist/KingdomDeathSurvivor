@@ -9,6 +9,14 @@ const stamp = () => new Date().toISOString()
 const keyFor = entry => JSON.stringify([String(entry.name || '').trim().toLowerCase(), Math.max(1, Number(entry.knowledgeLevel) || 1)])
 const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')
 const isDefinition = value => value && typeof value.name === 'string' && value.name.trim() && Number.isInteger(value.knowledgeLevel) && value.knowledgeLevel >= 1
+const normalizeSettlementType = value => String(value || '').trim() === 'vignette' ? 'vignette' : 'campaign'
+const normalizeLanternYear = value => Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? Number(value) : 0
+const isReturnEntry = value => value && typeof value.id === 'string' && value.id &&
+  typeof value.survivorId === 'string' && value.survivorId &&
+  typeof value.survivorName === 'string' && value.survivorName.trim() &&
+  Number.isSafeInteger(value.lanternYear) && value.lanternYear >= 0 &&
+  typeof value.returnedAt === 'string' && !Number.isNaN(Date.parse(value.returnedAt)) &&
+  typeof value.isAlive === 'boolean'
 
 function isOperation(operation) {
   return operation && typeof operation.id === 'string' && operation.id &&
@@ -16,7 +24,8 @@ function isOperation(operation) {
     /^[a-f0-9]{64}$/.test(operation.savedDigest) && typeof operation.fileName === 'string' &&
     operation.fileName.endsWith('.json') && path.basename(operation.fileName) === operation.fileName &&
     !reserved(operation.fileName) && ['prepared', 'committed', 'complete', 'cancelled'].includes(operation.state) &&
-    Array.isArray(operation.knowledges) && operation.knowledges.every(isDefinition)
+    Array.isArray(operation.knowledges) && operation.knowledges.every(isDefinition) &&
+    (typeof operation.returnEntry === 'undefined' || isReturnEntry(operation.returnEntry))
 }
 
 function read(basePath, name) {
@@ -66,16 +75,34 @@ function record(basePath) {
   const value = read(basePath, RECORD)
   if (fs.existsSync(path.join(basePath, RECORD))) {
     if (!value || value.schemaVersion !== 1 || typeof value.id !== 'string' || !Array.isArray(value.knowledges) || !Number.isSafeInteger(value.revision) ||
-      value.knowledges.some(entry => !entry || typeof entry.id !== 'string' || !entry.id || !isDefinition(entry.definition))) {
+      value.knowledges.some(entry => !entry || typeof entry.id !== 'string' || !entry.id || !isDefinition(entry.definition)) ||
+      (typeof value.returns !== 'undefined' && (!Array.isArray(value.returns) || value.returns.some(entry => !isReturnEntry(entry))))) {
       throw new Error('Invalid settlement record; restore or repair it. It has not been replaced.')
     }
+    value.settlementType = normalizeSettlementType(value.settlementType)
+    value.settlementTypeLocked = typeof value.settlementTypeLocked === 'boolean'
+      ? value.settlementTypeLocked
+      : value.settlementType === 'vignette' || Boolean(value.vignetteTemplate)
+    value.lanternYear = normalizeLanternYear(value.lanternYear)
+    value.returns = Array.isArray(value.returns) ? value.returns : []
     return value
   }
   const now = stamp()
-  return { schemaVersion: 1, id: crypto.randomUUID(), revision: 0, createdAt: now, updatedAt: now, knowledges: [] }
+  return {
+    schemaVersion: 1,
+    id: crypto.randomUUID(),
+    revision: 0,
+    createdAt: now,
+    updatedAt: now,
+    settlementType: 'campaign',
+    settlementTypeLocked: false,
+    lanternYear: 0,
+    knowledges: [],
+    returns: []
+  }
 }
 
-function register(basePath, entries, survivorId) {
+function register(basePath, entries, survivorId, returnEntry) {
   const value = record(basePath)
   const keys = new Set(value.knowledges.map(entry => keyFor(entry.definition)))
   let added = 0
@@ -86,15 +113,17 @@ function register(basePath, entries, survivorId) {
     value.knowledges.push({ id: crypto.randomUUID(), definition, firstSurvivorId: survivorId, discoveredAt: stamp() })
     added++
   }
-  if (added || !fs.existsSync(path.join(basePath, RECORD))) {
+  const returnAdded = isReturnEntry(returnEntry) && !value.returns.some(entry => entry.id === returnEntry.id)
+  if (returnAdded) value.returns.push(returnEntry)
+  if (added || returnAdded || !fs.existsSync(path.join(basePath, RECORD))) {
     value.revision++
     value.updatedAt = stamp()
     write(basePath, RECORD, value)
   }
-  return added
+  return { knowledgeAdded: added, returnAdded }
 }
 
-// Only replay settlement registration. Never replay a survivor write or bypass its revision check.
+// Only replay settlement metadata registration. Never replay a survivor write or bypass its revision check.
 function recover(basePath) {
   const log = journal(basePath)
   let changed = false
@@ -107,13 +136,13 @@ function recover(basePath) {
     }
     if (operation.state !== 'committed') continue
     try {
-      const added = register(basePath, operation.knowledges, operation.survivorId)
+      const result = register(basePath, operation.knowledges, operation.survivorId, operation.returnEntry)
       operation.state = 'complete'
       operation.error = null
-      event(log, operation, 'register-knowledge', 'complete', `${added} added; remaining already present`)
+      event(log, operation, 'register-settlement', 'complete', `${result.knowledgeAdded} knowledge added; return ${result.returnAdded ? 'added' : 'not added'}`)
     } catch (err) {
       operation.error = err.message
-      event(log, operation, 'register-knowledge', 'failed', err.message)
+      event(log, operation, 'register-settlement', 'failed', err.message)
     }
     operation.attempts = (operation.attempts || 0) + 1
     changed = true
@@ -122,10 +151,31 @@ function recover(basePath) {
   return log
 }
 
-function prepare(basePath, fileName, person) {
+function prepare(basePath, fileName, person, options = {}) {
   // Persist recovery decisions before another save can replace the evidence on disk.
   const log = recover(basePath)
-  const operation = { id: crypto.randomUUID(), survivorId: person.id, fileName, savedDigest: digest(person), knowledges: definitions(person), state: 'prepared', attempts: 0 }
+  const operationId = crypto.randomUUID()
+  const settlement = record(basePath)
+  const returnEntry = options.markReturned && settlement.settlementType === 'campaign'
+    ? {
+        id: operationId,
+        survivorId: person.id,
+        survivorName: String(person.name || '').trim(),
+        lanternYear: settlement.lanternYear,
+        returnedAt: person.lastReturned,
+        isAlive: Boolean(person.isAlive)
+      }
+    : undefined
+  const operation = {
+    id: operationId,
+    survivorId: person.id,
+    fileName,
+    savedDigest: digest(person),
+    knowledges: definitions(person),
+    ...(returnEntry ? { returnEntry } : {}),
+    state: 'prepared',
+    attempts: 0
+  }
   log.operations.push(operation)
   event(log, operation, 'save-survivor', 'prepared')
   write(basePath, JOURNAL, log)
@@ -179,8 +229,83 @@ function getRecord(basePath, survivors) {
 function warning(basePath) {
   try {
     const pending = journal(basePath).operations.filter(op => ['prepared', 'committed'].includes(op.state))
-    return pending.length ? `Survivor saved. ${pending.length} settlement registration(s) pending recovery. ${pending.find(op => op.error)?.error || ''}`.trim() : null
+    return pending.length ? `Survivor saved. ${pending.length} settlement update(s) pending recovery. ${pending.find(op => op.error)?.error || ''}`.trim() : null
   } catch (err) { return `Survivor saved. Settlement recovery needs attention: ${err.message}` }
 }
 
-module.exports = { reserved, prepare, committed, failed, recover, getRecord, keyFor, warning }
+function saveSettings(basePath, current, settings) {
+  // The caller has recovered/indexed the record and checked its revision synchronously.
+  const settlementType = normalizeSettlementType(settings.settlementType)
+  if (current.settlementTypeLocked && settlementType !== normalizeSettlementType(current.settlementType)) {
+    throw new Error('Settlement type cannot be changed after it has been set.')
+  }
+  const value = {
+    ...current,
+    name: settings.name,
+    settlementType,
+    settlementTypeLocked: true,
+    lanternYear: normalizeLanternYear(settings.lanternYear),
+    revision: current.revision + 1,
+    updatedAt: stamp()
+  }
+  delete value.pendingOperations
+  write(basePath, RECORD, value)
+  return { ...value, pendingOperations: current.pendingOperations }
+}
+
+function saveName(basePath, current, name) {
+  const value = {
+    ...current,
+    name,
+    revision: current.revision + 1,
+    updatedAt: stamp()
+  }
+  delete value.pendingOperations
+  write(basePath, RECORD, value)
+  return { ...value, pendingOperations: current.pendingOperations }
+}
+
+function setVignetteTemplate(basePath, current, survivors) {
+  if (normalizeSettlementType(current.settlementType) !== 'vignette' || !current.settlementTypeLocked) {
+    throw new Error('Settlement type must be set to Vignette before saving a template.')
+  }
+  const value = {
+    ...current,
+    vignetteTemplate: {
+      savedAt: stamp(),
+      survivors
+    },
+    revision: current.revision + 1,
+    updatedAt: stamp()
+  }
+  delete value.pendingOperations
+  write(basePath, RECORD, value)
+  return { ...value, pendingOperations: current.pendingOperations }
+}
+
+function replaceAfterRestore(basePath, current) {
+  const value = {
+    ...current,
+    knowledges: [],
+    revision: current.revision + 1,
+    updatedAt: stamp()
+  }
+  delete value.pendingOperations
+  write(basePath, RECORD, value)
+  write(basePath, JOURNAL, { schemaVersion: 1, nextSequence: 1, operations: [], events: [] })
+}
+
+module.exports = {
+  saveSettings,
+  saveName,
+  setVignetteTemplate,
+  replaceAfterRestore,
+  reserved,
+  prepare,
+  committed,
+  failed,
+  recover,
+  getRecord,
+  keyFor,
+  warning
+}

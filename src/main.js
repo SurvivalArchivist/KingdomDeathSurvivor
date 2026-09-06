@@ -29,6 +29,7 @@ const SMOKE_TEST_ARG = '--smoke-test'
 const SMOKE_TEST_TIMEOUT_MS = 20000
 const SMOKE_TEST_SUCCESS_MARKER = 'KDM_PACKAGED_SMOKE_TEST_OK'
 const isSmokeTest = process.argv.includes(SMOKE_TEST_ARG)
+const isDevelopmentMode = () => app.isPackaged === undefined || (!app.isPackaged && process.argv.includes('--dev'))
 let smokeTestFinished = false
 let smokeTestTimeout = null
 const markdown = new MarkdownIt({
@@ -120,7 +121,7 @@ function createWindow() {
 }
 
 function getSurvivorProvider() {
-  return createSurvivorProvider({ app, dataService })
+  return createSurvivorProvider({ app, dataService, allowLocalMode: isDevelopmentMode() })
 }
 
 function getLanSurvivorHost() {
@@ -644,7 +645,12 @@ ipcMain.handle('get-app-settings', () => {
   return dataService.getSavedAppSettings(app)
 })
 
+ipcMain.handle('get-runtime-info', () => ({ isDevelopmentMode: isDevelopmentMode() }))
+
 ipcMain.handle('save-app-settings', async (_event, settings) => {
+  if (!isDevelopmentMode() && !['lan-host', 'lan-client'].includes(String(settings?.survivorDataMode || '').trim())) {
+    throw new dataService.ValidationError('Local Files mode is only available through npm run dev.')
+  }
   const saved = dataService.saveAppSettings(app, settings)
   try {
     await syncLanHostService()
@@ -677,6 +683,46 @@ ipcMain.handle('export-survivor-data-backup', () => {
 
 ipcMain.handle('list-people', async () => {
   return getSurvivorProvider().listPeople()
+})
+
+ipcMain.handle('save-settlement-name', async (_event, input) => {
+  try {
+    return { ok: true, record: await getSurvivorProvider().saveSettlementName(input) }
+  } catch (err) {
+    const payload = getSurvivorErrorPayload(err)
+    if (payload) return payload
+    throw err
+  }
+})
+
+ipcMain.handle('save-settlement-settings', async (_event, input) => {
+  try {
+    return { ok: true, record: await getSurvivorProvider().saveSettlementSettings(input) }
+  } catch (err) {
+    const payload = getSurvivorErrorPayload(err)
+    if (payload) return payload
+    throw err
+  }
+})
+
+ipcMain.handle('save-settlement-vignette-template', async (_event, input) => {
+  try {
+    return { ok: true, record: await getSurvivorProvider().saveSettlementVignetteTemplate(input) }
+  } catch (err) {
+    const payload = getSurvivorErrorPayload(err)
+    if (payload) return payload
+    throw err
+  }
+})
+
+ipcMain.handle('restore-settlement-vignette-template', async (_event, input) => {
+  try {
+    return { ok: true, ...(await getSurvivorProvider().restoreSettlementVignetteTemplate(input)) }
+  } catch (err) {
+    const payload = getSurvivorErrorPayload(err)
+    if (payload) return payload
+    throw err
+  }
 })
 
 ipcMain.handle('get-settlement-record', async () => getSurvivorProvider().getSettlementRecord())

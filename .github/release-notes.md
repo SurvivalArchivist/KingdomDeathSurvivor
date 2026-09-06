@@ -1,46 +1,45 @@
-## KDM Survivors Console 3.2.1
+# KDM Survivors Console 3.3.0
 
-Version 3.2.1 is a maintenance update for macOS, Windows, Linux x86_64, and Linux ARM64. It retains the settlement knowledge and Showdown improvements from 3.2.0 while refreshing a transitive dependency after new security advisories.
+Version 3.3.0 adds host-owned settlement management, reusable Vignette survivor templates, Campaign year and return tracking, and an explicit Host/Client startup choice.
 
-### Maintenance
-- Updated transitive `fast-uri` from 3.1.5 to 3.1.7; production and full npm audits now report zero vulnerabilities.
-- Confirmed that the Windows setup and portable builds pass acceptance testing with the current Electron 41.10.4 and Electron Builder 26.15.7 toolchain.
-- Removed an obsolete engineering checkpoint from contributor guidance while preserving the Create/View Survivor action-rail styling guardrail.
+### Settlement Management
 
-### Settlement Knowledge
-- Successful survivor saves unlock knowledge in a shared settlement record. Knowledge and Tenet Knowledge count toward the same discovery pool; removing knowledge later does not erase the unlock.
-- Knowledge pickers show unlocked settlement knowledge first, followed by a separator and remaining templates. Stored definitions remain selectable when the original template is missing.
-- Works in Local Files and LAN Host/Client modes, with the host owning shared settlement data.
-- A durable registration journal records outcomes and retries unfinished settlement updates without replaying stale survivor saves.
-- Existing saved survivors seed the settlement record. Back up the entire Survivors folder, including the new `settlement.json` and `settlement-journal.json` files.
+- The survivor roster is now called **Survivors**, with a separate **Settlement** tab for the settlement name, type, and unlocked knowledge.
+- LAN Hosts can edit settlement settings. LAN Clients can view and refresh the page while continuing to update settlement knowledge through normal survivor saves.
+- Settlement Type is a permanent choice after the first save: **Campaign** keeps the normal play flow, while **Vignette** enables reusable survivor templates.
+- Unlocked Knowledge and Tenet Knowledge definitions are listed alphabetically and can be expanded for details.
 
-### Showdown Maintenance
-- Split Showdown state, card rendering, interactions, and session lifecycle into focused modules while preserving Depart, cross-view resume, completion, and save-failure recovery behavior.
-- Expanded automated verification to 246 passing tests; manual Showdown and settlement feature checks were accepted by the user before release.
+### Vignette Templates
 
-### LAN Reliability
-- LAN Client startup remains usable when the configured host is offline.
-- Failed survivor reads keep the current Settlement list, editor content, or Showdown state intact and provide clear reconnect/retry guidance.
-- Settlement continues to accept live host-pushed refreshes; Create/Edit and Showdown require explicit refreshes so active work cannot be replaced silently.
-- Added regression coverage for offline startup, failed Settlement refreshes, failed Showdown reads, departed-session navigation, and partial bulk-update outcomes.
+- **Set Template** captures every current survivor exactly as saved.
+- **Restore to Template** resets the survivor roster to that snapshot.
+- Before a restore, the app copies the displaced survivor records to a timestamped folder under `settlement-backups/`.
+- Template operations are available to the LAN Host only.
 
-### Linux Highlights
-- Native x64 and ARM64 builds run the full test suite and launch the real packaged Electron application before publication.
-- RPM and DEB architecture metadata and the packaged executable's ELF architecture are checked automatically.
-- Separate SHA-256 checksum files are included for Linux x64 and ARM64 downloads.
-- The ARM64 RPM has passed installed-package acceptance on Fedora Linux Asahi Remix under KDE Wayland with a 16 KiB-page kernel.
-- Linux artifact filenames are now stable and space-free so their checksum manifests match the published files.
-- AppImage and Flatpak remain experimental and are not included in the core tagged release.
+### Campaign Tracking
+
+- LAN Hosts can set the current Lantern Year manually or advance it one year at a time.
+- Returning survivors recorded during LAN play add a durable settlement-history entry containing their ID and name, Lantern Year, return timestamp, and alive/dead state.
+- Client returns are written by the host. Development-only Local Files mode does not create settlement return-history entries.
+
+### Startup Roles
+
+- Production launches now require choosing **Host** or **Client** when no production role has been saved. Existing Local configurations are prompted once after upgrading.
+- A Host can run the app by itself and uses its selected Survivors folder as authoritative storage.
+- Local Files mode is reserved for development and is available through `npm run dev`.
 
 ### Compatibility
-- Version 3.2.1 keeps survivor schema version `6` from 3.0.1. Settlement metadata uses its own schema version `1`.
-- Upgrade the LAN host and clients together. Older apps do not understand the new settlement metadata files; avoid opening an upgraded Survivors folder with an older version.
-- Survivor files from before the 3.0.1 campaign reset remain unsupported. Back up older data before changing folders or versions.
-- Linux RPM and DEB packages are currently unsigned. Download them only from this repository's GitHub Release page and verify their checksums when possible.
+
+- Version 3.3.0 keeps survivor schema version `6` and settlement metadata schema version `1`.
+- Existing schema-1 settlement records remain supported; new fields are optional and normalized when loaded.
+- Upgrade the LAN host and clients together. Back up the entire Survivors folder, including `settlement.json`, `settlement-journal.json`, and any `settlement-backups/`, before changing versions.
+- Survivor files from before the 3.0.1 campaign reset remain unsupported.
+- Linux RPM and DEB packages are currently unsigned. Download them from this repository's GitHub Release page and verify their checksums when possible.
 
 ### Downloads
-- Windows: use the `setup.exe` asset for installation, or `portable.exe` if you specifically want the portable build.
-- macOS: use the `.dmg` asset first (recommended), or `.zip` if needed.
+
+- Windows: use the `setup.exe` asset for installation, or `portable.exe` for the portable build.
+- macOS: use the `.dmg` asset first, or `.zip` if needed.
 - Fedora Linux: use the `.rpm` matching `x86_64` or `aarch64`.
 - Ubuntu/Debian Linux: use the `.deb` matching `amd64` or `arm64`.
 - Other Linux distributions: use the `.tar.gz` matching `x64` or `arm64`.
@@ -51,13 +50,13 @@ Version 3.2.1 is a maintenance update for macOS, Windows, Linux x86_64, and Linu
 Fedora/RPM-based systems:
 
 ```bash
-sudo dnf install ./kingdom-death-survivors-3.2.1-linux-arm64.rpm
+sudo dnf install ./kingdom-death-survivors-3.3.0-linux-arm64.rpm
 ```
 
 Ubuntu/Debian-based systems:
 
 ```bash
-sudo apt install ./kingdom-death-survivors-3.2.1-linux-x64.deb
+sudo apt install ./kingdom-death-survivors-3.3.0-linux-x64.deb
 ```
 
 Replace the architecture suffix with the one appropriate for the device.

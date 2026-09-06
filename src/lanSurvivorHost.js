@@ -189,6 +189,11 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
         return
       }
 
+      if (method === 'PUT' && parts.length === 1 && parts[0] === 'settlement') {
+        sendJson(res, 403, { ok: false, errorType: 'forbidden', message: 'Only the LAN Host can edit the settlement.' })
+        return
+      }
+
       if (method === 'GET' && parts.length === 1 && parts[0] === 'settlement') {
         sendJson(res, 200, dataService.getSettlementRecord(dataPath))
         return
@@ -209,7 +214,8 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
         try {
           const fileName = dataService.savePerson(dataPath, getPersonPayload(body), {
             ...getOptionsPayload(body),
-            editorName: settings.userName || settings.lanDisplayName || ''
+            editorName: settings.userName || settings.lanDisplayName || '',
+            recordSettlementReturn: true
           })
           const settlementWarning = dataService.getSettlementWarning?.(dataPath)
           sendJson(res, 200, { ok: true, fileName, ...(settlementWarning ? { settlementWarning } : {}) })
@@ -227,7 +233,8 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
           const fileName = dataService.savePerson(dataPath, getPersonPayload(body), {
             ...getOptionsPayload(body),
             expectedFileName: getOptionsPayload(body).expectedFileName || parts[1],
-            editorName: settings.userName || settings.lanDisplayName || ''
+            editorName: settings.userName || settings.lanDisplayName || '',
+            recordSettlementReturn: true
           })
           const settlementWarning = dataService.getSettlementWarning?.(dataPath)
           sendJson(res, 200, { ok: true, fileName, ...(settlementWarning ? { settlementWarning } : {}) })

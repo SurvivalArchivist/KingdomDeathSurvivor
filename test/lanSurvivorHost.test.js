@@ -155,8 +155,8 @@ test('LAN survivor host saves and deletes survivors through dataService', async 
   assert.deepEqual(
     calls.filter(call => call[0] === 'savePerson' || call[0] === 'deletePerson'),
     [
-      ['savePerson', '/tmp/survivors', { name: 'Alice' }, { expectedRevision: 2, editorName: 'Host User' }],
-      ['savePerson', '/tmp/survivors', { name: 'Alice Renamed' }, { expectedFileName: 'alice.json', editorName: 'Host User' }],
+      ['savePerson', '/tmp/survivors', { name: 'Alice' }, { expectedRevision: 2, editorName: 'Host User', recordSettlementReturn: true }],
+      ['savePerson', '/tmp/survivors', { name: 'Alice Renamed' }, { expectedFileName: 'alice.json', editorName: 'Host User', recordSettlementReturn: true }],
       ['deletePerson', '/tmp/survivors', 'alice.json']
     ]
   )
@@ -244,4 +244,58 @@ test('LAN survivor host maps validation and conflict save errors to JSON payload
   assert.equal(validation.status, 400)
   assert.equal(validation.body.errorType, 'validation')
   assert.deepEqual(validation.body.errors, [{ path: '/name' }])
+})
+
+test('LAN clients cannot edit the settlement through the HTTP API', async () => {
+  const { host } = makeHost()
+  const result = await requestJson(host, '/settlement', { method: 'PUT', body: JSON.stringify({ name: 'Forbidden' }) })
+  assert.equal(result.status, 403)
+  assert.equal(result.body.errorType, 'forbidden')
+})
+
+test('client survivor saves still register host settlement knowledge while direct edits are denied', async t => {
+  const fs = require('node:fs')
+  const os = require('node:os')
+  const path = require('node:path')
+  const data = require('../src/dataService')
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'kdm-client-knowledge-'))
+  t.after(() => fs.rmSync(folder, { recursive: true, force: true }))
+  const { host } = makeHost({
+    savePerson: data.savePerson,
+    getSettlementRecord: data.getSettlementRecord,
+    ensureDataFolderConfigured: () => folder
+  })
+  const person = data.createPersonTemplate('Client Survivor')
+  const created = await requestJson(host, '/survivors', { method: 'POST', body: JSON.stringify({ person }) })
+  assert.equal(created.body.ok, true)
+  const saved = data.loadPerson(folder, created.body.fileName)
+  saved.knowledge = [{ name: 'Client Discovery', knowledgeLevel: 1, rules: 'Stored definition' }]
+  const updated = await requestJson(host, `/survivors/${encodeURIComponent(created.body.fileName)}`, {
+    method: 'PUT', body: JSON.stringify({ person: saved })
+  })
+  assert.equal(updated.body.ok, true)
+  let record = data.getSettlementRecord(folder)
+  assert.equal(record.knowledges.length, 1)
+  assert.equal(record.knowledges[0].definition.name, 'Client Discovery')
+  record = data.saveSettlementSettings(folder, {
+    id: record.id,
+    revision: record.revision,
+    name: 'Client Campaign',
+    settlementType: 'campaign',
+    lanternYear: 5
+  })
+  const returning = data.loadPerson(folder, created.body.fileName)
+  returning.isAlive = false
+  const returned = await requestJson(host, `/survivors/${encodeURIComponent(created.body.fileName)}`, {
+    method: 'PUT', body: JSON.stringify({ person: returning, options: { markReturned: true } })
+  })
+  assert.equal(returned.body.ok, true)
+  record = data.getSettlementRecord(folder)
+  assert.equal(record.returns.length, 1)
+  assert.equal(record.returns[0].survivorName, 'Client Survivor')
+  assert.equal(record.returns[0].lanternYear, 5)
+  assert.equal(record.returns[0].isAlive, false)
+  const denied = await requestJson(host, '/settlement', { method: 'PUT', body: JSON.stringify({ ...record, name: 'Denied' }) })
+  assert.equal(denied.status, 403)
+  assert.deepEqual(data.getSettlementRecord(folder), record)
 })

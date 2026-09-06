@@ -7,6 +7,24 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-09-06
+
+### Added
+
+- Added a dedicated Settlement tab with a saved settlement name and an expandable list of unlocked Knowledge and Tenet Knowledge definitions.
+- Added a permanent Campaign or Vignette settlement type choice. Vignettes can snapshot all survivors as a template and restore that template later, with the displaced survivor files backed up first.
+- Added a host-managed Lantern Year counter and LAN-only return history for Campaign settlements, recording the survivor, year, timestamp, and alive/dead state.
+- Added a startup role choice for new or legacy Local configurations, with Local Development available only through `npm run dev`.
+
+### Changed
+
+- Renamed the former Settlement roster view to Survivors and made persistent settlement settings directly editable by the LAN Host only; LAN Clients retain read-only access.
+- Production runs now require a LAN Host or LAN Client role. A Host can continue to use the app by itself with its selected Survivors folder.
+
+### Fixed
+
+- LAN Client survivor saves continue registering unlocked knowledge and return metadata in the host-owned settlement record without granting direct settlement edit access.
+
 ## [3.2.1] - 2026-09-06
 
 ### Changed

@@ -30,6 +30,7 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
 })
 const DEFAULT_CREATE_TEMPLATE_FILE_NAME = 'default-new-survivor.json'
 const HISTORY_FOLDER_NAME = 'history'
+const SETTLEMENT_BACKUP_FOLDER_NAME = 'settlement-backups'
 const SURVIVOR_ID_PREFIX = 'survivor'
 const MARKDOWN_SOURCE_LABELS = {
   fightingArts: 'Fighting Arts',
@@ -407,6 +408,7 @@ function savePerson(basePath, person, options = {}) {
   normalizedPerson.id = normalizeSurvivorId(normalizedPerson.id)
   const editorName = typeof options.editorName === 'string' ? options.editorName.trim() : ''
   const markReturned = Boolean(options.markReturned)
+  const recordSettlementReturn = markReturned && Boolean(options.recordSettlementReturn)
   if (!validatePerson(normalizedPerson)) {
     const errors = mapValidationErrors(validatePerson.errors || [])
     throw new ValidationError(`Invalid person data: ${validationErrorSummary(errors)}`, errors)
@@ -488,7 +490,7 @@ function savePerson(basePath, person, options = {}) {
     }
   }
 
-  const settlementOperation = settlementService.prepare(basePath, targetFileName, personToSave)
+  const settlementOperation = settlementService.prepare(basePath, targetFileName, personToSave, { markReturned: recordSettlementReturn })
   try {
     atomicWriteJson(targetPath, personToSave)
   } catch (err) {
@@ -501,7 +503,7 @@ function savePerson(basePath, person, options = {}) {
     settlementService.committed(basePath, settlementOperation)
   } catch (err) {
     // Survivor is already committed. The prepared journal retains recovery evidence.
-    console.warn('Survivor saved; settlement registration pending:', err.message)
+    console.warn('Survivor saved; settlement update pending:', err.message)
   }
   if (expectedPath && expectedPath !== targetPath && fs.existsSync(expectedPath)) {
     fs.unlinkSync(expectedPath)
@@ -622,6 +624,129 @@ function getSettlementRecord(basePath) {
   return settlementService.getRecord(basePath, () => listPeople(basePath).flatMap(fileName => {
     try { return [{ fileName, person: loadPerson(basePath, fileName) }] } catch { return [] }
   }))
+}
+
+function saveSettlementName(basePath, input) {
+  if (!input || typeof input.name !== 'string' || input.name.trim().length > 200) {
+    throw new ValidationError('Settlement name must be text of at most 200 characters.')
+  }
+  const current = getSettlementRecord(basePath)
+  if (input.id !== current.id || input.revision !== current.revision) {
+    throw new ConflictError('Settlement changed since it was loaded. Refresh Settlement before saving again.')
+  }
+  return settlementService.saveName(basePath, current, input.name.trim())
+}
+
+function normalizeSettlementType(value) {
+  const type = String(value || '').trim()
+  return type === 'vignette' ? 'vignette' : 'campaign'
+}
+
+function checkSettlementEditInput(basePath, input) {
+  if (!input || typeof input.name !== 'string' || input.name.trim().length > 200) {
+    throw new ValidationError('Settlement name must be text of at most 200 characters.')
+  }
+  const current = getSettlementRecord(basePath)
+  if (input.id !== current.id || input.revision !== current.revision) {
+    throw new ConflictError('Settlement changed since it was loaded. Refresh Settlement before saving again.')
+  }
+  return current
+}
+
+function saveSettlementSettings(basePath, input) {
+  const current = checkSettlementEditInput(basePath, input)
+  const settlementType = normalizeSettlementType(input.settlementType)
+  if (current.settlementTypeLocked && settlementType !== normalizeSettlementType(current.settlementType)) {
+    throw new ValidationError('Settlement type cannot be changed after it has been set.')
+  }
+  const lanternYear = typeof input.lanternYear === 'undefined'
+    ? Number(current.lanternYear || 0)
+    : Number(input.lanternYear)
+  if (!Number.isSafeInteger(lanternYear) || lanternYear < 0) {
+    throw new ValidationError('Lantern Year must be a whole number of zero or greater.')
+  }
+  return settlementService.saveSettings(basePath, current, {
+    name: input.name.trim(),
+    settlementType,
+    lanternYear
+  })
+}
+
+function getSurvivorSnapshotRecords(basePath) {
+  return listPeople(basePath).map(fileName => {
+    const fullPath = path.join(basePath, fileName)
+    const person = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
+    const normalized = preparePersonForValidation(person, {
+      legacySurvivorId: legacySurvivorIdFromFileName(fileName),
+      sanitizeStoredKnowledgeEntries: true
+    })
+    normalized.id = normalizeSurvivorId(normalized.id)
+    if (!validatePerson(normalized)) {
+      const errors = mapValidationErrors(validatePerson.errors || [])
+      throw new ValidationError(`Stored person data is invalid: ${validationErrorSummary(errors)}`, errors)
+    }
+    return { fileName, person }
+  })
+}
+
+function saveSettlementVignetteTemplate(basePath, input) {
+  const current = checkSettlementEditInput(basePath, input)
+  if (normalizeSettlementType(current.settlementType) !== 'vignette' || !current.settlementTypeLocked) {
+    throw new ValidationError('Settlement type must be set to Vignette before saving a template.')
+  }
+  const survivors = getSurvivorSnapshotRecords(basePath)
+  return settlementService.setVignetteTemplate(basePath, current, survivors)
+}
+
+function createRestoreBackupFolder(basePath) {
+  const backupId = createHistorySnapshotId()
+  const backupFolder = path.join(basePath, SETTLEMENT_BACKUP_FOLDER_NAME, backupId)
+  fs.mkdirSync(backupFolder, { recursive: true })
+  return { backupId, backupFolder }
+}
+
+function restoreSettlementVignetteTemplate(basePath, input) {
+  const current = checkSettlementEditInput(basePath, input)
+  if (normalizeSettlementType(current.settlementType) !== 'vignette') {
+    throw new ValidationError('Settlement type must be Vignette before restoring a template.')
+  }
+  const survivors = Array.isArray(current.vignetteTemplate?.survivors) ? current.vignetteTemplate.survivors : []
+  if (!survivors.length) throw new ValidationError('No vignette template has been set for this settlement.')
+
+  const restoreRecords = survivors.map(entry => {
+    const fileName = path.basename(String(entry?.fileName || ''))
+    if (!fileName || !fileName.endsWith('.json') || settlementService.reserved(fileName)) {
+      throw new ValidationError('Vignette template contains an invalid survivor filename.')
+    }
+    const person = preparePersonForValidation(entry.person, {
+      legacySurvivorId: legacySurvivorIdFromFileName(fileName),
+      sanitizeStoredKnowledgeEntries: true
+    })
+    person.id = normalizeSurvivorId(person.id)
+    if (!validatePerson(person)) {
+      const errors = mapValidationErrors(validatePerson.errors || [])
+      throw new ValidationError(`Invalid vignette template survivor: ${validationErrorSummary(errors)}`, errors)
+    }
+    return { fileName, person: entry.person }
+  })
+
+  const { backupFolder } = createRestoreBackupFolder(basePath)
+  for (const fileName of listPeople(basePath)) {
+    fs.copyFileSync(path.join(basePath, fileName), path.join(backupFolder, fileName))
+  }
+  for (const fileName of listPeople(basePath)) {
+    fs.unlinkSync(path.join(basePath, fileName))
+  }
+  for (const entry of restoreRecords) {
+    atomicWriteJson(path.join(basePath, entry.fileName), entry.person)
+  }
+
+  settlementService.replaceAfterRestore(basePath, current)
+  return {
+    record: getSettlementRecord(basePath),
+    restoredCount: restoreRecords.length,
+    backupPath: path.relative(basePath, backupFolder)
+  }
 }
 
 function listPeopleSummaries(basePath) {
@@ -1070,6 +1195,10 @@ function listNeurosisTemplates(basePath) {
 }
 
 module.exports = {
+  saveSettlementSettings,
+  saveSettlementName,
+  saveSettlementVignetteTemplate,
+  restoreSettlementVignetteTemplate,
   getSettlementRecord,
   getSettlementWarning: settlementService.warning,
   SOURCE_KEYS,

@@ -13,13 +13,36 @@
 <body>
   <div class="bg-orb bg-orb-one"></div>
   <div class="bg-orb bg-orb-two"></div>
-  <header class="app-header">
+  <section id="startupRoleGate" class="startup-role-gate hidden" role="dialog" aria-modal="true" aria-labelledby="startupRoleTitle">
+    <article class="startup-role-panel">
+      <p class="startup-role-eyebrow">KDM Survivors Console</p>
+      <h1 id="startupRoleTitle">Choose how you are playing</h1>
+      <p class="muted">A Host stores the settlement and can play solo. A Client joins a Host on the same network.</p>
+      <div class="startup-role-options">
+        <button id="startupChooseHost" type="button" class="startup-role-option">
+          <strong>Host</strong>
+          <span>Store and manage survivor and settlement data on this computer.</span>
+        </button>
+        <button id="startupChooseClient" type="button" class="startup-role-option">
+          <strong>Client</strong>
+          <span>Connect to another computer that is hosting the settlement.</span>
+        </button>
+        <button id="startupChooseLocal" type="button" class="startup-role-option hidden">
+          <strong>Local Development</strong>
+          <span>Use local files without LAN services while running npm run dev.</span>
+        </button>
+      </div>
+      <p id="startupRoleStatus" class="muted" role="status" aria-live="polite"></p>
+    </article>
+  </section>
+  <header id="appHeader" class="app-header">
     <nav class="top-nav" aria-label="Primary">
       <span class="top-nav-brand">KDM Survivors Console</span>
       <button id="navDataSources" type="button" class="btn btn-ghost">Settings</button>
       <button id="navCreate" type="button" class="btn btn-ghost">Create Survivor</button>
       <button id="navShowdown" type="button" class="btn btn-ghost">Showdown View</button>
-      <button id="navSettlement" type="button" class="btn btn-ghost">Settlement View</button>
+      <button id="navSettlement" type="button" class="btn btn-ghost">Survivors</button>
+      <button id="navSettlementRecord" type="button" class="btn btn-ghost">Settlement</button>
       <button id="navBulkUpdates" type="button" class="btn btn-ghost">Bulk Updates</button>
       <div class="nav-showdown-actions" role="group" aria-label="Showdown actions">
         <span id="showdownSessionState" class="hidden">Session not departed</span>
@@ -40,7 +63,7 @@
       </label>
     </nav>
   </header>
-  <main class="app-shell">
+  <main id="appShell" class="app-shell">
     <p id="globalDepartedIndicator" class="global-departed-indicator hidden">Showdown In Progress: DEPARTED</p>
 
     <section id="dataSourcesView" class="data-sources-view">
@@ -88,7 +111,7 @@
           <label class="settings-control">
             <span>Mode</span>
             <select id="settingsSurvivorDataMode">
-              <option value="local">Local Files</option>
+              <option id="settingsLocalModeOption" value="local">Local Development</option>
               <option value="lan-host">LAN Host</option>
               <option value="lan-client">LAN Client</option>
             </select>
@@ -389,9 +412,48 @@
       </div>
     </section>
 
+    <section id="settlementRecordView" class="settlement-view hidden">
+      <article class="settlement-panel">
+        <h2>Settlement</h2>
+        <label for="settlementName">Settlement name</label>
+        <div class="settlement-name-controls">
+          <input id="settlementName" type="text" maxlength="200" placeholder="Name your settlement" />
+          <label class="settlement-type-control" for="settlementType">
+            <span>Type</span>
+            <select id="settlementType">
+              <option value="campaign">Campaign</option>
+              <option value="vignette">Vignette</option>
+            </select>
+          </label>
+          <label id="settlementYearControl" class="settlement-type-control" for="settlementLanternYear">
+            <span>Lantern Year</span>
+            <input id="settlementLanternYear" type="number" min="0" step="1" value="0" />
+          </label>
+          <button id="incrementSettlementLanternYear" type="button" class="btn btn-secondary">+1 Lantern Year</button>
+          <button id="saveSettlementName" type="button" class="btn btn-primary">Save Settlement</button>
+          <button id="refreshSettlementRecord" type="button" class="btn btn-secondary">Refresh</button>
+        </div>
+        <p id="settlementTypeStatus" class="muted"></p>
+        <div class="settlement-template-controls">
+          <button id="setVignetteTemplate" type="button" class="btn btn-secondary">Set Template</button>
+          <button id="restoreVignetteTemplate" type="button" class="btn btn-danger">Restore to Template</button>
+        </div>
+        <p id="settlementTemplateStatus" class="muted"></p>
+        <p id="settlementRecordStatus" class="muted" role="status" aria-live="polite"></p>
+        <section id="settlementReturnsSection">
+          <h3>Survivor returns</h3>
+          <p class="muted">Campaign returns saved through LAN play, recorded at the current Lantern Year.</p>
+          <div id="settlementReturnList"></div>
+        </section>
+        <h3>Unlocked knowledge</h3>
+        <p class="muted">Permanent discoveries shared by Knowledge and Tenet Knowledge.</p>
+        <div id="settlementKnowledgeList"></div>
+      </article>
+    </section>
+
     <section id="settlementView" class="settlement-view hidden">
       <article class="settlement-panel">
-        <h2>Settlement View <span id="settlementAliveCount" class="muted">(Alive: 0)</span></h2>
+        <h2>Survivors <span id="settlementAliveCount" class="muted">(Alive: 0)</span></h2>
         <div class="settlement-filters">
           <div class="settlement-filters-primary">
             <label>

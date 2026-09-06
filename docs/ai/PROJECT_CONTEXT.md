@@ -17,11 +17,19 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Used for both create and edit flows
 - Editing existing survivor should replace original record on rename (no duplicates)
 
-3. Settlement View
+3. Survivors View
 - Sortable/filterable survivor table
 - Slot assignment controls for showdown (`1` and `2`)
 
-4. Showdown View
+4. Settlement
+- Displays permanent unlocked knowledge definitions, settlement name, and settlement type.
+- LAN Host can choose the type until the first Settlement settings save; that choice is then permanent while the name remains editable. The Host can use Vignette template actions; LAN Client is read-only; Local Development has a greyed-out tab.
+- Campaign uses the normal settlement flow. Vignette can snapshot current survivor JSON records as a template and later restore survivor files back to that snapshot after creating a timestamped backup.
+- Campaign stores a manually controlled, non-negative Lantern Year. The Host can enter a year or advance it by one and save the Settlement.
+- Successful showdown returns through LAN Host or LAN Client append one settlement return record with survivor ID/name, Lantern Year, timestamp, and alive/dead state. Local Development does not create settlement return history.
+- Settlement saves preserve identity/discoveries and reject stale revisions. Missing names/types in schema-1 records display as blank/Campaign and remain type-unlocked; existing Vignette records are treated as locked.
+
+5. Showdown View
 - Side-by-side survivors
 - Editable combat/session values
 - Depart/End Showdown session lifecycle
@@ -55,12 +63,12 @@ Electron desktop companion app for Kingdom Death survivor management with:
 ## LAN Survivor Data Direction
 - LAN Host / LAN Client has been exercised in a real-world trial and behaved as expected.
 - v3 LAN work is tracked in `docs/ai/LAN_SURVIVOR_PLAN.md` and `docs/ai/LAN_IMPLEMENTATION_HANDOFF.md`.
-- Survivor IPC should route through a survivor-provider layer so `Local Files`, future `LAN Host`, and future `LAN Client` modes can share the existing renderer API.
-- `Local Files` remains the default provider mode.
+- Survivor IPC routes through a survivor-provider layer shared by LAN Host, LAN Client, and development-only Local mode.
+- Production requires LAN Host or LAN Client. A startup role gate catches new/default and legacy Local configurations before survivor workflows initialize. `npm run dev` adds `--dev` and is the only supported way to expose Local Development; packaged builds and ordinary `npm start` reject Local mode in the main process and provider layer.
 - `LAN Host` uses the selected local survivor folder as authoritative storage and exposes a main-process HTTP JSON API for survivor health/list/load/save/delete operations when enabled in Settings.
 - `LAN Host` also exposes a Server-Sent Events stream for survivor-data changes; LAN Client uses those events as refresh triggers and still reloads authoritative data through the existing survivor APIs.
 - `LAN Client` routes survivor list/load/save/delete calls to the configured host HTTP API and does not require a local Survivors folder for survivor CRUD.
-- The navbar includes a compact survivor-data status indicator (`Local`, `Hosting`, `Connected`, `Offline`, or `Error`) that opens Settings when clicked; connection controls stay in Settings.
+- The navbar includes a compact survivor-data status indicator (`Hosting`, `Connected`, `Offline`, or `Error`, plus `Local` in development) that opens Settings when clicked; connection controls stay in Settings.
 - Settings includes explicit `Start Host`, `Stop Host`, `Connect`, and `Disconnect` actions; client disconnect uses `lanClientConnected` so the host address can remain saved.
 - Settings shows LAN Host URLs from local IPv4 addresses and includes a manual `Export Backup` action for copying the configured survivor folder before a session.
 - LAN Host advertises itself with best-effort UDP broadcast; LAN Client Settings can scan/select discovered hosts while retaining manual host address entry as the fallback.
@@ -71,8 +79,8 @@ Electron desktop companion app for Kingdom Death survivor management with:
 ## Knowledge / Tenet Knowledge Rules
 
 - `settlement.json` in the authoritative Survivors folder records permanent knowledge discoveries. Knowledge and Tenet Knowledge share identity by normalized name + level, while survivor slot limits stay distinct.
-- Successful survivor saves journal settlement registration through `settlementService.js`; failed/unsaved changes do not unlock knowledge. `settlement-journal.json` retains pending work and numbered audit history. Recovery retries registration, never survivor writes.
-- Local Files and LAN Host use the same storage path; LAN Clients read the host settlement. Missing records are seeded from valid saved survivors on settlement lookup/summary refresh. Both metadata filenames are reserved from survivor CRUD.
+- Successful survivor saves journal settlement metadata updates through `settlementService.js`; failed/unsaved changes do not unlock knowledge or create return history. `settlement-journal.json` retains pending work and numbered audit history. Recovery retries metadata registration, never survivor writes.
+- Development-only Local mode and LAN Host use the same storage path; LAN Clients read the host settlement. Missing records are seeded from valid saved survivors on settlement lookup/summary refresh. Both metadata filenames are reserved from survivor CRUD.
 - Knowledge pickers show stored settlement definitions first, a disabled separator, then remaining unique templates from both knowledge libraries. Definitions remain available without their source templates. See `docs/ai/SETTLEMENT_RECORD.md` for recovery and release checks.
 
 ## Schema Compatibility Policy
@@ -129,3 +137,5 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - `Linux Package` uses native pinned GitHub runners for x64 (`ubuntu-24.04`) and ARM64 (`ubuntu-24.04-arm`). Each matrix job runs full verification, builds the explicitly selected tarball/DEB/RPM architecture, validates package architecture metadata and the executable ELF machine, launches the packaged app under Xvfb to verify renderer/preload readiness, logs ELF segments/checksums, and uploads a separate architecture artifact set.
 - The ARM64 RPM from merged-`main` workflow run `33914931154` passed installed-package acceptance on Fedora Linux Asahi Remix under KDE Wayland with a 16 KiB-page kernel; future Electron/Builder upgrades should repeat this physical-device gate.
 - Flatpak remains isolated in `Linux Flatpak Debug`; that workflow configures the `flathub` remote and installs `org.freedesktop.Platform//24.08`, `org.freedesktop.Sdk//24.08`, and `org.electronjs.Electron2.BaseApp//24.08` before packaging.
+
+Client survivor saves still register unlocked knowledge in the host settlement record through the existing journal/recovery flow. Host-only editing applies to direct Settlement tab edits, not automatic knowledge registration from saved survivors.

@@ -187,3 +187,171 @@ test('actual survivor save recovers when its commit receipt cannot be written', 
   assert.equal(data.getSettlementRecord(folder).knowledges.length, 1)
   assert.equal(data.loadPerson(folder, file).revision, 2)
 })
+
+test('settlement name saves preserve discoveries and reject stale or foreign records', t => {
+  const folder = setup(t)
+  const person = data.createPersonTemplate('Alice')
+  person.knowledge = [knowledge()]
+  data.savePerson(folder, person)
+  const original = data.getSettlementRecord(folder)
+  const saved = data.saveSettlementName(folder, { ...original, name: '  Lantern Home  ', knowledges: [] })
+  assert.equal(saved.name, 'Lantern Home')
+  assert.equal(saved.revision, original.revision + 1)
+  assert.deepEqual(saved.knowledges, original.knowledges)
+  assert.equal(saved.createdAt, original.createdAt)
+  assert.equal(data.getSettlementRecord(folder).name, 'Lantern Home')
+  assert.throws(() => data.saveSettlementName(folder, { ...original, name: 'Stale' }), data.ConflictError)
+  assert.throws(() => data.saveSettlementName(folder, { ...saved, id: 'other', name: 'Wrong' }), data.ConflictError)
+  assert.throws(() => data.saveSettlementName(folder, { ...saved, name: 'x'.repeat(201) }), data.ValidationError)
+  assert.equal(read(folder, 'settlement.json').pendingOperations, undefined)
+})
+
+test('settlement type locks after its first settings save while the name remains editable', t => {
+  const folder = setup(t)
+  const original = data.getSettlementRecord(folder)
+  assert.equal(original.settlementType, 'campaign')
+  assert.equal(original.settlementTypeLocked, false)
+
+  const saved = data.saveSettlementSettings(folder, {
+    id: original.id,
+    revision: original.revision,
+    name: 'Lantern Home',
+    settlementType: 'campaign',
+    lanternYear: 3
+  })
+  assert.equal(saved.settlementTypeLocked, true)
+  assert.equal(saved.lanternYear, 3)
+  assert.throws(() => data.saveSettlementSettings(folder, {
+    id: saved.id,
+    revision: saved.revision,
+    name: saved.name,
+    settlementType: 'vignette',
+    lanternYear: 3
+  }), error => error instanceof data.ValidationError && /cannot be changed/.test(error.message))
+
+  const renamed = data.saveSettlementSettings(folder, {
+    id: saved.id,
+    revision: saved.revision,
+    name: 'New Lantern Home',
+    settlementType: 'campaign',
+    lanternYear: 4
+  })
+  assert.equal(renamed.name, 'New Lantern Home')
+  assert.equal(renamed.settlementType, 'campaign')
+  assert.equal(renamed.settlementTypeLocked, true)
+  assert.equal(renamed.lanternYear, 4)
+  assert.throws(() => data.saveSettlementSettings(folder, {
+    id: renamed.id,
+    revision: renamed.revision,
+    name: renamed.name,
+    settlementType: 'campaign',
+    lanternYear: -1
+  }), error => error instanceof data.ValidationError && /Lantern Year/.test(error.message))
+})
+
+test('LAN campaign returns record survivor, year, time and life status exactly once', t => {
+  const folder = setup(t)
+  let record = data.getSettlementRecord(folder)
+  record = data.saveSettlementSettings(folder, {
+    id: record.id,
+    revision: record.revision,
+    name: 'Lantern Home',
+    settlementType: 'campaign',
+    lanternYear: 7
+  })
+  const person = data.createPersonTemplate('Alice')
+  const file = data.savePerson(folder, person)
+  assert.deepEqual(data.getSettlementRecord(folder).returns, [])
+
+  const returning = data.loadPerson(folder, file)
+  returning.isAlive = false
+  data.savePerson(folder, returning, {
+    expectedFileName: file,
+    markReturned: true,
+    recordSettlementReturn: true
+  })
+  const afterReturn = data.getSettlementRecord(folder)
+  assert.equal(afterReturn.returns.length, 1)
+  assert.equal(afterReturn.returns[0].survivorId, person.id)
+  assert.equal(afterReturn.returns[0].survivorName, 'Alice')
+  assert.equal(afterReturn.returns[0].lanternYear, 7)
+  assert.equal(afterReturn.returns[0].isAlive, false)
+  assert.equal(Number.isNaN(Date.parse(afterReturn.returns[0].returnedAt)), false)
+
+  const log = read(folder, 'settlement-journal.json')
+  log.operations.at(-1).state = 'committed'
+  fs.writeFileSync(path.join(folder, 'settlement-journal.json'), JSON.stringify(log), 'utf8')
+  assert.equal(data.getSettlementRecord(folder).returns.length, 1)
+})
+
+test('local-style returns do not add settlement return history', t => {
+  const folder = setup(t)
+  const person = data.createPersonTemplate('Local Alice')
+  const file = data.savePerson(folder, person)
+  const returning = data.loadPerson(folder, file)
+  data.savePerson(folder, returning, { expectedFileName: file, markReturned: true })
+  assert.deepEqual(data.getSettlementRecord(folder).returns, [])
+})
+
+test('legacy vignette records are inferred as locked', t => {
+  const folder = setup(t)
+  data.getSettlementRecord(folder)
+  const file = path.join(folder, 'settlement.json')
+  const legacy = JSON.parse(fs.readFileSync(file, 'utf8'))
+  legacy.settlementType = 'vignette'
+  delete legacy.settlementTypeLocked
+  fs.writeFileSync(file, JSON.stringify(legacy, null, 2), 'utf8')
+
+  const loaded = data.getSettlementRecord(folder)
+  assert.equal(loaded.settlementType, 'vignette')
+  assert.equal(loaded.settlementTypeLocked, true)
+})
+
+test('vignette template restore replaces survivor files from saved template and keeps a backup', t => {
+  const folder = setup(t)
+  const alice = data.createPersonTemplate('Alice')
+  alice.knowledge = [knowledge('Founding Stone')]
+  const bob = data.createPersonTemplate('Bob')
+  const aliceFile = data.savePerson(folder, alice)
+  const bobFile = data.savePerson(folder, bob)
+
+  let record = data.getSettlementRecord(folder)
+  record = data.saveSettlementSettings(folder, {
+    id: record.id,
+    revision: record.revision,
+    name: 'Lantern Home',
+    settlementType: 'vignette'
+  })
+  assert.equal(record.settlementTypeLocked, true)
+  record = data.saveSettlementVignetteTemplate(folder, {
+    id: record.id,
+    revision: record.revision,
+    name: record.name,
+    settlementType: record.settlementType
+  })
+  assert.equal(record.settlementType, 'vignette')
+  assert.equal(record.vignetteTemplate.survivors.length, 2)
+
+  const changedAlice = data.loadPerson(folder, aliceFile)
+  changedAlice.name = 'Alice Changed'
+  changedAlice.survivalPts = 8
+  data.savePerson(folder, changedAlice, { expectedFileName: aliceFile })
+  data.savePerson(folder, data.createPersonTemplate('Charlie'))
+
+  const restore = data.restoreSettlementVignetteTemplate(folder, {
+    id: record.id,
+    revision: data.getSettlementRecord(folder).revision,
+    name: record.name,
+    settlementType: 'vignette'
+  })
+  assert.equal(restore.restoredCount, 2)
+  assert.deepEqual(data.listPeople(folder), [aliceFile, bobFile].sort((a, b) => a.localeCompare(b)))
+  assert.equal(data.loadPerson(folder, aliceFile).name, 'Alice')
+  assert.equal(data.loadPerson(folder, aliceFile).survivalPts, 0)
+  assert.equal(data.getSettlementRecord(folder).knowledges.length, 1)
+
+  const backupPath = path.join(folder, restore.backupPath)
+  const backupSurvivors = fs.readdirSync(backupPath).map(fileName => JSON.parse(fs.readFileSync(path.join(backupPath, fileName), 'utf8')))
+  assert.equal(backupSurvivors.some(person => person.name === 'Alice Changed'), true)
+  assert.equal(fs.readdirSync(backupPath).some(fileName => fileName.includes('charlie')), true)
+})

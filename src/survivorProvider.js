@@ -23,6 +23,22 @@ function createLocalSurvivorProvider({ app, dataService, mode = SURVIVOR_DATA_MO
     getSettlementRecord() {
       return dataService.getSettlementRecord(getDataPath())
     },
+    saveSettlementName(input) {
+      if (mode !== SURVIVOR_DATA_MODES.LAN_HOST) throw new Error('Only a LAN Host can edit the settlement.')
+      return dataService.saveSettlementName(getDataPath(), input)
+    },
+    saveSettlementSettings(input) {
+      if (mode !== SURVIVOR_DATA_MODES.LAN_HOST) throw new Error('Only a LAN Host can edit the settlement.')
+      return dataService.saveSettlementSettings(getDataPath(), input)
+    },
+    saveSettlementVignetteTemplate(input) {
+      if (mode !== SURVIVOR_DATA_MODES.LAN_HOST) throw new Error('Only a LAN Host can edit the settlement.')
+      return dataService.saveSettlementVignetteTemplate(getDataPath(), input)
+    },
+    restoreSettlementVignetteTemplate(input) {
+      if (mode !== SURVIVOR_DATA_MODES.LAN_HOST) throw new Error('Only a LAN Host can edit the settlement.')
+      return dataService.restoreSettlementVignetteTemplate(getDataPath(), input)
+    },
     getSettlementWarning() {
       return dataService.getSettlementWarning?.(getDataPath()) || null
     },
@@ -36,7 +52,10 @@ function createLocalSurvivorProvider({ app, dataService, mode = SURVIVOR_DATA_MO
       return dataService.loadPerson(getDataPath(), fileName)
     },
     savePerson(person, options = {}) {
-      return dataService.savePerson(getDataPath(), person, options)
+      return dataService.savePerson(getDataPath(), person, {
+        ...options,
+        recordSettlementReturn: mode === SURVIVOR_DATA_MODES.LAN_HOST
+      })
     },
     deletePerson(fileName) {
       dataService.deletePerson(getDataPath(), fileName)
@@ -136,6 +155,18 @@ function createLanClientSurvivorProvider({ settings, dataService, fetchImpl = gl
     getSettlementRecord() {
       return requestJson('/settlement')
     },
+    saveSettlementName(input) {
+      throw new Error('Only a LAN Host can edit the settlement.')
+    },
+    saveSettlementSettings(input) {
+      throw new Error('Only a LAN Host can edit the settlement.')
+    },
+    saveSettlementVignetteTemplate(input) {
+      throw new Error('Only a LAN Host can edit the settlement.')
+    },
+    restoreSettlementVignetteTemplate(input) {
+      throw new Error('Only a LAN Host can edit the settlement.')
+    },
     getSettlementWarning() { return settlementWarning },
     listPeople() {
       return requestJson('/survivors')
@@ -161,10 +192,13 @@ function createLanClientSurvivorProvider({ settings, dataService, fetchImpl = gl
   }
 }
 
-function createSurvivorProvider({ app, dataService, fetchImpl }) {
+function createSurvivorProvider({ app, dataService, fetchImpl, allowLocalMode = true }) {
   const settings = dataService.getSavedAppSettings(app)
   const mode = normalizeSurvivorDataMode(settings.survivorDataMode)
 
+  if (mode === SURVIVOR_DATA_MODES.LOCAL && !allowLocalMode) {
+    throw new Error('Local Files mode is only available through npm run dev.')
+  }
   if (mode === SURVIVOR_DATA_MODES.LOCAL || mode === SURVIVOR_DATA_MODES.LAN_HOST) {
     return createLocalSurvivorProvider({ app, dataService, mode })
   }

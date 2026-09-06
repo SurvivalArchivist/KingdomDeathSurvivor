@@ -84,6 +84,14 @@ test('normalizeLanHostBaseUrl builds host URL from address and port', () => {
   assert.throws(() => normalizeLanHostBaseUrl({ lanHostAddress: '' }), /No LAN host address configured/)
 })
 
+test('local provider mode can be disabled outside development', () => {
+  const { dataService } = makeDataService()
+  assert.throws(
+    () => createSurvivorProvider({ app: {}, dataService, allowLocalMode: false }),
+    /only available through npm run dev/
+  )
+})
+
 test('local survivor provider wraps dataService survivor CRUD with configured folder', () => {
   const app = { name: 'app' }
   const { calls, dataService } = makeDataService()
@@ -105,14 +113,14 @@ test('local survivor provider wraps dataService survivor CRUD with configured fo
     ['ensureDataFolderConfigured'],
     ['loadPerson', '/tmp/survivors', 'alice.json'],
     ['ensureDataFolderConfigured'],
-    ['savePerson', '/tmp/survivors', { name: 'Alice' }, { expectedFileName: 'alice.json' }],
+    ['savePerson', '/tmp/survivors', { name: 'Alice' }, { expectedFileName: 'alice.json', recordSettlementReturn: false }],
     ['ensureDataFolderConfigured'],
     ['deletePerson', '/tmp/survivors', 'alice.json']
   ])
 })
 
 test('LAN host survivor provider uses local data service as authoritative storage', () => {
-  const { dataService } = makeDataService({
+  const { calls, dataService } = makeDataService({
     getSavedAppSettings() {
       return { survivorDataMode: 'lan-host' }
     }
@@ -121,6 +129,11 @@ test('LAN host survivor provider uses local data service as authoritative storag
 
   assert.equal(provider.mode, 'lan-host')
   assert.deepEqual(provider.listPeople(), ['alice.json'])
+  assert.equal(provider.savePerson({ name: 'Alice' }, { markReturned: true }), 'alice.json')
+  assert.deepEqual(calls.find(call => call[0] === 'savePerson')[3], {
+    markReturned: true,
+    recordSettlementReturn: true
+  })
 })
 
 test('LAN client survivor provider calls host survivor endpoints', async () => {
@@ -235,4 +248,34 @@ test('createSurvivorProvider creates LAN client provider from settings', async (
 
   assert.equal(provider.mode, 'lan-client')
   assert.deepEqual(await provider.listPeople(), ['alice.json'])
+})
+
+test('only host providers can directly edit settlement settings and vignette templates', () => {
+  let writes = 0
+  for (const mode of ['local', 'lan-host', 'lan-client']) {
+    const provider = createSurvivorProvider({
+      app: {},
+      dataService: {
+        getSavedAppSettings: () => ({ survivorDataMode: mode, lanHostAddress: 'host' }),
+        ensureDataFolderConfigured: () => '/tmp/survivors',
+        saveSettlementName: () => { writes++; return { name: 'Home' } },
+        saveSettlementSettings: () => { writes++; return { settlementType: 'vignette' } },
+        saveSettlementVignetteTemplate: () => { writes++; return { vignetteTemplate: { survivors: [] } } },
+        restoreSettlementVignetteTemplate: () => { writes++; return { restoredCount: 0 } }
+      },
+      fetchImpl: async () => { throw new Error('Must not send a remote write') }
+    })
+    if (mode === 'lan-host') {
+      assert.equal(provider.saveSettlementName({ name: 'Home' }).name, 'Home')
+      assert.equal(provider.saveSettlementSettings({ settlementType: 'vignette' }).settlementType, 'vignette')
+      assert.deepEqual(provider.saveSettlementVignetteTemplate({}).vignetteTemplate, { survivors: [] })
+      assert.equal(provider.restoreSettlementVignetteTemplate({}).restoredCount, 0)
+    } else {
+      assert.throws(() => provider.saveSettlementName({ name: 'Home' }), /Only a LAN Host/)
+      assert.throws(() => provider.saveSettlementSettings({ settlementType: 'vignette' }), /Only a LAN Host/)
+      assert.throws(() => provider.saveSettlementVignetteTemplate({}), /Only a LAN Host/)
+      assert.throws(() => provider.restoreSettlementVignetteTemplate({}), /Only a LAN Host/)
+    }
+  }
+  assert.equal(writes, 4)
 })

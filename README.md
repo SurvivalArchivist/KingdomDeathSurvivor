@@ -3,7 +3,7 @@
 Desktop companion app for Kingdom Death survivor management.
 
 > [!CAUTION]
-> **Version 3.1.0 retains the schema-v6 campaign reset introduced in 3.0.1.** It will not load survivor files created before that reset. Back up any older data you need, use a schema-v6 survivor folder, and reselect every Data Source in Settings after upgrading from an older release.
+> **Version 3.3.0 retains the schema-v6 campaign reset introduced in 3.0.1.** It will not load survivor files created before that reset. Back up any older data you need, use a schema-v6 survivor folder, and reselect every Data Source in Settings after upgrading from an older release.
 
 ## What This Is
 KDM Survivors Console helps you manage survivor records across the full play loop:
@@ -55,6 +55,12 @@ npm ci
 npm start
 ```
 
+Production behavior requires choosing LAN Host or LAN Client. For development-only Local Files mode, run:
+
+```bash
+npm run dev
+```
+
 ### Verify
 ```bash
 npm run verify
@@ -88,9 +94,9 @@ npm run smoke:linux:packaged -- release/linux-arm64-unpacked/kingdom-death-survi
 The smoke test uses a temporary user-data directory, verifies that the real packaged renderer and preload API become ready, then exits automatically. CI runs the same check under Xvfb on native x64 and ARM64 runners.
 
 ### Automated Publishing
-Push a version tag to trigger full release publishing:
+Push a version tag matching `package.json` to trigger full release publishing:
 ```bash
-git tag v1.1.1
-git push origin v1.1.1
+git tag v3.3.0
+git push origin v3.3.0
 ```
 This triggers the `Release Publish` GitHub Actions workflow.

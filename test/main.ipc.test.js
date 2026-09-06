@@ -297,7 +297,8 @@ test('save-person handler injects saved username into save options', async t => 
   assert.deepEqual(receivedOptions, {
     expectedFileName: 'ava.json',
     markReturned: true,
-    editorName: 'Watcher'
+    editorName: 'Watcher',
+    recordSettlementReturn: false
   })
 })
 
@@ -436,6 +437,19 @@ test('app settings handlers load and persist app settings', async t => {
   assert.deepEqual(await getHandler(), { userName: 'Archivist', dateFormat: 'en-GB' })
   assert.deepEqual(await saveHandler(null, { userName: '  Mike  ', dateFormat: 'en-US' }), { userName: 'Mike', dateFormat: 'en-US' })
   assert.deepEqual(savedSettings, { userName: '  Mike  ', dateFormat: 'en-US' })
+})
+
+test('packaged runtime rejects Local Files settings and reports production mode', async t => {
+  const harness = makeHarness({ app: { isPackaged: true } })
+  t.after(() => harness.cleanup())
+  const runtimeHandler = harness.handlers.get('get-runtime-info')
+  const saveHandler = harness.handlers.get('save-app-settings')
+
+  assert.deepEqual(await runtimeHandler(), { isDevelopmentMode: false })
+  await assert.rejects(
+    () => saveHandler(null, { survivorDataMode: 'local' }),
+    /only available through npm run dev/
+  )
 })
 
 test('full-screen handlers report and toggle window state', async t => {

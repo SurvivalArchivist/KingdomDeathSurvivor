@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   selectDataSourceFolder: sourceKey => ipcRenderer.invoke('select-data-source-folder', sourceKey),
   getSavedDataSources: () => ipcRenderer.invoke('get-saved-data-sources'),
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
+  getRuntimeInfo: () => ipcRenderer.invoke('get-runtime-info'),
   saveAppSettings: settings => ipcRenderer.invoke('save-app-settings', settings),
   getLanConnectionStatus: () => ipcRenderer.invoke('get-lan-connection-status'),
   getLanHostInfo: () => ipcRenderer.invoke('get-lan-host-info'),
@@ -57,6 +58,10 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('load-markdown-file', collectionId, fileName),
   saveKnowledgeTemplate: (type, template) => ipcRenderer.invoke('save-knowledge-template', type, template),
   listKnowledgeTemplates: type => ipcRenderer.invoke('list-knowledge-templates', type),
+  saveSettlementName: input => ipcRenderer.invoke('save-settlement-name', input),
+  saveSettlementSettings: input => ipcRenderer.invoke('save-settlement-settings', input),
+  saveSettlementVignetteTemplate: input => ipcRenderer.invoke('save-settlement-vignette-template', input),
+  restoreSettlementVignetteTemplate: input => ipcRenderer.invoke('restore-settlement-vignette-template', input),
   getSettlementRecord: () => ipcRenderer.invoke('get-settlement-record'),
   saveNeurosisTemplate: template => ipcRenderer.invoke('save-neurosis-template', template),
   listNeurosisTemplates: () => ipcRenderer.invoke('list-neurosis-templates')

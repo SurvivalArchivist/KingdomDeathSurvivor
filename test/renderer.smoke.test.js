@@ -627,6 +627,10 @@ function setupRendererHarness(options = {}) {
       calls.push({ name: 'getAppSettings', args: [] })
       return deepClone(appSettings)
     },
+    async getRuntimeInfo() {
+      calls.push({ name: 'getRuntimeInfo', args: [] })
+      return { isDevelopmentMode: true }
+    },
     async saveAppSettings(settings) {
       calls.push({ name: 'saveAppSettings', args: [deepClone(settings)] })
       appSettings = {
@@ -844,6 +848,26 @@ function setupRendererHarness(options = {}) {
     async getSettlementRecord() {
       return { knowledges: [] }
     },
+    async saveSettlementSettings(input) {
+      calls.push({ name: 'saveSettlementSettings', args: [deepClone(input)] })
+      return { ok: true, record: { ...input, revision: Number(input?.revision || 0) + 1, knowledges: [] } }
+    },
+    async saveSettlementVignetteTemplate(input) {
+      calls.push({ name: 'saveSettlementVignetteTemplate', args: [deepClone(input)] })
+      return {
+        ok: true,
+        record: {
+          ...input,
+          revision: Number(input?.revision || 0) + 1,
+          knowledges: [],
+          vignetteTemplate: { savedAt: new Date().toISOString(), survivors: [] }
+        }
+      }
+    },
+    async restoreSettlementVignetteTemplate(input) {
+      calls.push({ name: 'restoreSettlementVignetteTemplate', args: [deepClone(input)] })
+      return { ok: true, record: { ...input, revision: Number(input?.revision || 0) + 1, knowledges: [] }, restoredCount: 0, backupPath: 'settlement-backups/test' }
+    },
     async saveNeurosisTemplate(template) {
       calls.push({ name: 'saveNeurosisTemplate', args: [deepClone(template)] })
       return { ok: true, fileName: 'neurosis-template.json' }
@@ -1047,6 +1071,61 @@ test('renderer persists app settings including date format', async t => {
     lanClientConnected: true,
     lanHostEnabled: false
   })
+})
+
+test('packaged startup gates legacy local mode until Host or Client is chosen', async t => {
+  let settings = {
+    userName: 'Lantern Mike',
+    dateFormat: 'en-GB',
+    survivorDataMode: 'local',
+    lanDisplayName: '',
+    lanHostAddress: '',
+    lanPort: 3765,
+    lanAutoReconnect: true,
+    lanClientConnected: true,
+    lanHostEnabled: false
+  }
+  const harness = setupRendererHarness({ customizeApi(api) {
+    api.getRuntimeInfo = async () => ({ isDevelopmentMode: false })
+    api.getAppSettings = async () => deepClone(settings)
+    api.saveAppSettings = async next => {
+      settings = deepClone(next)
+      return deepClone(settings)
+    }
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const el = id => harness.document.getElementById(id)
+  assert.equal(el('startupRoleGate').classList.contains('hidden'), false)
+  assert.equal(el('startupChooseLocal').classList.contains('hidden'), true)
+  assert.equal(el('settingsLocalModeOption').disabled, true)
+  assert.equal(el('appHeader').inert, true)
+  assert.equal(el('appShell').inert, true)
+
+  harness.click('startupChooseHost')
+  await harness.flush()
+  await harness.flush()
+
+  assert.equal(settings.survivorDataMode, 'lan-host')
+  assert.equal(settings.lanHostEnabled, false)
+  assert.equal(el('startupRoleGate').classList.contains('hidden'), true)
+  assert.equal(el('appHeader').inert, false)
+  assert.equal(el('dataSourcesView').classList.contains('hidden'), false)
+})
+
+test('development startup offers Local Development from npm run dev mode', async t => {
+  const harness = setupRendererHarness({ customizeApi(api) {
+    api.getRuntimeInfo = async () => ({ isDevelopmentMode: true })
+    api.getAppSettings = async () => ({ survivorDataMode: 'local' })
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const el = id => harness.document.getElementById(id)
+  assert.equal(el('startupRoleGate').classList.contains('hidden'), false)
+  assert.equal(el('startupChooseLocal').classList.contains('hidden'), false)
+  assert.equal(el('settingsLocalModeOption').disabled, false)
 })
 
 test('renderer persists survivor data LAN settings from settings controls', async t => {
@@ -2750,3 +2829,85 @@ test('renderer smoke: load, save, create, and showdown flows invoke API contract
   assert.ok(showdownSaves.every(entry => entry.args[1].markReturned === true))
   assert.equal(showdownSaves.find(entry => entry.args[1].expectedFileName === 'alice.json')?.args[0]?.lumi, 1)
 })
+
+for (const mode of ['local', 'lan-client', 'lan-host']) {
+  test(`settlement tab role behavior: ${mode}`, async t => {
+    let savedInput
+    let templateInput
+    let restoreInput
+    let currentRecord = { id: 'settlement', revision: 1, name: 'Home', settlementType: 'campaign', settlementTypeLocked: false, lanternYear: 4, returns: [
+      { id: 'return-1', survivorId: 'alice', survivorName: 'Alice', lanternYear: 3, returnedAt: '2026-09-06T00:00:00.000Z', isAlive: false }
+    ], knowledges: [
+      { definition: { name: 'Lantern', knowledgeLevel: 2, rules: 'Stored rules' } }
+    ] }
+    const harness = setupRendererHarness({ customizeApi(api) {
+      api.getAppSettings = async () => ({ survivorDataMode: mode, lanHostAddress: 'host' })
+      api.getSettlementRecord = async () => currentRecord
+      api.saveSettlementSettings = async input => {
+        savedInput = input
+        currentRecord = { ...currentRecord, ...input, settlementTypeLocked: true, revision: currentRecord.revision + 1 }
+        return { ok: true, record: currentRecord }
+      }
+      api.saveSettlementVignetteTemplate = async input => {
+        templateInput = input
+        currentRecord = {
+          ...currentRecord,
+          revision: currentRecord.revision + 1,
+          vignetteTemplate: { savedAt: '2026-09-06T00:00:00.000Z', survivors: [{ fileName: 'alice.json', person: {} }] }
+        }
+        return { ok: true, record: currentRecord }
+      }
+      api.restoreSettlementVignetteTemplate = async input => {
+        restoreInput = input
+        currentRecord = { ...currentRecord, revision: currentRecord.revision + 1 }
+        return { ok: true, record: currentRecord, restoredCount: 1, backupPath: 'settlement-backups/test' }
+      }
+    } })
+    t.after(() => harness.cleanup())
+    await harness.flush()
+    const el = id => document.getElementById(id)
+    assert.equal(el('navSettlementRecord').disabled, mode === 'local')
+    harness.click('navSettlementRecord')
+    await harness.flush()
+    if (mode === 'local') {
+      assert.equal(el('settlementRecordView').classList.contains('hidden'), true)
+      return
+    }
+    assert.equal(el('settlementName').value, 'Home')
+    assert.equal(el('settlementType').value, 'campaign')
+    assert.equal(el('settlementLanternYear').value, '4')
+    assert.match(el('settlementReturnList').innerHTML, /Alice/)
+    assert.match(el('settlementReturnList').innerHTML, /Lantern Year 3/)
+    assert.match(el('settlementReturnList').innerHTML, /Dead/)
+    assert.match(el('settlementKnowledgeList').innerHTML, /Lantern/)
+    assert.equal(el('settlementName').disabled, mode === 'lan-client')
+    assert.equal(el('settlementType').disabled, mode === 'lan-client')
+    if (mode === 'lan-host') {
+      harness.click('incrementSettlementLanternYear')
+      assert.equal(el('settlementLanternYear').value, '5')
+      el('settlementName').value = 'New Home'
+      harness.dispatch(el('settlementName'), 'input')
+      el('settlementType').value = 'vignette'
+      harness.dispatch(el('settlementType'), 'change')
+      assert.equal(el('setVignetteTemplate').disabled, true)
+      harness.click('saveSettlementName')
+      await harness.flush()
+      assert.deepEqual(savedInput, { id: 'settlement', revision: 1, name: 'New Home', settlementType: 'vignette', lanternYear: 5 })
+      assert.match(el('settlementRecordStatus').textContent, /saved/)
+      assert.equal(el('settlementType').disabled, true)
+      assert.equal(el('setVignetteTemplate').disabled, false)
+      harness.click('setVignetteTemplate')
+      await harness.flush()
+      assert.deepEqual(templateInput, { id: 'settlement', revision: 2, name: 'New Home', settlementType: 'vignette' })
+      assert.equal(el('restoreVignetteTemplate').disabled, false)
+      harness.click('restoreVignetteTemplate')
+      await harness.flush()
+      assert.deepEqual(restoreInput, { id: 'settlement', revision: 3, name: 'New Home', settlementType: 'vignette' })
+      assert.match(el('settlementTemplateStatus').textContent, /Restored 1 survivor/)
+    } else {
+      assert.equal(el('saveSettlementName').disabled, true)
+      assert.equal(el('setVignetteTemplate').disabled, true)
+      assert.equal(el('restoreVignetteTemplate').disabled, true)
+    }
+  })
+}

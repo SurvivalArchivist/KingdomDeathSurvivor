@@ -1,11 +1,12 @@
 {
   "name": "kingdom-death-survivors",
-  "version": "3.2.1",
+  "version": "3.3.0",
   "description": "Desktop companion app for Kingdom Death survivor management.",
   "desktopName": "kingdom-death-survivors.desktop",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
+    "dev": "electron . --dev",
     "verify": "bash scripts/verify.sh",
     "preflight": "bash scripts/preflight.sh",
     "package": "electron-builder",
