@@ -37,6 +37,7 @@ Before making significant changes, check:
 - Do not default to rounded, pill-heavy, "safe" styling. Squarer edges are welcome when they make the interface feel cleaner and more confident.
 - Avoid making small controls look like large feature boxes when their job is simple form input or toggles.
 - Use full width when it improves efficiency; do not add containment layers unless they solve a real layout problem.
+- Keep the Create/View Survivor sticky action rail flattened across all themes; its buttons should remain standalone without a panel-like background, border, blur, padding, or shadow around the group.
 
 ## Current UX Expectations
 - `Technical View` exists as functionality but should not drive the primary navigation layout unless explicitly requested.

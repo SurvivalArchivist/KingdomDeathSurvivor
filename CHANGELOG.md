@@ -7,8 +7,24 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-09-06
+
 ### Changed
+- Removed an obsolete engineering checkpoint from the contributor guidance while retaining the Create/View Survivor action-rail styling as a permanent UI guardrail.
+
+### Fixed
+- Updated transitive `fast-uri` from 3.1.5 to 3.1.7 to resolve the current npm security advisories.
+
+## [3.2.0] - 2026-09-05
+
+### Added
+- Added a persistent settlement knowledge record and durable registration journal shared by Local Files, LAN Host, and LAN Client modes.
+- Added settlement-first Knowledge and Tenet Knowledge pickers with stored-definition fallback when source templates are unavailable.
+
+### Changed
+- Decomposed Showdown state, rendering, interactions, and session lifecycle into focused browser-safe modules while preserving existing workflows.
 - Updated GitHub-hosted CI workflows to Node 24-based releases of checkout, setup-node, upload-artifact, and download-artifact, removing the deprecated Node 20 action runtime dependency.
+- Expanded automated verification to 246 tests and completed manual acceptance of the settlement and Showdown changes.
 
 ## [3.1.1] - 2026-09-04
 
