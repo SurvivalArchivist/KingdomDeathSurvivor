@@ -38,6 +38,93 @@
     } = helpers
     const { loadPerson, savePerson, confirm, alert } = services
 
+    let voteInFlight = false
+    let finishingRound = null
+    let appliedEndRound = null
+    let departureRound = null
+    let readinessRefresh = Promise.resolve()
+
+    async function applyReadiness(state) {
+      const previous = session.showdownReadiness
+      if (state && previous && state.sessionId === previous.sessionId && state.revision < previous.revision) return
+      session.showdownReadiness = state || null
+      if (!state) { session.showdownReadinessLocked = false; syncControlState(); return }
+      const mine = state.playerId
+      // A lost completion response must not cause a second save or strand a completed session.
+      if (appliedEndRound === departureRound && appliedEndRound && session.showdownDepartureSnapshot?.settlementType === 'campaign' &&
+          (state.round !== departureRound || state.completed.includes(mine))) {
+        resetShowdownSessionState(true, true)
+        setPage('settlement')
+        try { await refreshPeople({ silentStatus: true, updateRefreshTimestamp: true }) } catch {}
+        setStatus('Showdown over. Survivor records saved.', 'success')
+      }
+      const hasVote = state.departed.includes(mine)
+      const hasEndVote = state.ended.includes(mine)
+      session.showdownReadinessLocked = voteInFlight || (hasVote && state.phase === 'preparing') || hasEndVote
+      if (session.showdownDepartureSnapshot && hasVote && state.phase !== 'preparing') {
+        // Vignette resets keep the departure snapshot for the next attempt.
+        if (!departureRound || departureRound === state.round || session.showdownDepartureSnapshot.settlementType === 'vignette') {
+          departureRound = state.round
+          session.showdownDeparted = true
+          applyShowdownLockSelections()
+        }
+      }
+      syncControlState()
+      if (getState().currentPage === 'settlement') renderSettlementTable()
+      const disconnected = state.players.filter(player => !player.connected).length
+      if (disconnected) setStatus(`Waiting for ${disconnected} disconnected player(s) to reconnect.`, 'neutral')
+      if (state.phase !== 'finishing' || !hasEndVote || state.completed.includes(mine) || finishingRound === state.round) return
+      if (departureRound !== state.round) return
+      finishingRound = state.round
+      try {
+        if (appliedEndRound !== state.round) {
+          await finalizeShowdownSession(true)
+          appliedEndRound = state.round
+        }
+        const next = await services.voteShowdownReadiness({ round: state.round, action: 'complete' })
+        await applyReadiness(next)
+      } finally {
+        finishingRound = null
+      }
+    }
+
+    function refreshReadiness() {
+      readinessRefresh = readinessRefresh.catch(() => {}).then(async () => {
+        const state = await services.getShowdownReadiness?.()
+        await applyReadiness(state)
+        return state
+      })
+      return readinessRefresh
+    }
+
+    async function submitReadinessVote(input) {
+      voteInFlight = true
+      session.showdownReadinessLocked = true
+      syncControlState()
+      try { return await services.voteShowdownReadiness(input) }
+      finally { voteInFlight = false }
+    }
+
+    async function requestEndShowdown() {
+      const state = await refreshReadiness()
+      if (!state) return finalizeShowdownSession()
+      if (!session.showdownDeparted || state.phase === 'preparing') return
+      if (state.phase === 'finishing') return // refreshReadiness handles a failed save retry.
+      const vignette = session.showdownDepartureSnapshot?.settlementType === 'vignette'
+      if (!confirm(vignette
+        ? 'Ready to reset showdown? It will reset to departure once every player confirms.'
+        : 'Ready to end showdown? Survivor stats will be saved once every player confirms.')) return
+      session.showdownReadinessLocked = true
+      syncControlState()
+      try {
+        await applyReadiness(await submitReadinessVote({ round: state.round, action: 'end' }))
+      } catch (err) {
+        // Re-read after uncertain network outcomes instead of assuming a vote failed.
+        refreshReadiness().catch(() => {})
+        throw err
+      }
+    }
+
     function getShowdownSurvivorLabel(slot) {
       if (!slot || !session.showdownPeople[slot]) return `Survivor ${slot || '?'}`
       return String(session.showdownPeople[slot].person?.name || session.showdownPeople[slot].fileName || `Survivor ${slot}`).trim()
@@ -138,7 +225,7 @@
     }
 
     function applyShowdownLockSelections() {
-      if (!session.showdownDeparted) return
+      if (!session.showdownDeparted && !session.showdownReadinessLocked) return
       if (session.showdownLockedSlots.A) showdownSelectA.value = session.showdownLockedSlots.A
       if (session.showdownLockedSlots.B) showdownSelectB.value = session.showdownLockedSlots.B
     }
@@ -161,7 +248,7 @@
     }
 
     function reconcileShowdownMemoryForSelectionChange() {
-      if (session.showdownDeparted) return false
+      if (session.showdownDeparted || session.showdownReadinessLocked) return false
       let changed = false
       const selectedA = String(showdownSelectA.value || '')
       const selectedB = String(showdownSelectB.value || '')
@@ -180,6 +267,7 @@
     }
 
     function resetShowdownSessionState(clearPeople = false, clearSelections = false) {
+      session.showdownDepartureSnapshot = null
       session.showdownDeparted = false
       session.showdownLockedSlots = { A: '', B: '' }
       session.showdownPageBySlot = createShowdownPageState()
@@ -199,7 +287,7 @@
       if (getState().currentPage === 'settlement') renderSettlementTable()
     }
 
-    function departShowdownSession() {
+    async function departShowdownSession() {
       if (!session.showdownPeople.A || !session.showdownPeople.B) {
         setStatus('Open showdown with two survivors first', 'error')
         return
@@ -208,11 +296,36 @@
         setStatus('Showdown is already departed', 'neutral')
         return
       }
-      session.showdownDeparted = true
+      const readiness = await refreshReadiness()
+      if (readiness && (readiness.phase !== 'preparing' || !readiness.players.some(player => player.id === readiness.playerId))) {
+        throw new Error('Wait for the current showdown to finish before departing.')
+      }
+      const settlementType = await services.getSettlementType()
+      session.showdownDepartureSnapshot = deepClone({
+        settlementType,
+        showdownPeople: session.showdownPeople,
+        showdownPageBySlot: session.showdownPageBySlot,
+        showdownArmor: session.showdownArmor,
+        showdownModifiers: session.showdownModifiers,
+        showdownTextDraftState: session.showdownTextDraftState
+      })
       session.showdownLockedSlots = {
         A: session.showdownPeople.A.fileName || '',
         B: session.showdownPeople.B.fileName || ''
       }
+      if (readiness) {
+        departureRound = readiness.round
+        session.showdownReadinessLocked = true
+        syncControlState()
+        try {
+          await applyReadiness(await submitReadinessVote({ round: readiness.round, action: 'depart' }))
+        } catch (err) {
+          refreshReadiness().catch(() => {})
+          throw err
+        }
+        return
+      }
+      session.showdownDeparted = true
       applyShowdownLockSelections()
       syncControlState()
       if (getState().currentPage === 'settlement') renderSettlementTable()
@@ -224,17 +337,30 @@
       )
     }
 
-    async function finalizeShowdownSession() {
+    async function finalizeShowdownSession(coordinated = false) {
       if (!session.showdownDeparted) {
         setStatus('Departed must be active before ending showdown', 'error')
         return
       }
-      const confirmed = confirm(
+      if (session.showdownDepartureSnapshot?.settlementType === 'vignette') {
+        if (!coordinated && !confirm('Reset showdown to when the survivors departed? Current showdown changes will be discarded.')) return
+        const snapshot = deepClone(session.showdownDepartureSnapshot)
+        for (const key of ['showdownPeople', 'showdownPageBySlot', 'showdownArmor', 'showdownModifiers', 'showdownTextDraftState']) {
+          session[key] = snapshot[key]
+        }
+        applyShowdownLockSelections()
+        renderShowdown()
+        syncControlState()
+        setStatus('Showdown reset to departure state.', 'success')
+        return
+      }
+      const confirmed = coordinated || confirm(
         'Are you sure you want to return? This will save current showdown survivor stats to settlement.'
       )
       if (!confirmed) return
       setStatus('Saving showdown survivors...', 'neutral')
       await saveShowdownSurvivors({ markReturned: true })
+      if (coordinated) return
       resetShowdownSessionState(true, true)
       setPage('settlement')
       try {
@@ -246,7 +372,7 @@
     }
 
     async function refreshSelectedShowdownSurvivors() {
-      if (session.showdownDeparted) {
+      if (session.showdownDeparted || session.showdownReadinessLocked) {
         setStatus('Cannot refresh while departed. End showdown first.', 'error')
         return
       }
@@ -279,6 +405,7 @@
     }
 
     async function openShowdownView() {
+      await refreshReadiness()
       if (session.showdownDeparted && session.showdownPeople.A && session.showdownPeople.B) {
         applyShowdownLockSelections()
         renderShowdown()
@@ -385,7 +512,7 @@
     }
 
     function assignShowdownSlot(slot, fileName) {
-      if (session.showdownDeparted) {
+      if (session.showdownDeparted || session.showdownReadinessLocked) {
         setStatus('Cannot change showdown slots while departed. End showdown first.', 'error')
         return
       }
@@ -423,8 +550,11 @@
     }
 
     function bindEvents() {
+      services.onShowdownReadinessChanged?.(() => {
+        refreshReadiness().catch(err => setStatus(err.message || 'Unable to refresh showdown readiness', 'error'))
+      })
       showdownSelectA.addEventListener('change', () => {
-        if (session.showdownDeparted) {
+        if (session.showdownDeparted || session.showdownReadinessLocked) {
           applyShowdownLockSelections()
           setStatus('Showdown slots are locked while departed', 'neutral')
         }
@@ -436,7 +566,7 @@
       })
 
       showdownSelectB.addEventListener('change', () => {
-        if (session.showdownDeparted) {
+        if (session.showdownDeparted || session.showdownReadinessLocked) {
           applyShowdownLockSelections()
           setStatus('Showdown slots are locked while departed', 'neutral')
         }
@@ -467,9 +597,11 @@
           )
         })
       })
-      departShowdownButton.addEventListener('click', departShowdownSession)
+      departShowdownButton.addEventListener('click', () => {
+        runBusy(departShowdownSession).catch(err => setStatus(err.message || 'Unable to depart showdown', 'error'))
+      })
       showdownOverButton.addEventListener('click', () => {
-        runBusy(finalizeShowdownSession).catch(err => {
+        runBusy(requestEndShowdown).catch(err => {
           const message = err.message || 'Failed to close showdown session'
           setStatus(message, 'error')
           if (getState().currentPage === 'showdown') {
@@ -481,6 +613,7 @@
 
     return {
       bindEvents,
+      refreshReadiness,
       assignShowdownSlot,
       applyShowdownLockSelections,
       hasShowdownSelectionMismatch,

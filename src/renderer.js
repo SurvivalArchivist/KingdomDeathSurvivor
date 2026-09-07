@@ -88,14 +88,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const dataSourcesView = document.getElementById('dataSourcesView')
   const navDataSourcesButton = document.getElementById('navDataSources')
   const selectSourceSurvivors = document.getElementById('selectSourceSurvivors')
-  const selectSourceDefaultSurvivorTemplates = document.getElementById('selectSourceDefaultSurvivorTemplates')
   const selectSourceFightingArts = document.getElementById('selectSourceFightingArts')
   const selectSourceSecretFightingArts = document.getElementById('selectSourceSecretFightingArts')
   const selectSourceKnowledges = document.getElementById('selectSourceKnowledges')
   const selectSourceNeuroses = document.getElementById('selectSourceNeuroses')
   const selectSourceDisorders = document.getElementById('selectSourceDisorders')
   const sourcePathSurvivors = document.getElementById('sourcePathSurvivors')
-  const sourcePathDefaultSurvivorTemplates = document.getElementById('sourcePathDefaultSurvivorTemplates')
   const sourcePathFightingArts = document.getElementById('sourcePathFightingArts')
   const sourcePathSecretFightingArts = document.getElementById('sourcePathSecretFightingArts')
   const sourcePathKnowledges = document.getElementById('sourcePathKnowledges')
@@ -373,14 +371,12 @@ document.addEventListener('DOMContentLoaded', () => {
     dataSourcesView,
     navDataSourcesButton,
     selectSourceSurvivors,
-    selectSourceDefaultSurvivorTemplates,
     selectSourceFightingArts,
     selectSourceSecretFightingArts,
     selectSourceKnowledges,
     selectSourceNeuroses,
     selectSourceDisorders,
     sourcePathSurvivors,
-    sourcePathDefaultSurvivorTemplates,
     sourcePathFightingArts,
     sourcePathSecretFightingArts,
     sourcePathKnowledges,
@@ -719,6 +715,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const showdownMarkdownContentCache = new Map()
   const showdownMarkdownContentPending = new Set()
   let showdownTextDraftState = createShowdownTextDraftState()
+  let showdownReadiness = null
+  let showdownReadinessLocked = false
+  let showdownDepartureSnapshot = null
   let showdownDeparted = false
   let showdownLockedSlots = { A: '', B: '' }
   let forceShowdownReselection = false
@@ -894,7 +893,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const DATA_SOURCE_KEYS = [
     'survivors',
-    'defaultSurvivorTemplates',
     'fightingArts',
     'secretFightingArts',
     'knowledges',
@@ -903,7 +901,6 @@ document.addEventListener('DOMContentLoaded', () => {
   ]
   const dataSourceButtons = {
     survivors: selectSourceSurvivors,
-    defaultSurvivorTemplates: selectSourceDefaultSurvivorTemplates,
     fightingArts: selectSourceFightingArts,
     secretFightingArts: selectSourceSecretFightingArts,
     knowledges: selectSourceKnowledges,
@@ -912,7 +909,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const dataSourcePathDisplays = {
     survivors: sourcePathSurvivors,
-    defaultSurvivorTemplates: sourcePathDefaultSurvivorTemplates,
     fightingArts: sourcePathFightingArts,
     secretFightingArts: sourcePathSecretFightingArts,
     knowledges: sourcePathKnowledges,
@@ -920,7 +916,6 @@ document.addEventListener('DOMContentLoaded', () => {
     disorders: sourcePathDisorders
   }
   let dataSources = Object.fromEntries(DATA_SOURCE_KEYS.map(key => [key, '']))
-  let hasDefaultTemplateFolder = false
 
   function deepClone(value) {
     return JSON.parse(JSON.stringify(value))
@@ -1365,7 +1360,6 @@ document.addEventListener('DOMContentLoaded', () => {
       el.textContent = value || 'Not set'
     }
     hasDataFolder = hasConfiguredSurvivorDataAccess()
-    hasDefaultTemplateFolder = Boolean(String(dataSources.defaultSurvivorTemplates || '').trim())
   }
 
   function syncLanSettingsUi() {
@@ -1706,14 +1700,27 @@ document.addEventListener('DOMContentLoaded', () => {
     peopleList.disabled = !hasDataFolder || busy
     loadPersonButton.disabled = !hasDataFolder || !hasSelection || busy
     deletePersonButton.disabled = !hasDataFolder || !hasSelection || busy || survivorWriteBlocked
-    showdownSelectA.disabled = !hasDataFolder || busy || showdownDeparted
-    showdownSelectB.disabled = !hasDataFolder || busy || showdownDeparted
-    openShowdownButton.disabled = !hasDataFolder || !canOpenShowdown || busy || showdownDeparted
-    departShowdownButton.disabled = busy || !hasShowdownPairLoaded || showdownDeparted
-    refreshShowdownSurvivorsButton.disabled = busy || showdownDeparted || !canOpenShowdown
-    showdownOverButton.disabled = busy || !hasShowdownPairLoaded || !showdownDeparted || survivorWriteBlocked
+    showdownSelectA.disabled = !hasDataFolder || busy || showdownDeparted || showdownReadinessLocked
+    showdownSelectB.disabled = !hasDataFolder || busy || showdownDeparted || showdownReadinessLocked
+    openShowdownButton.disabled = !hasDataFolder || !canOpenShowdown || busy || showdownDeparted || showdownReadinessLocked
+    departShowdownButton.disabled = busy || !hasShowdownPairLoaded || showdownDeparted || showdownReadinessLocked
+    refreshShowdownSurvivorsButton.disabled = busy || showdownDeparted || showdownReadinessLocked || !canOpenShowdown
+    const vignetteShowdown = showdownDepartureSnapshot?.settlementType === 'vignette' ||
+      (!showdownDeparted && settlementRecord?.settlementType === 'vignette')
+    showdownOverButton.textContent = vignetteShowdown ? 'Reset Showdown' : 'End Showdown'
+    showdownOverButton.disabled = busy || !hasShowdownPairLoaded || !showdownDeparted || (!vignetteShowdown && survivorWriteBlocked)
     departShowdownButton.classList.toggle('hidden', showdownDeparted)
     showdownOverButton.classList.toggle('hidden', !showdownDeparted)
+    const readiness = showdownReadiness
+    departShowdownButton.textContent = readiness
+      ? `Depart · ${readiness.departed.length}/${readiness.players.length} Departed`
+      : 'Depart'
+    if (readiness && showdownDeparted) {
+      showdownOverButton.textContent += ` · ${readiness.ended.length}/${readiness.players.length} ${vignetteShowdown ? 'Ready' : 'Ended'}`
+      if (readiness.ended.includes(readiness.playerId) && readiness.phase !== 'finishing') showdownOverButton.disabled = true
+      if (readiness.completed.includes(readiness.playerId)) showdownOverButton.disabled = true
+    }
+    showdownView.inert = showdownReadinessLocked
     document.body.classList.toggle('departed-active', showdownDeparted)
     if (showdownDeparted) {
       showdownHint.textContent = `Showdown departed. Slots locked: ${showdownLockedSlots.A || '-'} vs ${
@@ -1851,7 +1858,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createSurvivorBack.disabled = busy
     createOpenDefaultTemplate.disabled = busy || createViewMode === 'defaultTemplate'
     createSurvivorSubmit.disabled =
-      busy || (createViewMode === 'defaultTemplate' ? !hasDefaultTemplateFolder : !hasDataFolder || survivorWriteBlocked)
+      busy || !hasDataFolder || survivorWriteBlocked
     resetCreateSurvivorButton.disabled = busy
     createAddFightingArtButton.disabled = busy
     createAddSecretFightingArtButton.disabled = busy
@@ -2908,8 +2915,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function loadDefaultCreateTemplateWithFallback() {
-    const savedTemplate = await window.api.loadDefaultCreateTemplate()
-    if (savedTemplate) return savedTemplate
+    try {
+      const savedTemplate = await window.api.loadDefaultCreateTemplate()
+      if (savedTemplate) return savedTemplate
+    } catch {
+      // A LAN Client may start while its host is unavailable. The blank form
+      // remains usable for viewing and can be saved after reconnecting.
+    }
     return window.api.createPersonTemplate('New Survivor')
   }
 
@@ -4144,6 +4156,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return
       }
       await refreshLanHostInfo()
+      await showdownSession.refreshReadiness().catch(() => {})
       await refreshDiscoveredLanHosts()
       await refreshLanConnectionStatus()
 
@@ -4704,6 +4717,12 @@ document.addEventListener('DOMContentLoaded', () => {
     documentRef: document,
     elements: { showdownSelectA, showdownSelectB, openShowdownButton, refreshShowdownSurvivorsButton, departShowdownButton, showdownOverButton },
     session: {
+      get showdownReadiness() { return showdownReadiness },
+      set showdownReadiness(value) { showdownReadiness = value },
+      get showdownReadinessLocked() { return showdownReadinessLocked },
+      set showdownReadinessLocked(value) { showdownReadinessLocked = value },
+      get showdownDepartureSnapshot() { return showdownDepartureSnapshot },
+      set showdownDepartureSnapshot(value) { showdownDepartureSnapshot = value },
       get showdownPeople() { return showdownPeople },
       set showdownPeople(value) { showdownPeople = value },
       get showdownDeparted() { return showdownDeparted },
@@ -4723,6 +4742,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     getState: () => ({
       currentPage,
+      showdownReadinessLocked,
       settlementRecords,
       knowledgeTemplateCache,
       showdownArmor,
@@ -4785,6 +4805,12 @@ document.addEventListener('DOMContentLoaded', () => {
       updateShowdownTextDraft
     },
     services: {
+      getShowdownReadiness: () => appSettings.survivorDataMode === 'local' ? Promise.resolve(null) : window.api.getShowdownReadiness?.(),
+      voteShowdownReadiness: input => window.api.voteShowdownReadiness(input),
+      onShowdownReadinessChanged: callback => window.api.onShowdownReadinessChanged?.(callback),
+      getSettlementType: async () => appSettings.survivorDataMode === 'local'
+        ? 'campaign'
+        : (await window.api.getSettlementRecord()).settlementType || 'campaign',
       loadPerson: fileName => window.api.loadPerson(fileName),
       savePerson: (person, options) => window.api.savePerson(person, options),
       confirm: message => window.confirm(message),
@@ -5113,8 +5139,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (createViewMode === 'defaultTemplate') {
-        if (!hasDefaultTemplateFolder) {
-          setStatus('Select a Default Survivor Templates folder before saving', 'error')
+        if (!hasDataFolder) {
+          setStatus(getSurvivorDataSetupPrompt(), 'error')
           return
         }
         await window.api.saveDefaultCreateTemplate(person)
@@ -5351,6 +5377,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.api.onLanConnectionStatusChanged(statusPayload => {
       applyLanConnectionStatus(statusPayload)
       syncControlState()
+      showdownSession.refreshReadiness().catch(() => {})
     })
   }
   if (typeof window.api.onLanSurvivorDataChanged === 'function') {

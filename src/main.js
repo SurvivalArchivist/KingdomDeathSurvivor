@@ -1,5 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, nativeImage, Menu } = require('electron')
 const fs = require('fs')
+const { randomUUID } = require('crypto')
+const showdownPlayerId = randomUUID()
 const dgram = require('dgram')
 const http = require('http')
 const https = require('https')
@@ -126,7 +128,7 @@ function getSurvivorProvider() {
 
 function getLanSurvivorHost() {
   if (!lanSurvivorHost) {
-    lanSurvivorHost = createLanSurvivorHost({ app, dataService })
+    lanSurvivorHost = createLanSurvivorHost({ app, dataService, onShowdownChanged: payload => sendRendererEvent('lan-showdown-changed', payload) })
   }
   return lanSurvivorHost
 }
@@ -403,14 +405,14 @@ function handleLanClientEventChunk(chunk, generation) {
   lanClientEventBuffer = events.pop() || ''
   for (const rawEvent of events) {
     const parsed = parseSseEvent(rawEvent)
-    if (parsed.eventName !== 'survivor-data-changed') continue
+    if (!['survivor-data-changed', 'showdown-changed'].includes(parsed.eventName)) continue
     let payload = null
     try {
       payload = JSON.parse(parsed.data)
     } catch {
       payload = { action: 'unknown' }
     }
-    sendRendererEvent('lan-survivor-data-changed', payload)
+    sendRendererEvent(parsed.eventName === 'showdown-changed' ? 'lan-showdown-changed' : 'lan-survivor-data-changed', payload)
   }
 }
 
@@ -449,6 +451,7 @@ function syncLanClientEventStream() {
   let eventUrl
   try {
     eventUrl = new URL('/events', baseUrl)
+    eventUrl.searchParams.set('playerId', showdownPlayerId)
   } catch {
     lanClientEventState = { connected: false, errorMessage: 'Invalid LAN host event URL' }
     return
@@ -665,6 +668,30 @@ ipcMain.handle('save-app-settings', async (_event, settings) => {
   return saved
 })
 
+async function showdownRequest(input = null) {
+  const settings = dataService.getSavedAppSettings(app)
+  if (settings.survivorDataMode === 'local') return null
+  if (settings.survivorDataMode === 'lan-host') {
+    const host = getLanSurvivorHost()
+    if (!host.getStatus().running) throw new Error('Start the LAN Host before coordinating showdown.')
+    const state = input ? host.voteShowdown('host', input) : host.showdownState()
+    return { ...state, playerId: 'host' }
+  }
+  if (settings.lanClientConnected === false) throw new Error('Connect to the LAN Host before coordinating showdown.')
+  const response = await fetch(`${normalizeLanHostBaseUrl(settings)}/showdown`, {
+    method: input ? 'POST' : 'GET',
+    headers: { 'content-type': 'application/json' },
+    ...(input ? { body: JSON.stringify({ ...input, playerId: showdownPlayerId }) } : {}),
+    signal: AbortSignal.timeout(5000)
+  })
+  const state = await response.json()
+  if (!response.ok || state?.ok === false) throw new Error(state?.message || 'Unable to coordinate showdown.')
+  return { ...state, playerId: showdownPlayerId }
+}
+
+ipcMain.handle('get-showdown-readiness', () => showdownRequest())
+ipcMain.handle('vote-showdown-readiness', (_event, input) => showdownRequest(input))
+
 ipcMain.handle('get-lan-connection-status', () => {
   return getLanConnectionStatus()
 })
@@ -766,21 +793,13 @@ ipcMain.handle('create-person-template', (_event, name) => {
   return dataService.createPersonTemplate(name)
 })
 
-ipcMain.handle('save-default-create-template', (_event, template) => {
-  const dataSources = dataService.getSavedDataSources(app)
-  const templatePath = String(dataSources.defaultSurvivorTemplates || '').trim()
-  if (!templatePath) {
-    throw new Error('No Default Survivor Templates folder selected')
-  }
-  const fileName = dataService.saveDefaultCreateTemplate(templatePath, template)
+ipcMain.handle('save-default-create-template', async (_event, template) => {
+  const fileName = await getSurvivorProvider().saveDefaultCreateTemplate(template)
   return { ok: true, fileName }
 })
 
-ipcMain.handle('load-default-create-template', () => {
-  const dataSources = dataService.getSavedDataSources(app)
-  const templatePath = String(dataSources.defaultSurvivorTemplates || '').trim()
-  if (!templatePath) return null
-  return dataService.loadDefaultCreateTemplate(templatePath)
+ipcMain.handle('load-default-create-template', async () => {
+  return getSurvivorProvider().loadDefaultCreateTemplate()
 })
 
 ipcMain.handle('list-markdown-collections', () => {

@@ -59,15 +59,19 @@ test('setDataSource validates inputs and persists trimmed path', () => {
 
 test('save/load default create template roundtrip and null when missing', () => {
   const root = makeTempDir()
-  const templateDir = path.join(root, 'defaults')
+  const survivorDir = path.join(root, 'survivors')
   const template = dataService.createPersonTemplate('Default Survivor')
   template.age = 4
   template.philosophy = 'Skylore'
 
-  const fileName = dataService.saveDefaultCreateTemplate(templateDir, template)
+  const fileName = dataService.saveDefaultCreateTemplate(survivorDir, template)
   assert.equal(fileName, 'default-new-survivor.json')
+  assert.equal(fs.existsSync(path.join(survivorDir, 'default_survivor_template', fileName)), true)
+  assert.deepEqual(dataService.listPeople(survivorDir), [])
+  assert.throws(() => dataService.loadPerson(survivorDir, fileName), /Reserved survivor data filename/)
+  assert.throws(() => dataService.deletePerson(survivorDir, fileName), /Reserved survivor data filename/)
 
-  const loaded = dataService.loadDefaultCreateTemplate(templateDir)
+  const loaded = dataService.loadDefaultCreateTemplate(survivorDir)
   assert.equal(loaded.name, 'Default Survivor')
   assert.equal(loaded.age, 4)
   assert.equal(loaded.philosophy, 'Skylore')
@@ -85,7 +89,7 @@ test('saveDefaultCreateTemplate rejects blank base path', () => {
   const template = dataService.createPersonTemplate('Template')
   assert.throws(
     () => dataService.saveDefaultCreateTemplate('   ', template),
-    /Default survivor template folder is not configured/
+    /Survivors folder is not configured/
   )
 })
 

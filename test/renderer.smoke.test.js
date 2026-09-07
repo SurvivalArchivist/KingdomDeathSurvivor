@@ -615,7 +615,6 @@ function setupRendererHarness(options = {}) {
       calls.push({ name: 'getSavedDataSources', args: [] })
       return {
         survivors: '/tmp/survivors',
-        defaultSurvivorTemplates: '/tmp/default-survivors',
         fightingArts: '',
         secretFightingArts: '',
         knowledges: '',
@@ -1180,7 +1179,6 @@ test('renderer enables survivor workflows for LAN client without local survivor 
     customizeApi(api) {
       api.getSavedDataSources = async () => ({
         survivors: '',
-        defaultSurvivorTemplates: '/tmp/default-survivors',
         fightingArts: '',
         secretFightingArts: '',
         knowledges: '',
@@ -1289,6 +1287,12 @@ test('renderer finishes initialization with recovery guidance when LAN survivor 
         error.errorType = 'host-unavailable'
         throw error
       }
+      api.loadDefaultCreateTemplate = async () => {
+        calls.push({ name: 'loadDefaultCreateTemplate', args: [] })
+        const error = new Error('Cannot reach LAN host at http://192.168.1.44:4567')
+        error.errorType = 'host-unavailable'
+        throw error
+      }
     }
   })
   t.after(() => harness.cleanup())
@@ -1298,6 +1302,7 @@ test('renderer finishes initialization with recovery guidance when LAN survivor 
   assert.equal(harness.document.getElementById('navLanStatus').dataset.lanState, 'offline')
   assert.equal(harness.document.getElementById('peopleCount').textContent, '0 people loaded')
   assert.ok(countCalls(harness.calls, 'loadDefaultCreateTemplate') >= 1)
+  assert.ok(countCalls(harness.calls, 'createPersonTemplate') >= 1)
   assert.match(
     harness.document.getElementById('status').innerText,
     /Cannot reach the LAN host while loading survivor data.*app is ready.*Open Settings to reconnect/i
@@ -2908,6 +2913,189 @@ for (const mode of ['local', 'lan-client', 'lan-host']) {
       assert.equal(el('saveSettlementName').disabled, true)
       assert.equal(el('setVignetteTemplate').disabled, true)
       assert.equal(el('restoreVignetteTemplate').disabled, true)
+    }
+  })
+}
+
+for (const mode of ['lan-host', 'lan-client']) {
+  test(`Vignette resets both survivors to departure state without saving (${mode})`, async t => {
+    const harness = setupRendererHarness({ customizeApi(api) {
+      api.getAppSettings = async () => ({ survivorDataMode: mode, lanHostAddress: 'host' })
+      api.getSettlementRecord = async () => ({ id: 'settlement', revision: 1, settlementType: 'vignette', knowledges: [] })
+    } })
+    t.after(() => harness.cleanup())
+    await harness.flush()
+    const el = id => harness.document.getElementById(id)
+    el('showdownSelectA').value = 'alice.json'
+    el('showdownSelectB').value = 'bob.json'
+    harness.click('openShowdown')
+    await harness.flush()
+    const adjust = (slot, data) => {
+      const button = harness.document.createElement('button')
+      Object.assign(button.dataset, { showdownSlot: slot, ...data })
+      el('showdownView').dispatchEvent(new FakeEvent('click', { target: button }))
+    }
+    adjust('A', { showdownBulkArmorDelta: '3' })
+    adjust('B', { showdownField: 'strength', showdownKind: 'temporary', showdownDelta: '2' })
+    harness.click('departShowdown')
+    await harness.flush()
+    assert.equal(el('showdownOver').textContent, 'Reset Showdown')
+    const baseline = ['A', 'B'].map(slot => el(`showdownCard${slot}`).innerHTML)
+    const callBaseline = harness.calls.length
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      for (const slot of ['A', 'B']) {
+        adjust(slot, { showdownField: 'lumi', showdownKind: 'base', showdownDelta: '1' })
+        adjust(slot, { showdownBulkArmorDelta: '-1' })
+        adjust(slot, { showdownField: 'strength', showdownKind: 'temporary', showdownDelta: '4' })
+        adjust(slot, { showdownPart: 'bleedingTokens', showdownDelta: '1' })
+      }
+      assert.notEqual(el('showdownCardA').innerHTML, baseline[0])
+      harness.click('navCreate')
+      await harness.flush()
+      harness.click('navShowdown')
+      await harness.flush()
+      harness.click('showdownOver')
+      await harness.flush()
+      assert.deepEqual(['A', 'B'].map(slot => el(`showdownCard${slot}`).innerHTML), baseline)
+      assert.equal(el('showdownSessionState').textContent, 'Session departed')
+      assert.equal(el('showdownSelectA').disabled, true)
+      assert.equal(el('showdownSelectB').disabled, true)
+    }
+    assert.equal(harness.calls.slice(callBaseline).filter(call => call.name === 'savePerson' || call.name === 'loadPerson').length, 0)
+  })
+}
+
+for (const settlementType of ['campaign', 'vignette']) {
+  for (const playerId of ['host', 'client']) {
+    test(`shared ${settlementType} showdown waits for every player (${playerId})`, async t => {
+      const { createShowdownReadiness } = require('../src/showdownReadiness')
+      let notify = () => {}
+      const barrier = createShowdownReadiness({ onChange: () => notify() })
+      barrier.connect('client')
+      const otherId = playerId === 'host' ? 'client' : 'host'
+      const state = () => ({ ...barrier.state(), playerId })
+      const otherVote = action => barrier.vote(otherId, { round: barrier.state().round, action }, settlementType)
+      const harness = setupRendererHarness({ customizeApi(api) {
+        api.getAppSettings = async () => ({ survivorDataMode: playerId === 'host' ? 'lan-host' : 'lan-client', lanHostAddress: 'host' })
+        api.getSettlementRecord = async () => ({ settlementType, knowledges: [] })
+        api.getShowdownReadiness = async () => state()
+        api.voteShowdownReadiness = async input => {
+          barrier.vote(playerId, input, settlementType)
+          return state()
+        }
+        api.onShowdownReadinessChanged = callback => { notify = callback }
+      } })
+      t.after(() => harness.cleanup())
+      await harness.flush(20)
+      const el = id => harness.document.getElementById(id)
+      el('showdownSelectA').value = 'alice.json'
+      el('showdownSelectB').value = 'bob.json'
+      harness.click('openShowdown')
+      await harness.flush(20)
+      assert.match(el('departShowdown').textContent, /0\/2 Departed/)
+      harness.click('departShowdown')
+      await harness.flush(20)
+      assert.match(el('departShowdown').textContent, /1\/2 Departed/)
+      assert.equal(el('showdownSessionState').textContent, 'Session not departed')
+      assert.equal(el('showdownSelectA').disabled, true)
+      assert.equal(el('showdownView').inert, true)
+      otherVote('depart')
+      await harness.flush(20)
+      assert.equal(el('showdownSessionState').textContent, 'Session departed')
+      assert.equal(el('showdownView').inert, false)
+      assert.match(el('showdownOver').textContent, /0\/2/)
+      const baseline = el('showdownCardA').innerHTML
+      const change = () => {
+        const button = harness.document.createElement('button')
+        Object.assign(button.dataset, { showdownSlot: 'A', showdownPart: 'bleedingTokens', showdownDelta: '1' })
+        el('showdownView').dispatchEvent(new FakeEvent('click', { target: button }))
+      }
+      const saveBaseline = harness.calls.length
+      for (let attempt = 0; attempt < (settlementType === 'vignette' ? 2 : 1); attempt += 1) {
+        change()
+        const changed = el('showdownCardA').innerHTML
+        assert.notEqual(changed, baseline)
+        harness.click('showdownOver')
+        await harness.flush(20)
+        assert.match(el('showdownOver').textContent, /1\/2/)
+        assert.equal(el('showdownCardA').innerHTML, changed)
+        assert.equal(harness.calls.slice(saveBaseline).filter(call => call.name === 'savePerson').length, 0)
+        change()
+        assert.equal(el('showdownCardA').innerHTML, changed)
+        otherVote('end')
+        await harness.flush(30)
+        assert.equal(barrier.state().phase, 'finishing')
+        otherVote('complete')
+        await harness.flush(30)
+        if (settlementType === 'vignette') {
+          assert.equal(el('showdownCardA').innerHTML, baseline)
+          assert.equal(el('showdownSessionState').textContent, 'Session departed')
+          assert.match(el('showdownOver').textContent, /0\/2/)
+        } else {
+          assert.equal(el('showdownSessionState').textContent, 'Session not departed')
+          assert.match(el('departShowdown').textContent, /0\/2 Departed/)
+        }
+      }
+      assert.equal(harness.calls.slice(saveBaseline).filter(call => call.name === 'savePerson').length, settlementType === 'campaign' ? 2 : 0)
+    })
+  }
+}
+
+for (const failure of ['save', 'completion-response']) {
+  test(`shared Campaign end recovers from ${failure} failure`, async t => {
+    const { createShowdownReadiness } = require('../src/showdownReadiness')
+    let notify = () => {}
+    let failSave = failure === 'save'
+    const barrier = createShowdownReadiness({ onChange: () => notify() })
+    barrier.connect('client')
+    const state = () => ({ ...barrier.state(), playerId: 'host' })
+    const voteOther = action => barrier.vote('client', { round: barrier.state().round, action }, 'campaign')
+    const harness = setupRendererHarness({ customizeApi(api) {
+      const save = api.savePerson
+      api.savePerson = async (person, options) => {
+        if (failSave && person.name === 'Bob') return { ok: false, message: 'Simulated save failure' }
+        return save(person, options)
+      }
+      api.getAppSettings = async () => ({ survivorDataMode: 'lan-host' })
+      api.getSettlementRecord = async () => ({ settlementType: 'campaign', knowledges: [] })
+      api.getShowdownReadiness = async () => state()
+      api.voteShowdownReadiness = async input => {
+        barrier.vote('host', input, 'campaign')
+        if (failure === 'completion-response' && input.action === 'complete') throw new Error('Response lost after completion')
+        return state()
+      }
+      api.onShowdownReadinessChanged = callback => { notify = callback }
+    } })
+    t.after(() => harness.cleanup())
+    await harness.flush(20)
+    const el = id => harness.document.getElementById(id)
+    el('showdownSelectA').value = 'alice.json'
+    el('showdownSelectB').value = 'bob.json'
+    harness.click('openShowdown')
+    await harness.flush(20)
+    harness.click('departShowdown')
+    await harness.flush(20)
+    voteOther('depart')
+    await harness.flush(20)
+    harness.click('showdownOver')
+    await harness.flush(20)
+    voteOther('end')
+    await harness.flush(30)
+    if (failure === 'save') {
+      assert.equal(barrier.state().completed.includes('host'), false)
+      assert.equal(el('showdownSessionState').textContent, 'Session departed')
+      assert.equal(el('showdownOver').disabled, false)
+      failSave = false
+      harness.click('showdownOver')
+      await harness.flush(30)
+    }
+    assert.equal(barrier.state().completed.includes('host'), true)
+    voteOther('complete')
+    await harness.flush(30)
+    assert.equal(el('showdownSessionState').textContent, 'Session not departed')
+    assert.match(el('departShowdown').textContent, /0\/2 Departed/)
+    if (failure === 'completion-response') {
+      assert.equal(harness.calls.filter(call => call.name === 'savePerson').length, 2)
     }
   })
 }

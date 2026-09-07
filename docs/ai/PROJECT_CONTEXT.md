@@ -41,10 +41,13 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Settings and utility surfaces should read as infrastructure, not showcase cards.
 
 ## Showdown Session Rules
-- `Depart` locks survivor slots and keeps showdown state active across navigation.
+- LAN Showdown is coordinated by the Host. The action buttons show ready/total player counts (Host plus connected clients). A player's Depart vote locks their cards/slots; the session departs only when every player votes. End Showdown and Vignette Reset Showdown likewise wait for unanimous confirmation.
+- The Host tracks connection identities, round IDs, votes, and completion acknowledgements in memory. Duplicate votes are idempotent; disconnected participants block an active vote until they reconnect. Clients joining after departure wait for the next session. Campaign completion retains existing per-survivor conflict/partial-save handling and only acknowledges successful saves; Vignette resets acknowledge in-memory restoration without writes.
+- Local Development retains the standalone Showdown lifecycle. LAN requires a running Host and matching updated Host/Client versions. Readiness and survivor departure snapshots do not survive app/Host restarts.
 - After `Depart`, the `Depart` button hides and `End Showdown` appears in the showdown session bar.
 - There is no global departed indicator pill.
 - `End Showdown` confirms, then writes persistent survivor updates.
+- In Vignette mode, `Reset Showdown` restores both survivors and all temporary combat state from a deep snapshot captured at Depart, keeps the session departed and slots locked, and writes no survivor records. Depart resolves the settlement type from the authoritative provider; Campaign retains End Showdown.
 - Showdown Lumi is a persistent survivor stat and saves through the same base-stat path as Survival.
 - Temporary combat modifiers, armor, `Tokens (+)`, `Tokens (-)`, bleeding tokens, and weapon proficiency reminder controls are non-persistent.
 
@@ -68,6 +71,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - `LAN Host` uses the selected local survivor folder as authoritative storage and exposes a main-process HTTP JSON API for survivor health/list/load/save/delete operations when enabled in Settings.
 - `LAN Host` also exposes a Server-Sent Events stream for survivor-data changes; LAN Client uses those events as refresh triggers and still reloads authoritative data through the existing survivor APIs.
 - `LAN Client` routes survivor list/load/save/delete calls to the configured host HTTP API and does not require a local Survivors folder for survivor CRUD.
+- The default new-survivor template lives at `default_survivor_template/default-new-survivor.json` inside the authoritative Survivors folder. There is no separate template Data Source; LAN Clients load and save the Host's copy through the survivor provider/API.
 - The navbar includes a compact survivor-data status indicator (`Hosting`, `Connected`, `Offline`, or `Error`, plus `Local` in development) that opens Settings when clicked; connection controls stay in Settings.
 - Settings includes explicit `Start Host`, `Stop Host`, `Connect`, and `Disconnect` actions; client disconnect uses `lanClientConnected` so the host address can remain saved.
 - Settings shows LAN Host URLs from local IPv4 addresses and includes a manual `Export Backup` action for copying the configured survivor folder before a session.
@@ -112,6 +116,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Template selection UI supports search filtering
 
 ## Key Runtime Files
+- `src/showdownReadiness.js`: Host-owned LAN Showdown readiness/round state machine, delivered over the existing SSE stream and dedicated Showdown IPC/HTTP endpoints.
 - `src/main.js`: Electron app + IPC handlers
 - `src/preload.js`: secure API bridge
 - `src/dataService.js`: file I/O, validation, template persistence

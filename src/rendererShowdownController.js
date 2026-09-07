@@ -154,6 +154,7 @@
 
     function bindEvents() {
       element.addEventListener('click', event => {
+        if (getState().showdownReadinessLocked) return
         const { showdownArmor, showdownPageBySlot, showdownPeople, knowledgeTemplateCache } = getState()
         const rawTarget = event.target
         const target =
@@ -389,6 +390,7 @@
       })
 
       element.addEventListener('input', event => {
+        if (getState().showdownReadinessLocked) return
         const { showdownArmor, showdownPeople, showdownTextDraftState } = getState()
         const target = event.target
         if (!(target instanceof HTMLElement)) return
@@ -445,6 +447,7 @@
       })
 
       element.addEventListener('change', event => {
+        if (getState().showdownReadinessLocked) return
         const { showdownArmor, showdownPeople } = getState()
         const target = event.target
         if (!(target instanceof HTMLElement)) return

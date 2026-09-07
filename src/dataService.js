@@ -10,7 +10,6 @@ const KNOWLEDGE_TEMPLATE_TYPE_FOLDERS = {
 }
 const SOURCE_KEYS = [
   'survivors',
-  'defaultSurvivorTemplates',
   'fightingArts',
   'secretFightingArts',
   'knowledges',
@@ -29,6 +28,7 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
   lanHostEnabled: false
 })
 const DEFAULT_CREATE_TEMPLATE_FILE_NAME = 'default-new-survivor.json'
+const DEFAULT_CREATE_TEMPLATE_FOLDER_NAME = 'default_survivor_template'
 const HISTORY_FOLDER_NAME = 'history'
 const SETTLEMENT_BACKUP_FOLDER_NAME = 'settlement-backups'
 const SURVIVOR_ID_PREFIX = 'survivor'
@@ -241,10 +241,31 @@ function setDataSource(app, sourceKey, folderPath) {
   return current
 }
 
+function migrateLegacyDefaultCreateTemplate(config, dataSources) {
+  const legacyFolder = typeof config?.dataSources?.defaultSurvivorTemplates === 'string'
+    ? config.dataSources.defaultSurvivorTemplates.trim()
+    : ''
+  const survivorFolder = String(dataSources?.survivors || '').trim()
+  if (!legacyFolder || !survivorFolder || !fs.existsSync(survivorFolder) || !fs.statSync(survivorFolder).isDirectory()) return
+
+  const legacyPath = path.join(legacyFolder, DEFAULT_CREATE_TEMPLATE_FILE_NAME)
+  const targetPath = path.join(survivorFolder, DEFAULT_CREATE_TEMPLATE_FOLDER_NAME, DEFAULT_CREATE_TEMPLATE_FILE_NAME)
+  if (!fs.existsSync(legacyPath) || fs.existsSync(targetPath)) return
+
+  try {
+    const template = JSON.parse(fs.readFileSync(legacyPath, 'utf8'))
+    saveDefaultCreateTemplate(survivorFolder, template)
+  } catch {
+    // Leave an invalid or unreadable legacy template untouched for manual recovery.
+  }
+}
+
 function getSavedDataSources(app) {
   const config = readConfigObject(app)
   if (config.dataSources && typeof config.dataSources === 'object') {
-    return normalizeDataSources(config.dataSources)
+    const dataSources = normalizeDataSources(config.dataSources)
+    migrateLegacyDefaultCreateTemplate(config, dataSources)
+    return dataSources
   }
   return normalizeDataSources({})
 }
@@ -332,6 +353,11 @@ function readJsonIfExists(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
 }
 
+function isReservedPersonFileName(fileName) {
+  const name = path.basename(String(fileName || ''))
+  return name === DEFAULT_CREATE_TEMPLATE_FILE_NAME || settlementService.reserved(name)
+}
+
 function findPersonFileById(basePath, survivorId, excludedFileName = '') {
   const normalizedId = normalizeSurvivorId(survivorId)
   if (!normalizedId || !fs.existsSync(basePath) || !fs.statSync(basePath).isDirectory()) return null
@@ -402,7 +428,7 @@ function resolveIncomingRevision(person) {
 }
 
 function savePerson(basePath, person, options = {}) {
-  if (settlementService.reserved(path.basename(String(options.expectedFileName || '')))) throw new Error('Reserved settlement filename')
+  if (isReservedPersonFileName(options.expectedFileName)) throw new Error('Reserved survivor data filename')
   fs.mkdirSync(basePath, { recursive: true })
   const normalizedPerson = preparePersonForValidation(person)
   normalizedPerson.id = normalizeSurvivorId(normalizedPerson.id)
@@ -512,7 +538,7 @@ function savePerson(basePath, person, options = {}) {
 }
 
 function loadPerson(basePath, fileName) {
-  if (settlementService.reserved(path.basename(String(fileName)))) throw new Error('Reserved settlement filename')
+  if (isReservedPersonFileName(fileName)) throw new Error('Reserved survivor data filename')
   if (typeof fileName !== 'string' || !fileName.endsWith('.json')) {
     throw new Error('Invalid person filename')
   }
@@ -539,7 +565,7 @@ function listPeople(basePath) {
 
   return fs
     .readdirSync(basePath, { withFileTypes: true })
-    .filter(entry => entry.isFile() && entry.name.endsWith('.json') && !settlementService.reserved(entry.name))
+    .filter(entry => entry.isFile() && entry.name.endsWith('.json') && !isReservedPersonFileName(entry.name))
     .map(entry => entry.name)
     .sort((a, b) => a.localeCompare(b))
 }
@@ -715,7 +741,7 @@ function restoreSettlementVignetteTemplate(basePath, input) {
 
   const restoreRecords = survivors.map(entry => {
     const fileName = path.basename(String(entry?.fileName || ''))
-    if (!fileName || !fileName.endsWith('.json') || settlementService.reserved(fileName)) {
+    if (!fileName || !fileName.endsWith('.json') || isReservedPersonFileName(fileName)) {
       throw new ValidationError('Vignette template contains an invalid survivor filename.')
     }
     const person = preparePersonForValidation(entry.person, {
@@ -772,7 +798,7 @@ function listPeopleSummaries(basePath) {
 }
 
 function deletePerson(basePath, fileName) {
-  if (settlementService.reserved(path.basename(String(fileName)))) throw new Error('Reserved settlement filename')
+  if (isReservedPersonFileName(fileName)) throw new Error('Reserved survivor data filename')
   settlementService.recover(basePath)
   if (typeof fileName !== 'string' || !fileName.endsWith('.json')) {
     throw new Error('Invalid person filename')
@@ -840,9 +866,9 @@ function createPersonTemplate(name = 'New Survivor') {
 
 function saveDefaultCreateTemplate(basePath, template) {
   if (typeof basePath !== 'string' || basePath.trim().length === 0) {
-    throw new Error('Default survivor template folder is not configured')
+    throw new Error('Survivors folder is not configured')
   }
-  const folder = basePath.trim()
+  const folder = path.join(basePath.trim(), DEFAULT_CREATE_TEMPLATE_FOLDER_NAME)
   fs.mkdirSync(folder, { recursive: true })
   const normalizedTemplate = preparePersonForValidation(template)
   if (!validatePerson(normalizedTemplate)) {
@@ -856,7 +882,7 @@ function saveDefaultCreateTemplate(basePath, template) {
 
 function loadDefaultCreateTemplate(basePath) {
   if (typeof basePath !== 'string' || basePath.trim().length === 0) return null
-  const folder = basePath.trim()
+  const folder = path.join(basePath.trim(), DEFAULT_CREATE_TEMPLATE_FOLDER_NAME)
   const fullPath = path.join(folder, DEFAULT_CREATE_TEMPLATE_FILE_NAME)
   if (!fs.existsSync(fullPath)) return null
   const raw = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
@@ -1226,5 +1252,7 @@ module.exports = {
   saveNeurosisTemplate,
   listNeurosisTemplates,
   ConflictError,
-  ValidationError
+  ValidationError,
+  DEFAULT_CREATE_TEMPLATE_FILE_NAME,
+  DEFAULT_CREATE_TEMPLATE_FOLDER_NAME
 }

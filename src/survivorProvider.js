@@ -51,6 +51,12 @@ function createLocalSurvivorProvider({ app, dataService, mode = SURVIVOR_DATA_MO
     loadPerson(fileName) {
       return dataService.loadPerson(getDataPath(), fileName)
     },
+    loadDefaultCreateTemplate() {
+      return dataService.loadDefaultCreateTemplate(getDataPath())
+    },
+    saveDefaultCreateTemplate(template) {
+      return dataService.saveDefaultCreateTemplate(getDataPath(), template)
+    },
     savePerson(person, options = {}) {
       return dataService.savePerson(getDataPath(), person, {
         ...options,
@@ -176,6 +182,16 @@ function createLanClientSurvivorProvider({ settings, dataService, fetchImpl = gl
     },
     loadPerson(fileName) {
       return requestJson(survivorPath(fileName))
+    },
+    loadDefaultCreateTemplate() {
+      return requestJson('/default-survivor-template')
+    },
+    async saveDefaultCreateTemplate(template) {
+      const response = await requestJson('/default-survivor-template', {
+        method: 'PUT',
+        body: JSON.stringify({ template })
+      })
+      return response?.fileName
     },
     async savePerson(person, options = {}) {
       const expectedFileName = typeof options.expectedFileName === 'string' && options.expectedFileName.trim()

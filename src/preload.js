@@ -6,6 +6,14 @@ contextBridge.exposeInMainWorld('api', {
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   getRuntimeInfo: () => ipcRenderer.invoke('get-runtime-info'),
   saveAppSettings: settings => ipcRenderer.invoke('save-app-settings', settings),
+  getShowdownReadiness: () => ipcRenderer.invoke('get-showdown-readiness'),
+  voteShowdownReadiness: input => ipcRenderer.invoke('vote-showdown-readiness', input),
+  onShowdownReadinessChanged: listener => {
+    if (typeof listener !== 'function') return () => {}
+    const wrapped = (_event, payload) => listener(payload)
+    ipcRenderer.on('lan-showdown-changed', wrapped)
+    return () => ipcRenderer.removeListener('lan-showdown-changed', wrapped)
+  },
   getLanConnectionStatus: () => ipcRenderer.invoke('get-lan-connection-status'),
   getLanHostInfo: () => ipcRenderer.invoke('get-lan-host-info'),
   getLanDiscoveredHosts: () => ipcRenderer.invoke('get-lan-discovered-hosts'),

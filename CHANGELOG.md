@@ -7,6 +7,22 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-09-07
+
+### Added
+
+- Added Host-owned Showdown readiness with live player counts and unanimous Depart, End Showdown, and Vignette Reset confirmation.
+- Added Vignette Reset Showdown to restore both survivors and temporary combat state to their departure snapshots without saving survivor files.
+
+### Changed
+
+- Default new-survivor templates now live inside the authoritative Survivors folder and are shared by Host and Clients; removed the separate template Data Source.
+- Showdown cards and slots lock while a player waits for the group's readiness. Disconnects do not approve actions, and completion acknowledgements preserve save retry safety.
+
+### Fixed
+
+- Duplicate readiness votes and reconnected event streams do not inflate player counts; lost completion responses do not repeat successful Campaign saves.
+
 ## [3.3.0] - 2026-09-06
 
 ### Added
