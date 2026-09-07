@@ -1,5 +1,24 @@
 # Model Handoff Log
 
+## v3.3.1 Release Preparation
+
+- Prepared 3.3.1 for shared LAN Showdown readiness, unanimous Vignette reset, and Host-owned default survivor template storage. Survivor schema remains 6 and settlement metadata schema remains 1. Local verification covers 276 tests; tagged macOS/Windows/Linux x64/ARM64 builds provide the packaging gate. Live multi-device readiness acceptance remains outstanding.
+
+## Shared LAN Showdown Readiness
+
+- 2026-09-07: Host plus connected clients now vote before Depart and End Showdown, with live ready/total counts on the buttons. Vignette Reset Showdown also requires every player, as explicitly requested. Individual votes freeze that player's cards/slots; only unanimous votes release departure or saving/resetting. The Host owns the round state and delivers changes over SSE, with IPC/HTTP read/vote paths. Duplicate votes and reconnecting streams do not increase counts; a disconnected player remains required once voting begins. Clients joining after departure wait for the next session.
+- Campaign saves retain optimistic concurrency and partial-save recovery. Completion acknowledgements hold the round open until all players finish; lost acknowledgement responses do not repeat successful saves. Vignette starts another departed attempt using the original local snapshots once everyone acknowledges reset. Readiness is in memory and requires a running Host; application restarts do not restore an active session. Upgrade Host and Clients together.
+- Verification: Host coordinator/HTTP and main IPC tests; renderer Host/Client scenarios for unanimous departure, Campaign end, repeated Vignette resets, locked edits, save retry, and lost completion response; full `npm test`, syntax checks, and `git diff --check`.
+
+
+## Vignette Showdown Reset
+
+- 2026-09-07: Vignette replaces End Showdown with Reset Showdown. After confirmation it restores both survivor records, armor/injuries/bleeding, modifiers/tokens, reminder controls, text drafts, and card pages to the captured departure state. Slots remain locked and repeated resets reuse the original snapshot without survivor saves or reloads. Depart reads the authoritative settlement type without requiring a Settlement tab visit; Campaign retains its existing return/save flow. Added Host and Client renderer regression coverage for repeated resets across navigation. Verification: renderer tests, full test suite, syntax checks, and diff check.
+
+## Default Survivor Template Storage
+
+- 2026-09-07: Removed the separate Default Survivor Templates Data Source. The template now always lives at `default_survivor_template/default-new-survivor.json` inside the authoritative Survivors folder; the nested folder is created when the template is saved and is naturally excluded from top-level survivor CRUD, settlement indexing, and Vignette snapshots. LAN Clients load and save the Host's copy through the Host API, with the blank Create fallback retained when a client starts offline. A valid template from the former configured folder is copied into the new location when needed without deleting the legacy file. Files: `src/dataService.js`, `src/survivorProvider.js`, `src/lanSurvivorHost.js`, `src/main.js`, `src/renderer.js`, `ui/components/index.html`, related tests, and canonical docs. Verification: syntax checks, all 264 tests, and `git diff --check` passed.
+
 ## v3.3.0 Release Preparation
 
 - Prepared version 3.3.0 for the Settlement tab, permanent Campaign/Vignette choice, Vignette survivor templates, Campaign Lantern Year and LAN return history, and production Host/Client startup gate. Survivor schema remains 6 and settlement metadata schema remains 1; older schema-1 settlement records are normalized with the new optional fields.

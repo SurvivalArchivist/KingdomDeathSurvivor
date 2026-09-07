@@ -332,7 +332,6 @@ test('saveConfig and getSavedDataSources roundtrip', () => {
 
   const sources = {
     survivors: '/path/to/survivors',
-    defaultSurvivorTemplates: '/path/to/templates',
     fightingArts: '/path/to/arts',
     secretFightingArts: '/path/to/secret',
     knowledges: '/path/to/knowledges',
@@ -344,8 +343,33 @@ test('saveConfig and getSavedDataSources roundtrip', () => {
 
   const loaded = dataService.getSavedDataSources(app)
   assert.equal(loaded.survivors, sources.survivors)
-  assert.equal(loaded.defaultSurvivorTemplates, sources.defaultSurvivorTemplates)
+  assert.equal(loaded.defaultSurvivorTemplates, undefined)
   assert.equal(loaded.fightingArts, sources.fightingArts)
+})
+
+test('getSavedDataSources copies a valid legacy default template into the Survivors folder', () => {
+  const userData = makeTempDir()
+  const app = makeApp(userData)
+  const survivors = path.join(userData, 'survivors')
+  const legacyTemplates = path.join(userData, 'legacy-defaults')
+  fs.mkdirSync(survivors, { recursive: true })
+  fs.mkdirSync(legacyTemplates, { recursive: true })
+  fs.writeFileSync(
+    path.join(legacyTemplates, 'default-new-survivor.json'),
+    JSON.stringify(dataService.createPersonTemplate('Legacy Default')),
+    'utf8'
+  )
+  fs.writeFileSync(
+    path.join(userData, 'config.json'),
+    JSON.stringify({ dataSources: { survivors, defaultSurvivorTemplates: legacyTemplates } }),
+    'utf8'
+  )
+
+  const loadedSources = dataService.getSavedDataSources(app)
+  assert.equal(loadedSources.survivors, survivors)
+  assert.equal(loadedSources.defaultSurvivorTemplates, undefined)
+  assert.equal(dataService.loadDefaultCreateTemplate(survivors).name, 'Legacy Default')
+  assert.equal(fs.existsSync(path.join(legacyTemplates, 'default-new-survivor.json')), true)
 })
 
 test('setDataSource validates source key', () => {

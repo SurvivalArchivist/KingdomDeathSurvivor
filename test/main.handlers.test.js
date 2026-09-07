@@ -462,12 +462,12 @@ test('load-markdown-file handler renders markdown to HTML', async t => {
 // ============================================
 
 test('save-default-create-template handler saves and returns file name', async t => {
+  let savedPath = ''
   const harness = makeHarness({
     dataService: {
-      getSavedDataSources() {
-        return { defaultSurvivorTemplates: '/tmp/templates' }
-      },
+      ensureDataFolderConfigured() { return '/tmp/survivors' },
       saveDefaultCreateTemplate(path, template) {
+        savedPath = path
         return 'default-new-survivor.json'
       }
     }
@@ -478,17 +478,18 @@ test('save-default-create-template handler saves and returns file name', async t
   const result = await handler(null, { name: 'New Template' })
 
   assert.deepEqual(result, { ok: true, fileName: 'default-new-survivor.json' })
+  assert.equal(savedPath, '/tmp/survivors')
 })
 
 
 test('load-default-create-template handler returns template', async t => {
   const template = { name: 'Default', age: 4 }
+  let loadedPath = ''
   const harness = makeHarness({
     dataService: {
-      getSavedDataSources() {
-        return { defaultSurvivorTemplates: '/tmp/templates' }
-      },
+      ensureDataFolderConfigured() { return '/tmp/survivors' },
       loadDefaultCreateTemplate(path) {
+        loadedPath = path
         return template
       }
     }
@@ -498,14 +499,13 @@ test('load-default-create-template handler returns template', async t => {
   const handler = harness.handlers.get('load-default-create-template')
   const result = await handler()
   assert.deepEqual(result, template)
+  assert.equal(loadedPath, '/tmp/survivors')
 })
 
-test('load-default-create-template handler returns null when no folder', async t => {
+test('load-default-create-template handler returns null when no template exists in the survivor folder', async t => {
   const harness = makeHarness({
     dataService: {
-      getSavedDataSources() {
-        return { defaultSurvivorTemplates: '' }
-      },
+      ensureDataFolderConfigured() { return '/tmp/survivors' },
       loadDefaultCreateTemplate() {
         return null
       }
@@ -1010,4 +1010,39 @@ test('full-screen state sends event to renderer', async t => {
   assert.ok(newMessages.some(msg => msg.channel === 'window-full-screen-changed'))
   const stateMessage = newMessages.find(msg => msg.channel === 'window-full-screen-changed')
   assert.equal(stateMessage.args[0], true)
+})
+
+test('showdown readiness IPC routes Host votes locally and Client votes with a stable identity', async t => {
+  let settings = { survivorDataMode: 'local' }
+  const hostVotes = []
+  const requests = []
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    requests.push({ url, options })
+    return { ok: true, json: async () => ({ round: 'round', phase: 'preparing' }) }
+  })
+  const harness = makeHarness({
+    app: { whenReady: () => new Promise(() => {}) },
+    dataService: { getSavedAppSettings: () => settings },
+    lanSurvivorHost: { createLanSurvivorHost: () => ({
+      getStatus: () => ({ running: true }),
+      showdownState: () => ({ round: 'round', phase: 'preparing' }),
+      voteShowdown: (id, input) => { hostVotes.push({ id, input }); return { round: 'round' } }
+    }) }
+  })
+  t.after(() => harness.cleanup())
+  const get = harness.handlers.get('get-showdown-readiness')
+  const vote = harness.handlers.get('vote-showdown-readiness')
+  assert.equal(await get(), null)
+  settings = { survivorDataMode: 'lan-host' }
+  assert.equal((await get()).playerId, 'host')
+  await vote(null, { round: 'round', action: 'depart', playerId: 'fake' })
+  assert.equal(hostVotes[0].id, 'host')
+  settings = { survivorDataMode: 'lan-client', lanClientConnected: true, lanHostAddress: 'localhost', lanPort: 3765 }
+  const client = await get()
+  await vote(null, { round: 'round', action: 'depart', playerId: 'host' })
+  assert.equal(requests[0].url, 'http://localhost:3765/showdown')
+  assert.equal(JSON.parse(requests[1].options.body).playerId, client.playerId)
+  assert.notEqual(client.playerId, 'host')
+  settings.lanClientConnected = false
+  await assert.rejects(get, /Connect to the LAN Host/)
 })

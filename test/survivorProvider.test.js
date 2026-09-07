@@ -58,6 +58,14 @@ function makeDataService(overrides = {}) {
       calls.push(['loadPerson', basePath, fileName])
       return { name: 'Alice' }
     },
+    loadDefaultCreateTemplate(basePath) {
+      calls.push(['loadDefaultCreateTemplate', basePath])
+      return { name: 'Default' }
+    },
+    saveDefaultCreateTemplate(basePath, template) {
+      calls.push(['saveDefaultCreateTemplate', basePath, template])
+      return 'default-new-survivor.json'
+    },
     savePerson(basePath, person, options) {
       calls.push(['savePerson', basePath, person, options])
       return 'alice.json'
@@ -101,6 +109,8 @@ test('local survivor provider wraps dataService survivor CRUD with configured fo
   assert.deepEqual(provider.listPeople(), ['alice.json'])
   assert.deepEqual(provider.listPeopleSummaries(), { records: [], unreadableCount: 0, totalFiles: 0 })
   assert.deepEqual(provider.loadPerson('alice.json'), { name: 'Alice' })
+  assert.deepEqual(provider.loadDefaultCreateTemplate(), { name: 'Default' })
+  assert.equal(provider.saveDefaultCreateTemplate({ name: 'Default' }), 'default-new-survivor.json')
   assert.equal(provider.savePerson({ name: 'Alice' }, { expectedFileName: 'alice.json' }), 'alice.json')
   assert.deepEqual(provider.deletePerson('alice.json'), { deleted: true })
 
@@ -112,6 +122,10 @@ test('local survivor provider wraps dataService survivor CRUD with configured fo
     ['listPeopleSummaries', '/tmp/survivors'],
     ['ensureDataFolderConfigured'],
     ['loadPerson', '/tmp/survivors', 'alice.json'],
+    ['ensureDataFolderConfigured'],
+    ['loadDefaultCreateTemplate', '/tmp/survivors'],
+    ['ensureDataFolderConfigured'],
+    ['saveDefaultCreateTemplate', '/tmp/survivors', { name: 'Default' }],
     ['ensureDataFolderConfigured'],
     ['savePerson', '/tmp/survivors', { name: 'Alice' }, { expectedFileName: 'alice.json', recordSettlementReturn: false }],
     ['ensureDataFolderConfigured'],
@@ -147,6 +161,12 @@ test('LAN client survivor provider calls host survivor endpoints', async () => {
     if (url.endsWith('/survivors/alice.json') && !options.method) {
       return { ok: true, status: 200, json: async () => ({ name: 'Alice' }) }
     }
+    if (url.endsWith('/default-survivor-template') && !options.method) {
+      return { ok: true, status: 200, json: async () => ({ name: 'Default' }) }
+    }
+    if (url.endsWith('/default-survivor-template') && options.method === 'PUT') {
+      return { ok: true, status: 200, json: async () => ({ ok: true, fileName: 'default-new-survivor.json' }) }
+    }
     if (url.endsWith('/survivors') && options.method === 'POST') {
       return { ok: true, status: 200, json: async () => ({ ok: true, fileName: 'alice.json' }) }
     }
@@ -169,6 +189,8 @@ test('LAN client survivor provider calls host survivor endpoints', async () => {
   assert.deepEqual(await provider.listPeople(), ['alice.json'])
   assert.deepEqual(await provider.listPeopleSummaries(), { records: [], unreadableCount: 0, totalFiles: 0 })
   assert.deepEqual(await provider.loadPerson('alice.json'), { name: 'Alice' })
+  assert.deepEqual(await provider.loadDefaultCreateTemplate(), { name: 'Default' })
+  assert.equal(await provider.saveDefaultCreateTemplate({ name: 'Default' }), 'default-new-survivor.json')
   assert.equal(await provider.savePerson({ name: 'Alice' }, {}), 'alice.json')
   assert.equal(await provider.savePerson({ name: 'Alice Renamed' }, { expectedFileName: 'alice.json' }), 'alice-renamed.json')
   assert.deepEqual(await provider.deletePerson('alice.json'), { deleted: true })
@@ -178,6 +200,8 @@ test('LAN client survivor provider calls host survivor endpoints', async () => {
       ['http://192.168.1.44:4567/survivors', 'GET'],
       ['http://192.168.1.44:4567/survivors/summaries', 'GET'],
       ['http://192.168.1.44:4567/survivors/alice.json', 'GET'],
+      ['http://192.168.1.44:4567/default-survivor-template', 'GET'],
+      ['http://192.168.1.44:4567/default-survivor-template', 'PUT'],
       ['http://192.168.1.44:4567/survivors', 'POST'],
       ['http://192.168.1.44:4567/survivors/alice.json', 'PUT'],
       ['http://192.168.1.44:4567/survivors/alice.json', 'DELETE']

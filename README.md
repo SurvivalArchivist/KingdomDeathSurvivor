@@ -3,7 +3,7 @@
 Desktop companion app for Kingdom Death survivor management.
 
 > [!CAUTION]
-> **Version 3.3.0 retains the schema-v6 campaign reset introduced in 3.0.1.** It will not load survivor files created before that reset. Back up any older data you need, use a schema-v6 survivor folder, and reselect every Data Source in Settings after upgrading from an older release.
+> **Version 3.3.1 retains the schema-v6 campaign reset introduced in 3.0.1.** It will not load survivor files created before that reset. Back up any older data you need, use a schema-v6 survivor folder, and reselect every Data Source in Settings after upgrading from an older release.
 
 ## What This Is
 KDM Survivors Console helps you manage survivor records across the full play loop:
@@ -96,7 +96,7 @@ The smoke test uses a temporary user-data directory, verifies that the real pack
 ### Automated Publishing
 Push a version tag matching `package.json` to trigger full release publishing:
 ```bash
-git tag v3.3.0
-git push origin v3.3.0
+git tag v3.3.1
+git push origin v3.3.1
 ```
 This triggers the `Release Publish` GitHub Actions workflow.

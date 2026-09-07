@@ -89,6 +89,14 @@ function makeHost(overrides = {}, hostOptions = {}) {
       calls.push(['loadPerson', basePath, fileName])
       return { name: 'Alice' }
     },
+    loadDefaultCreateTemplate(basePath) {
+      calls.push(['loadDefaultCreateTemplate', basePath])
+      return { name: 'Default' }
+    },
+    saveDefaultCreateTemplate(basePath, template) {
+      calls.push(['saveDefaultCreateTemplate', basePath, template])
+      return 'default-new-survivor.json'
+    },
     savePerson(basePath, person, options) {
       calls.push(['savePerson', basePath, person, options])
       return 'alice.json'
@@ -158,6 +166,26 @@ test('LAN survivor host saves and deletes survivors through dataService', async 
       ['savePerson', '/tmp/survivors', { name: 'Alice' }, { expectedRevision: 2, editorName: 'Host User', recordSettlementReturn: true }],
       ['savePerson', '/tmp/survivors', { name: 'Alice Renamed' }, { expectedFileName: 'alice.json', editorName: 'Host User', recordSettlementReturn: true }],
       ['deletePerson', '/tmp/survivors', 'alice.json']
+    ]
+  )
+})
+
+test('LAN survivor host reads and saves the default template in the survivor folder', async () => {
+  const { calls, host } = makeHost()
+
+  const loaded = await requestJson(host, '/default-survivor-template')
+  assert.deepEqual(loaded, { status: 200, body: { name: 'Default' } })
+
+  const saved = await requestJson(host, '/default-survivor-template', {
+    method: 'PUT',
+    body: JSON.stringify({ template: { name: 'Lantern Default' } })
+  })
+  assert.deepEqual(saved, { status: 200, body: { ok: true, fileName: 'default-new-survivor.json' } })
+  assert.deepEqual(
+    calls.filter(call => call[0].includes('DefaultCreateTemplate')),
+    [
+      ['loadDefaultCreateTemplate', '/tmp/survivors'],
+      ['saveDefaultCreateTemplate', '/tmp/survivors', { name: 'Lantern Default' }]
     ]
   )
 })
@@ -298,4 +326,78 @@ test('client survivor saves still register host settlement knowledge while direc
   const denied = await requestJson(host, '/settlement', { method: 'PUT', body: JSON.stringify({ ...record, name: 'Denied' }) })
   assert.equal(denied.status, 403)
   assert.deepEqual(data.getSettlementRecord(folder), record)
+})
+
+test('showdown barrier counts connections once and requires every player for departure and completion', () => {
+  const { createShowdownReadiness } = require('../src/showdownReadiness')
+  const barrier = createShowdownReadiness()
+  barrier.connect('client')
+  barrier.connect('client')
+  let state = barrier.state()
+  const vote = (id, action) => barrier.vote(id, { round: state.round, action }, 'campaign')
+  assert.equal(state.players.length, 2)
+  state = vote('host', 'depart')
+  state = vote('host', 'depart')
+  assert.equal(state.departed.length, 1)
+  assert.equal(state.phase, 'preparing')
+  assert.throws(() => vote('client', 'end'), /must depart/)
+  barrier.disconnect('client')
+  assert.equal(barrier.state().players.find(player => player.id === 'client').connected, true)
+  barrier.disconnect('client')
+  assert.equal(barrier.state().players.length, 2)
+  assert.throws(() => vote('client', 'depart'), /connected player/)
+  barrier.connect('client')
+  state = vote('client', 'depart')
+  assert.equal(state.phase, 'departed')
+  barrier.connect('late-client')
+  assert.equal(barrier.state().players.length, 2)
+  assert.throws(() => vote('late-client', 'end'), /connected player/)
+  state = vote('client', 'end')
+  assert.equal(state.phase, 'departed')
+  state = vote('host', 'end')
+  assert.equal(state.phase, 'finishing')
+  const oldRound = state.round
+  state = vote('host', 'complete')
+  assert.equal(state.phase, 'finishing')
+  state = vote('client', 'complete')
+  assert.equal(state.phase, 'preparing')
+  assert.equal(state.players.length, 3)
+  assert.equal(state.departed.length, 0)
+  assert.throws(() => barrier.vote('host', { round: oldRound, action: 'depart' }, 'campaign'), /changed/)
+})
+
+test('Vignette unanimous resets create another departed attempt with empty reset votes', () => {
+  const { createShowdownReadiness } = require('../src/showdownReadiness')
+  const barrier = createShowdownReadiness()
+  barrier.connect('client')
+  const vote = (id, action) => barrier.vote(id, { round: barrier.state().round, action }, 'vignette')
+  vote('client', 'depart')
+  vote('host', 'depart')
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    assert.equal(vote('host', 'end').phase, 'departed')
+    assert.equal(vote('client', 'end').phase, 'finishing')
+    assert.equal(vote('client', 'complete').phase, 'finishing')
+    const state = vote('host', 'complete')
+    assert.equal(state.phase, 'departed')
+    assert.equal(state.departed.length, 2)
+    assert.equal(state.ended.length, 0)
+  }
+})
+
+test('showdown HTTP votes require a connected player and cannot impersonate the Host', async () => {
+  const { host } = makeHost({ getSettlementRecord: () => ({ settlementType: 'campaign' }) })
+  const stream = await openEventStream(host)
+  try {
+    const initial = await requestJson(host, '/showdown')
+    assert.equal(initial.body.players.length, 2)
+    const clientId = initial.body.players.find(player => player.id !== 'host').id
+    const vote = playerId => requestJson(host, '/showdown', {
+      method: 'POST', body: JSON.stringify({ playerId, round: initial.body.round, action: 'depart' })
+    })
+    assert.equal((await vote('host')).status, 403)
+    assert.equal((await vote('unknown')).status, 409)
+    assert.equal((await vote(clientId)).body.departed.length, 1)
+    assert.equal(host.voteShowdown('host', { round: initial.body.round, action: 'depart' }).phase, 'departed')
+    assert.match(stream.chunks.join(''), /event: showdown-changed/)
+  } finally { stream.req.emit('close') }
 })

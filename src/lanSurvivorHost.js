@@ -1,4 +1,6 @@
 const http = require('http')
+const { randomUUID } = require('crypto')
+const { createShowdownReadiness } = require('./showdownReadiness')
 
 const DEFAULT_HOST = '0.0.0.0'
 const MAX_BODY_BYTES = 1024 * 1024
@@ -59,13 +61,26 @@ function getOptionsPayload(body) {
   return {}
 }
 
-function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModule = http } = {}) {
+function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModule = http, onShowdownChanged = () => {} } = {}) {
   if (!app) throw new Error('LAN survivor host requires an app instance')
   if (!dataService) throw new Error('LAN survivor host requires dataService')
 
   let server = null
   let activePort = null
   let eventSequence = 0
+  const playerByResponse = new Map()
+  let showdown = createShowdownReadiness({ onChange: broadcastShowdownChange })
+  function broadcastShowdownChange(payload) {
+    onShowdownChanged(payload)
+    for (const client of [...eventClients]) {
+      try { writeSse(client, 'showdown-changed', payload) } catch { removeEventClient(client) }
+    }
+  }
+  function showdownState() { return showdown.state() }
+  function voteShowdown(playerId, input) {
+    const type = dataService.getSettlementRecord(getDataPath()).settlementType || 'campaign'
+    return showdown.vote(playerId, input, type)
+  }
   const eventClients = new Set()
   const eventClientHeartbeats = new Map()
 
@@ -105,6 +120,9 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
 
   function removeEventClient(res) {
     eventClients.delete(res)
+    const playerId = playerByResponse.get(res)
+    playerByResponse.delete(res)
+    if (playerId) showdown.disconnect(playerId)
     const heartbeat = eventClientHeartbeats.get(res)
     if (heartbeat) clearInterval(heartbeat)
     eventClientHeartbeats.delete(res)
@@ -124,6 +142,10 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
       port: activePort
     })
     eventClients.add(res)
+    const requestedId = new URL(req.url, 'http://localhost').searchParams.get('playerId')
+    const playerId = requestedId && requestedId !== 'host' && /^[a-zA-Z0-9-]{1,80}$/.test(requestedId) ? requestedId : randomUUID()
+    playerByResponse.set(res, playerId)
+    showdown.connect(playerId)
     const heartbeat = setInterval(() => {
       try {
         res.write(': keepalive\n\n')
@@ -182,7 +204,38 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
         return
       }
 
+      if (parts.length === 1 && parts[0] === 'showdown') {
+        if (method === 'GET') { sendJson(res, 200, showdownState()); return }
+        if (method === 'POST') {
+          const body = await readJsonBody(req)
+          if (body?.playerId === 'host') {
+            sendJson(res, 403, { ok: false, message: 'Remote players cannot vote as the Host.' })
+            return
+          }
+          try { sendJson(res, 200, voteShowdown(body?.playerId, body)) }
+          catch (err) { sendJson(res, 409, { ok: false, message: err.message }) }
+          return
+        }
+      }
       const dataPath = getDataPath()
+
+      if (method === 'GET' && parts.length === 1 && parts[0] === 'default-survivor-template') {
+        sendJson(res, 200, dataService.loadDefaultCreateTemplate(dataPath))
+        return
+      }
+
+      if (method === 'PUT' && parts.length === 1 && parts[0] === 'default-survivor-template') {
+        const body = await readJsonBody(req)
+        try {
+          const template = body && typeof body === 'object' && body.template ? body.template : body
+          const fileName = dataService.saveDefaultCreateTemplate(dataPath, template)
+          sendJson(res, 200, { ok: true, fileName })
+        } catch (err) {
+          const response = handleSaveError(err)
+          sendJson(res, response.statusCode, response.payload)
+        }
+        return
+      }
 
       if (method === 'GET' && parts.length === 1 && parts[0] === 'survivors') {
         sendJson(res, 200, dataService.listPeople(dataPath))
@@ -323,6 +376,8 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
       }
       removeEventClient(client)
     }
+    showdown = createShowdownReadiness({ onChange: broadcastShowdownChange })
+    broadcastShowdownChange(showdown.state())
     await new Promise((resolve, reject) => {
       currentServer.close(err => {
         if (err) reject(err)
@@ -340,7 +395,9 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
     start,
     stop,
     getStatus,
-    handleRequest
+    handleRequest,
+    showdownState,
+    voteShowdown
   }
 }
 

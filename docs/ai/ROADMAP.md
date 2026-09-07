@@ -1,233 +1,177 @@
 # Engineering Roadmap
 
-Last updated: 2026-09-05
+Last updated: 2026-09-07
 
 ## Purpose
-This document captures high-leverage follow-up work identified after reviewing the current app, codebase structure, and recent delivery history. It is meant to be a practical roadmap we can revisit, not a commitment to implement every item immediately.
 
-## Current Read
-- The app baseline is healthy: standard verification passed cleanly at the time this roadmap was written.
-- The highest-value work now is less about fixing obvious breakage and more about improving scale, safety, and maintainability.
-- LAN survivor-data Phases 1–7 are complete: Host/Client CRUD, status, reconnect behavior, SSE Settlement refresh, discovery, backup export, offline read recovery, and real-world acceptance are all in place.
-- Settlement summary loading has already landed, which removes the biggest recent data-fetch cost from settlement refreshes.
-- Settlement name/trait search is now debounced, which removes the most obvious interactive rerender churn while typing.
-- Showdown end-save handling is now hardened against partial-save outcomes and keeps the departed session recoverable when only one survivor save succeeds.
-- Create/Edit/default-template flows now prompt before reset/back/navigation when the current form has unsaved changes, and the create action rail shows a lightweight unsaved indicator while the form is dirty.
-- Renderer workflow coverage now includes rename-without-duplicate handling, departed slot-lock behavior, and template-driven knowledge upgrades in both Create and Showdown.
-- Settlement workflow coverage now exercises newer/derived column sorting, combined filter behavior, row-button showdown assignment swapping, and settlement-to-showdown resume behavior.
-- Renderer workflow coverage now also verifies a departed Showdown survives navigation through Create and Settlement without reloading or unlocking its survivor slots.
-- Showdown refactor coverage now verifies successful two-survivor completion/reset, persisted-data refresh boundaries, temporary combat-state reset, inline Abilities/Impairments/Notes persistence, and page/accordion preservation across slot rerenders.
-- Showdown constants, state construction, page stepping, modifier/armor mutations, and inline text-draft operations now live behind a browser-safe helper boundary loaded before the main renderer.
-- Bulk-update coverage now verifies processing continues after per-survivor save failures and reports accurate updated/unchanged/failed totals.
-- Knowledge template and upgrade helper logic now has a browser-safe module boundary, loaded ahead of `renderer.js` from `index.html` without changing Electron security settings or adding a bundler.
-- Settlement filtering, sorting, derived values, table rendering, and settlement-specific event wiring now share a browser-safe helper boundary, leaving the renderer responsible mainly for state ownership and cross-surface callbacks.
-- Further settlement optimization should now be driven by profiling and real survivor counts rather than assumed hot spots.
-- The largest structural pressure point remains renderer complexity.
+This document tracks active proposals and worthwhile follow-up work. Completed implementation history belongs in `docs/ai/MODEL_HANDOFF.md`; stable product and architecture rules belong in `docs/ai/PROJECT_CONTEXT.md`.
+
+Roadmap entries are directions to investigate or implement deliberately, not authorization to change data formats or user workflows without confirming their open product decisions.
+
+## Current Baseline
+
+- Version 3.3.1 is prepared for tagged release.
+- The standard preflight passes 276/276 tests.
+- Production and full npm audits report zero vulnerabilities after updating transitive `fast-uri` to 3.1.7.
+- Windows setup and portable builds passed user acceptance with Electron 41.10.4 and Electron Builder 26.15.7.
+- Production is Host/Client only; Local Development is exposed only through `npm run dev`. New/default and legacy Local configurations are gated at startup until a role is selected.
+- The settlement knowledge record, durable registration journal, and unlock-first Knowledge/Tenet Knowledge picker shipped in 3.2.0.
+- Showdown state, view, card interactions, and session lifecycle are separated into focused modules and have passed automated and manual acceptance.
+- Linux x64/ARM64 core packaging and tagged publishing are operational; AppImage and Flatpak remain experimental.
+- Individual survivor JSON files remain the authoritative survivor records. Multi-user safety is optimistic and revision-based, not lock-based.
 
 ## Recommended Order
-1. Complete release acceptance for the settlement knowledge record and unlock-first picker described in `docs/ai/SETTLEMENT_RECORD.md`. Showdown Step 9 was manually accepted by the user; no merge or release has been performed.
-2. After Showdown is complete, split the existing Settlement helper when Settlement next needs meaningful feature or maintenance work; do not interrupt the active refactor solely to reorganize it.
-3. Revisit deeper settlement filtering/render optimization only if profiling still shows pressure.
-4. Revisit secondary markdown and bulk-update ergonomics only if they become a clearer bottleneck.
 
-## Renderer Module Boundary Strategy
+1. Continue the selected Host/Client production direction by making Host readiness and Client connection mandatory before normal workflows, if required by the next product decision.
+2. Consolidate remaining mode/capability checks after the startup role gate has settled.
+3. Confirm the open product decisions in the Knowledge predecessor-link proposal, then implement it on top of the selected capability foundation.
+4. Keep the survivor index deferred until authority rules are proven and profiling or operational experience demonstrates a need.
+5. Split Settlement renderer responsibilities only when meaningful Settlement work makes that boundary useful.
+6. Continue renderer/test/performance work when driven by a concrete feature, measured bottleneck, or regression risk.
 
-Split renderer code by responsibility and reason to change, not by line count or individual function. Prefer a small set of cohesive browser-safe modules over either a single broad `Helpers` file or many one-function files. Modules must receive state, DOM elements, APIs, and cross-view callbacks explicitly rather than reaching into another module's hidden state.
+## Selected: Host/Client Production with Development-only Local Mode
 
-Target Showdown ownership:
+Status: **selected and partially implemented**.
 
-- `rendererShowdownState.js`: constants, normalization, state factories, and state-only operations.
-- `rendererShowdownView.js`: survivor-card markup, DOM assignment, and page/accordion snapshot and restoration behavior. Async markdown content remains supplied through explicit callbacks.
-- `rendererShowdownController.js`: delegated card events and inline mutation coordination; reads fresh state for each operation.
-- `rendererShowdownSession.js`: selectors, assignment, refresh/open/depart/completion lifecycle, resets, survivor saves, and partial-save recovery. Live session accessors preserve renderer-owned state across resets. Cross-view navigation and global UI services are injected callbacks.
-- `renderer.js`: application composition and cross-view coordination. It should not regain view-specific markup or state transition details once they move behind a module boundary.
+The options and their delivery implications are in `docs/FEATURE_CAPABILITY_AND_SETTLEMENT_AUTHORITY_PLAN.md`.
 
-Current helper audit (2026-09-05):
+Shared direction:
 
-| Module | Assessment | Direction |
-| --- | --- | --- |
-| `rendererKnowledgeTemplateHelpers.js` (85 lines) | Healthy and cohesive. Its exported functions all cover knowledge-template normalization, labels, eligibility, and upgrade construction without DOM or event ownership. | Keep as one module; rename only if a broader renderer naming cleanup becomes worthwhile. |
-| `rendererShowdownState.js` (240 lines) | Healthy and cohesive. It contains only constants, factories, normalization, and state-only operations. | Keep as the State module; do not add markup, DOM, async I/O, or lifecycle coordination. |
-| `rendererShowdownView.js` (582 lines) | Large but cohesive: owns card and inline text markup, DOM assignment, and accordion preservation with explicit data/content dependencies. | Keep together unless independently changing card subviews emerge; do not split by line count alone. |
-| `rendererShowdownController.js` (499 lines) | Cohesive card interactions and mutation coordination after lifecycle extraction. | Keep delegated events together; do not add session persistence here. |
-| `rendererShowdownSession.js` (494 lines) | Cohesive session transitions and save/retry behavior, separated from card interactions. | Keep save reconciliation with lifecycle; do not add card markup or inline editing here. |
-| `rendererSettlementHelpers.js` (400 lines) | A moderate mini-monolith. It combines pure filtering/sorting/derived-data logic with table rendering, search-timer ownership, column visibility, and all Settlement event binding. | Defer until after Showdown, then split into `rendererSettlementData.js`, `rendererSettlementView.js`, and `rendererSettlementController.js` as part of the next meaningful Settlement change. Preserve current behavior and avoid a reorganization-only detour now. |
+- Give every feature an explicit mode/capability classification.
+- Make LAN Host the sole authority for persistent settlement state and LAN Client a transport to that authority.
+- Resolve capabilities centrally and enforce them below the renderer as well as in the UI.
+- Require each future feature to document ownership, supported modes, offline behavior, UI treatment, compatibility, and test coverage.
 
-The 5,076-line `renderer.js` remains the primary structural pressure point. Step 8 split the former 956-line controller at the interaction/lifecycle boundary, removed redundant renderer forwarding functions and unused proficiency-option code, and moved the remaining Showdown markup helpers into View. The renderer composes explicit dependencies for both factories; each consumes only its own dependencies. No further line-count-driven splits are planned.
+Option A retains Local Files for per-survivor features and derived queries, but disables persistent settlement-wide features such as settlement knowledge in Local mode. Existing settlement files are preserved, while Local survivor saves stop creating or updating settlement knowledge and journal state.
 
-## Active: Showdown Renderer Decomposition
+Option B removes Local Files from the main app. First launch requires choosing Host or Client; a Host must configure and start its authoritative storage, while a Client must join a Host before the rest of the app becomes available. Local-only operation may later continue as a separately maintained app or fork, but that is not part of this decision or plan.
 
-Status:
+The implemented first step requires Host or Client in production and retains Local solely as a developer workflow. Mandatory Host startup and successful Client connection before entering every normal workflow remain separate follow-up decisions.
 
-- The full refactor is being developed on branch `refactor/showdown-renderer-decomposition`; each numbered step is a checkpoint on this branch.
-- Step 1 completed on 2026-09-04.
-- Step 2 completed on 2026-09-04.
-- Step 3 completed on 2026-09-04.
-- Step 4 completed on 2026-09-04.
-- Step 5 completed on 2026-09-04.
-- Step 6 completed on 2026-09-05. The controller owns delegated click/input/change handlers and inline text, stat, modifier, proficiency, ability-group, observation, and removal coordination. Each operation reads current state through `getState()`; rendering, shared template/markdown actions, and global UI services are injected. Session lifecycle remains renderer-owned.
-- Step 7 completed on 2026-09-05. The controller now owns selector population/assignment, selection changes, refresh/open/depart/completion, session resets, survivor saves, and partial-save reconciliation. An explicit session accessor interface keeps replaced state objects visible to the renderer and controller. Global navigation, status/busy handling, LAN-aware API wrappers, and Settlement refresh are injected; renderer forwarding functions support existing cross-view callers.
-- Step 8 completed on 2026-09-05. Separated Session lifecycle from Controller card interactions, narrowed public exports and consumed dependencies, removed obsolete renderer wrappers/dead code, and completed View markup ownership. Updated browser/test module loading and expanded syntax coverage to all renderer modules. Focused smoke 41/41 and full verification 229/229 passed. Manual acceptance remains Step 9.
-- No production behavior changed in Step 1. Five regression tests were added to lock down the current Showdown behavior before extraction.
-- Step 2 added the browser-safe `src/rendererShowdownHelpers.js` boundary and moved only Showdown constants, fresh-state factories, and page-key normalization into it. DOM rendering, event wiring, mutations, and session persistence remain in `renderer.js`.
-- Step 3 moved page stepping, modifier validation/clamping, armor counter/check handling, and inline text-draft synchronization/edit/commit operations behind explicit state arguments in the helper. Renderer wrappers still own rendering, user feedback, delegated events, and lifecycle persistence.
-- Step 4 renamed the state-only module to `rendererShowdownState.js`, added `rendererShowdownView.js`, and moved the complete survivor-card markup builder behind explicit card data and formatting/content callbacks. `renderer.js` still normalizes card inputs, synchronizes drafts, assigns `innerHTML`, preserves accordion state, coordinates markdown loading, and owns events/lifecycle.
-- Step 5 completed View ownership of card rendering by moving the `innerHTML` assignment and accordion snapshot/restoration behavior into `rendererShowdownView.js`. `renderer.js` still selects and normalizes each slot, supplies explicit render inputs, coordinates markdown loading, and owns all Showdown events and lifecycle behavior.
-- Focused verification: `node test/renderer.smoke.test.js` passes 41/41 tests. Full verification: `npm run verify` passes 229/229 tests.
+## Deferred: Settlement Survivor Index
 
-Completed Step 1 coverage:
+Status: **deferred — do not implement yet**.
 
-- Successful End Showdown saves both survivors, clears the completed session, and requires fresh slot selection.
-- Refresh Survivors replaces in-memory survivor data before departure and is blocked after departure.
-- Temporary armor, bleeding tokens, combat modifiers, proficiency reminders, and armor checkboxes reset for a new session.
-- Inline Abilities, Impairments, and Notes edits persist through successful Showdown completion.
-- Each slot's selected page and expanded/collapsed accordion state survive slot-level rerenders.
+Individual survivor JSON and `listPeopleSummaries` remain the query source for survivor totals, alive/dead state, and Settlement rows.
 
-Resume directly here:
+Revisit a rebuildable `survivor-index.json` only after the capability/authority model is delivered and one of these triggers exists:
 
-1. **Completed — Step 9:** final automated verification passed on 2026-09-05 (229/229 tests, clean diff checks); the user subsequently reported that manual testing looked fine. Showdown refactor acceptance is complete; no merge performed.
-2. The user requested a pre-release settlement knowledge record and unlock-first picker. Implementation/recovery rules and the new feature's separate manual checks are in `docs/ai/SETTLEMENT_RECORD.md`.
+- profiling demonstrates that survivor-file summaries are a material bottleneck
+- operational experience demonstrates a recurring need for index/file reconciliation diagnostics
+- a future coordinated-settlement feature needs a materialized summary boundary
 
-## Recently Completed: LAN Survivor Data
-Status:
-- Completed on 2026-09-04 after a final offline-read recovery pass.
-- Local Files, LAN Host, and LAN Client modes share the survivor-provider boundary; the host remains authoritative for LAN survivor CRUD.
-- Offline startup and failed survivor reads leave the app/current view usable and provide consistent reconnect guidance.
-- Settlement refreshes from host push events. Create/Edit and Showdown intentionally require explicit refreshes to protect active in-memory work.
-- Automatic discovery is a convenience feature; manual host entry remains the supported fallback.
+If revived, survivor JSON must remain authoritative, paths must be relative, LAN Clients must not receive host paths, and index discrepancies must never silently recreate or overwrite survivor files.
 
-Future LAN changes are maintenance-driven rather than roadmap blockers. Repeat real Host/Client acceptance after substantial Electron, network, or provider changes.
+## Proposed: Knowledge Predecessor Links
 
-## Recently Completed: Settlement Summary Loading
-Status:
-- Completed on 2026-04-18.
-- Settlement refresh now uses `listPeopleSummaries`, which batches the read path and precomputes settlement-safe summary fields.
+Status: **proposed — not started**.
 
-Relevant shipped work:
-- Batch settlement loading in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:4621)
-- Summary generation in [src/dataService.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/dataService.js:467)
+The full proposal is in `docs/KNOWLEDGE_PREDECESSOR_LINK_PLAN.md`.
 
-## Recently Completed: Showdown Save Hardening
-Status:
-- Completed on 2026-04-19.
-- Ending showdown now handles per-survivor save results explicitly, keeps the departed session intact on failure, and syncs successful saves back into showdown memory so retries do not immediately trip stale-revision conflicts.
+Direction:
 
-Relevant shipped work:
-- Hardened showdown save flow in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:3501)
-- Renderer smoke coverage for recoverable partial-save behavior in [test/renderer.smoke.test.js](/Users/mikehodges/Documents/Kingdom Death Survivors/test/renderer.smoke.test.js:730)
+- Replace forward `nextKnowledgeMode` / `nextKnowledgeTemplate` ownership with an optional predecessor identity on the successor template.
+- Treat an empty predecessor as a base knowledge.
+- Discover upgrades by reverse lookup from the survivor's current knowledge.
+- Preserve schema-6 and legacy-template compatibility without silently rewriting the external template library.
+- Keep settlement discovery, Local/LAN ownership, observation gating, and save-conflict behavior intact.
 
-## Recently Completed: Settlement Search Debounce
-Status:
-- Completed on 2026-04-19.
-- Settlement name and trait search now wait briefly before rerendering the table, while sort and non-text filters remain immediate.
+Open decisions:
 
-Relevant shipped work:
-- Debounced settlement search inputs in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:2521)
-- Renderer smoke coverage for delayed search rerendering in [test/renderer.smoke.test.js](/Users/mikehodges/Documents/Kingdom Death Survivors/test/renderer.smoke.test.js:685)
+1. Whether one predecessor may have multiple successor branches.
+2. How an intentionally final knowledge is represented.
+3. Whether scratch successors remain available.
+4. Whether predecessor links can cross Knowledge and Tenet Knowledge types.
+5. Whether normalized name + level is sufficient or stable template IDs should be introduced.
 
-Remaining follow-up:
-- If settlement still feels heavy with larger survivor folders, profile whether additional caching around sort/filter work is warranted.
-- Only consider row virtualization if measured survivor counts justify the extra complexity.
+## Renderer Maintainability
 
-## Recently Completed: Unsaved Changes Protection
-Status:
-- Completed on 2026-04-19.
-- Create/Edit/default-template flows now track dirty form state, prompt before reset/back/navigation discards, and show a lightweight unsaved indicator near the main action rail.
+### Current Boundaries
 
-Relevant shipped work:
-- Dirty-state snapshot and discard confirmation flow in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:672)
-- Create-view discard coverage in [test/renderer.smoke.test.js](/Users/mikehodges/Documents/Kingdom Death Survivors/test/renderer.smoke.test.js:736)
+- `rendererShowdownState.js`: Showdown constants, normalization, factories, and state-only operations.
+- `rendererShowdownView.js`: Showdown card markup, DOM assignment, and page/accordion restoration.
+- `rendererShowdownController.js`: delegated card interactions and mutation coordination.
+- `rendererShowdownSession.js`: selection, refresh, Depart/completion lifecycle, saves, and partial-save recovery.
+- `rendererKnowledgeTemplateHelpers.js`: cohesive knowledge normalization, labels, upgrade eligibility, and construction helpers.
+- `rendererSettlementHelpers.js`: filtering, sorting, derived data, table rendering, timers, column visibility, and Settlement event binding.
+- `renderer.js`: application state, composition, Create/Edit, modal coordination, and cross-view behavior.
 
-## Recently Completed: Renderer Workflow Coverage Expansion
-Status:
-- Completed on 2026-04-19.
-- Renderer smoke coverage now exercises rename-without-duplicate behavior, departed slot locking, template-driven knowledge upgrades in both Create and Showdown, and key settlement sort/filter/assignment workflows.
+### Planned Direction
 
-Relevant shipped work:
-- Added workflow smoke coverage in `test/renderer.smoke.test.js`
+- Keep the Showdown modules cohesive; do not split them by line count or move responsibilities back into `renderer.js`.
+- When Settlement next receives meaningful feature work, consider splitting `rendererSettlementHelpers.js` into `rendererSettlementData.js`, `rendererSettlementView.js`, and `rendererSettlementController.js`.
+- Consider extracting Create/default-template state and interaction handling when that workflow next changes materially.
+- Consider separating knowledge-template modal coordination from `renderer.js` as part of the predecessor-link work if it produces a clear, testable boundary.
+- Pass state, DOM nodes, APIs, and cross-view callbacks explicitly. Avoid hidden cross-module state.
 
-## Recently Completed: Knowledge Template Helper Extraction
-Status:
-- Completed on 2026-04-19.
-- Reusable knowledge template and upgrade helper logic now lives in a browser-safe helper file loaded before `renderer.js`, preserving the live Electron boot path while creating a focused first renderer seam.
+## Test Expansion
 
-Relevant shipped work:
-- Extracted helpers into `src/rendererKnowledgeTemplateHelpers.js`
-- Loaded helper before renderer in `ui/components/index.html`
-- Updated renderer smoke harness to mirror the browser load order in `test/renderer.smoke.test.js`
+Add tests with the feature or refactor that creates the risk. Current priority candidates are:
 
-## Recently Completed: Settlement Helper Extraction
-Status:
-- Completed on 2026-04-19.
-- Settlement filtering, sorting, timestamp ranking, derived totals, table rendering, and settlement-specific event wiring now live in a browser-safe helper file loaded before `renderer.js`.
+- capability resolution and enforcement across every role and runtime state retained by the selected option
+- authority, save, onboarding, connection, and role/mode-transition behavior required by the selected option
+- predecessor-link identity, branching, terminal/unavailable state, legacy compatibility, and Create/Showdown parity
+- Settlement column visibility if the Settlement helper is split
+- per-survivor bulk-update errors if detailed results are added
+- real Electron end-to-end transitions only where the browser-safe smoke harness cannot cover the behavior adequately
 
-Relevant shipped work:
-- Extracted helpers into `src/rendererSettlementHelpers.js`
-- Loaded helper before renderer in `ui/components/index.html`
-- Updated renderer smoke harness to mirror the browser load order in `test/renderer.smoke.test.js`
+Previously planned rename, departed Showdown, partial-save, knowledge-upgrade, view-transition, settlement sort/filter, and bulk continuation coverage has been completed.
 
-## Priority 1: Renderer Decomposition
-Why it matters:
-- `src/renderer.js` is the biggest maintainability risk in the repo.
-- It currently mixes page state, view rendering, event delegation, modal logic, showdown state, settlement behavior, and create/edit workflows in one large file.
+## Conditional Improvements
 
-Current pressure points:
-- Main renderer entry in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:1)
+### Settlement Performance
 
-Recommended change:
-- Split renderer code by responsibility rather than by micro-helper count.
-- Good first seams:
-- showdown state/render/events
-- create/default-template state/render/events
-- knowledge-template modal state/render glue building on the extracted browser-safe helper file
-- shared utilities and formatting helpers
-
-Expected benefit:
-- Cheaper future changes.
-- Lower regression risk.
-- Better readability for debugging and onboarding.
-
-## Priority 2: Test Expansion
-Why it matters:
-- Data-service and IPC coverage are strong, but renderer coverage is still relatively thin compared with the amount of UI logic in the app.
-
-Current pressure points:
-- Renderer smoke suite in [test/renderer.smoke.test.js](/Users/mikehodges/Documents/Kingdom Death Survivors/test/renderer.smoke.test.js:1)
-
-Recommended next tests:
-- Additional view-transition cases only when new stateful views or navigation rules are introduced; the current Settlement/Create/Showdown departed-session path is covered.
-- Per-survivor bulk-update failure details if the UI is expanded beyond its current aggregate completion summary.
-- Settlement column-visibility toggles if that surface gets refactored.
-
-Expected benefit:
-- Safer refactors.
-- Better confidence in renderer cleanup work.
-
-## Secondary Improvements
+- Profile realistic survivor counts before adding virtualization or deeper caching.
+- Do not resume survivor-index design until the authority model is proven and measurements or recurring integrity issues justify it.
+- Keep `listPeopleSummaries` as a safe fallback.
 
 ### Markdown Library Performance
-Why it matters:
-- Markdown browsing already has caching, but collection listing and preview generation still depend on synchronous folder walking and file reads.
 
-Current pressure points:
-- Collection caching and listing in [src/dataService.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/dataService.js:486)
-- Preview metadata loading in [src/dataService.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/dataService.js:572)
-- Recursive markdown collection walk in [src/dataService.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/dataService.js:643)
-
-Recommended change:
-- Consider lazier preview generation or stronger folder-level cache invalidation if markdown libraries get much larger.
+- Consider lazy preview generation or stronger folder-level cache invalidation only if large markdown libraries show measurable delay.
 
 ### Bulk Update Safety and Ergonomics
-Why it matters:
-- Bulk updates are already useful, but they currently summarize success/failure only at a high level.
 
-Current pressure points:
-- Bulk update workflow in [src/renderer.js](/Users/mikehodges/Documents/Kingdom Death Survivors/src/renderer.js:2651)
+- Add per-survivor conflict/failure details if aggregate results prove insufficient.
+- Consider a preview step before applying large bulk changes.
 
-Recommended change:
-- Add per-survivor conflict/failure detail in the completion summary.
-- Consider a preview summary before applying larger changes.
+### Settlement Journal Operations
 
-## Notes
-- This roadmap intentionally favors changes that improve performance, safety, and maintainability without changing the product's core workflows.
-- If a future pass focuses on UI polish, the safer path is still to address shared layout/style drift before adding more one-off treatments.
+- Consider journal history inspection or compaction for long-running campaigns.
+- Never clear journal history merely to dismiss a pending recovery warning.
+
+### LAN Maintenance
+
+- Repeat Host/Client acceptance after substantial Electron, provider, network, capability, or settlement-authority changes.
+- Consider host-side client visibility only if operational experience demonstrates a need.
+- Consider authentication or reference-content hosting only if scope expands beyond trusted local survivor-data sharing.
+
+### Packaging and Distribution
+
+- Continue monitoring x86_64 Linux installation feedback.
+- Stabilize AppImage and Flatpak in independent workflows if they become supported formats.
+- Consider signing/notarization per platform if distribution trust requirements increase.
+- Repeat physical Fedora Asahi acceptance after substantial Electron or Electron Builder changes.
+
+## Completed Milestones
+
+Detailed history is retained in `docs/ai/MODEL_HANDOFF.md` and feature-specific documents. Major completed work includes:
+
+- Local/LAN Host/LAN Client survivor-provider architecture, discovery, reconnect behavior, SSE Settlement refresh, and backup export
+- optimistic survivor revisions, atomic writes, stable IDs, rename safety, and history snapshots
+- settlement summary loading and debounced search
+- durable settlement knowledge discovery and recovery journal
+- Showdown save hardening and full Showdown module decomposition
+- Create/Edit unsaved-change protection
+- expanded browser-safe renderer regression coverage
+- Windows, macOS, and native Linux x64/ARM64 tagged packaging
+- Fedora Asahi ARM64 installed-package acceptance
+
+## Guardrails
+
+- Preserve existing workflows unless a product decision explicitly changes them.
+- Require every new feature to declare its source of truth, supported modes, offline behavior, and capability tests.
+- Do not introduce another authoritative copy of survivor state.
+- Do not silently overwrite stale survivor data or replay survivor writes during recovery.
+- Avoid schema resets when compatibility can be preserved safely.
+- Keep performance work measurement-driven.
+- Prefer cohesive module boundaries over broad rewrites or one-function files.

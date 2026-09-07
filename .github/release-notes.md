@@ -1,36 +1,35 @@
-# KDM Survivors Console 3.3.0
+# KDM Survivors Console 3.3.1
 
-Version 3.3.0 adds host-owned settlement management, reusable Vignette survivor templates, Campaign year and return tracking, and an explicit Host/Client startup choice.
+Version 3.3.1 coordinates LAN Showdown readiness, adds Vignette Showdown reset, and shares the default survivor template through the Host.
 
-### Settlement Management
+### Shared Showdown Readiness
 
-- The survivor roster is now called **Survivors**, with a separate **Settlement** tab for the settlement name, type, and unlocked knowledge.
-- LAN Hosts can edit settlement settings. LAN Clients can view and refresh the page while continuing to update settlement knowledge through normal survivor saves.
-- Settlement Type is a permanent choice after the first save: **Campaign** keeps the normal play flow, while **Vignette** enables reusable survivor templates.
-- Unlocked Knowledge and Tenet Knowledge definitions are listed alphabetically and can be expanded for details.
+- Depart and End Showdown show ready/total player counts for the Host and connected clients.
+- Every player must vote before the group departs or ends the Showdown. A player's cards and survivor slots lock while waiting.
+- Duplicate votes do not increase counts. Disconnected participants remain required once voting starts; reconnecting does not count as approval.
+- Campaign saves retain conflict detection and partial-save recovery. Successful completion is acknowledged without repeating saves after a lost response.
 
-### Vignette Templates
+### Vignette Reset
 
-- **Set Template** captures every current survivor exactly as saved.
-- **Restore to Template** resets the survivor roster to that snapshot.
-- Before a restore, the app copies the displaced survivor records to a timestamped folder under `settlement-backups/`.
-- Template operations are available to the LAN Host only.
+- Vignette replaces End Showdown with **Reset Showdown**, which also requires every player's confirmation.
+- Reset restores each player's survivors, armor, injuries, bleeding, modifiers, tokens, and other combat state to the departure snapshot.
+- Survivors stay departed with locked slots. Reset can be repeated and does not save survivor files.
 
-### Campaign Tracking
+### Shared Default Survivor Template
 
-- LAN Hosts can set the current Lantern Year manually or advance it one year at a time.
-- Returning survivors recorded during LAN play add a durable settlement-history entry containing their ID and name, Lantern Year, return timestamp, and alive/dead state.
-- Client returns are written by the host. Development-only Local Files mode does not create settlement return-history entries.
+- The default new-survivor template now lives at `default_survivor_template/default-new-survivor.json` inside the authoritative Survivors folder.
+- Clients read and save the Host's template; Settings no longer needs a separate template Data Source.
+- An existing valid template in the former configured location is copied when needed, leaving the original untouched.
 
-### Startup Roles
+### Session Notes
 
-- Production launches now require choosing **Host** or **Client** when no production role has been saved. Existing Local configurations are prompted once after upgrading.
-- A Host can run the app by itself and uses its selected Survivors folder as authoritative storage.
-- Local Files mode is reserved for development and is available through `npm run dev`.
+- LAN Showdown coordination requires a running Host. Upgrade the Host and all Clients together.
+- Clients joining after departure wait for the next session. Active readiness and departure snapshots are held in memory and do not survive app or Host restarts.
+- Automated verification passes all 276 tests. Live multi-device acceptance of shared readiness remains outstanding.
 
 ### Compatibility
 
-- Version 3.3.0 keeps survivor schema version `6` and settlement metadata schema version `1`.
+- Version 3.3.1 keeps survivor schema version `6` and settlement metadata schema version `1`.
 - Existing schema-1 settlement records remain supported; new fields are optional and normalized when loaded.
 - Upgrade the LAN host and clients together. Back up the entire Survivors folder, including `settlement.json`, `settlement-journal.json`, and any `settlement-backups/`, before changing versions.
 - Survivor files from before the 3.0.1 campaign reset remain unsupported.
@@ -50,13 +49,13 @@ Version 3.3.0 adds host-owned settlement management, reusable Vignette survivor 
 Fedora/RPM-based systems:
 
 ```bash
-sudo dnf install ./kingdom-death-survivors-3.3.0-linux-arm64.rpm
+sudo dnf install ./kingdom-death-survivors-3.3.1-linux-arm64.rpm
 ```
 
 Ubuntu/Debian-based systems:
 
 ```bash
-sudo apt install ./kingdom-death-survivors-3.3.0-linux-x64.deb
+sudo apt install ./kingdom-death-survivors-3.3.1-linux-x64.deb
 ```
 
 Replace the architecture suffix with the one appropriate for the device.

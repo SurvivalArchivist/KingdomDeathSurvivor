@@ -45,8 +45,10 @@ Before making significant changes, check:
 - `Technical View` exists as functionality but should not drive the primary navigation layout unless explicitly requested.
 - The top navigation should not grow taller between sections or modes.
 - Showdown session behavior is important and should remain intact:
-  - `Depart` locks survivor slots and keeps showdown state active across navigation.
+  - LAN Showdown uses a Host-owned readiness barrier: Host plus connected clients each vote Depart and End/Reset. Show counts on both actions, lock a player's cards/slots after their vote, and apply the action only after everyone votes. Duplicate votes must be idempotent; a disconnect never counts as approval.
+  - `Depart` keeps showdown state active across navigation.
   - `End Showdown` confirms and writes persistent survivor updates.
+  - In Vignette mode, `Reset Showdown` restores both survivors and all temporary combat state from a deep snapshot captured at Depart, keeps the session departed and slots locked, and writes no survivor records. Depart resolves the settlement type from the authoritative provider; Campaign retains End Showdown.
   - Lumi in Showdown is a persistent survivor stat and should save like Survival.
   - Temporary combat modifiers, armor, and bleeding tokens are non-persistent.
 - The app should never create data folders automatically from Settings selections.
@@ -59,6 +61,7 @@ Before making significant changes, check:
 - Template-backed systems include knowledge, tenet knowledge, and neuroses; preserve current compatibility behavior when changing related UI.
 - Multi-user safety is optimistic, not lock-based: avoid introducing save flows that silently overwrite stale data.
 - One Survivors folder owns one settlement record. Knowledge and Tenet Knowledge share settlement unlock identity (normalized name + level); only successful survivor saves count. Preserve the durable registration journal and never replay survivor writes during recovery. Keep `settlement.json` and `settlement-journal.json` out of survivor CRUD.
+- The default new-survivor template always lives at `default_survivor_template/default-new-survivor.json` inside the authoritative Survivors folder. It has no separate Data Source. LAN Clients read and save the Host's copy, and survivor/settlement/Vignette roster operations must ignore the template subfolder.
 - Settlement type is `campaign` or `vignette` and becomes permanent after the Host's first Settlement save. Campaign behaves normally. Vignette templates snapshot the current survivor JSON records into `settlement.json`; restore creates a timestamped `settlement-backups/` survivor-file backup, replaces survivor JSON with the template, clears settlement knowledge/journal state, and rebuilds discoveries from the restored survivors.
 - Campaign settlements store a non-negative Lantern Year that the LAN Host controls manually. Successful `markReturned` survivor saves add an idempotent settlement return entry containing survivor identity/name, the current Lantern Year, return timestamp, and alive/dead state. Create these return entries only through LAN Host or LAN Client save paths; Local Development may update a survivor's `lastReturned` but must not add settlement return history.
 
