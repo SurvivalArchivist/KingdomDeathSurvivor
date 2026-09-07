@@ -199,3 +199,14 @@ test('markdown collection APIs validate collection id and source availability', 
     /Markdown collection not found/
   )
 })
+
+test('default survivor templates allow blank names while survivor saves still require names', t => {
+  const folder = makeTempDir()
+  t.after(() => fs.rmSync(folder, { recursive: true, force: true }))
+  const template = dataService.createPersonTemplate('Default')
+  template.name = ''
+  dataService.saveDefaultCreateTemplate(folder, template)
+  assert.equal(dataService.loadDefaultCreateTemplate(folder).name, '')
+  assert.throws(() => dataService.savePerson(folder, template), dataService.ValidationError)
+  assert.throws(() => dataService.saveDefaultCreateTemplate(folder, { ...template, gender: 'invalid' }), dataService.ValidationError)
+})

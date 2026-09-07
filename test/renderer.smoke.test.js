@@ -3099,3 +3099,77 @@ for (const failure of ['save', 'completion-response']) {
     }
   })
 }
+
+test('default template saves a blank name but new survivors still require a name', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+  await harness.flush()
+  const el = id => harness.document.getElementById(id)
+  harness.click('navCreate')
+  await harness.flush()
+  harness.click('createOpenDefaultTemplate')
+  await harness.flush()
+  el('createSurvivorName').value = '   '
+  harness.click('createSurvivorSubmit')
+  await harness.flush()
+  const saved = harness.calls.filter(call => call.name === 'saveDefaultCreateTemplate')
+  assert.equal(saved.length, 1)
+  assert.equal(saved[0].args[0].name, '')
+  harness.click('navCreate')
+  await harness.flush()
+  assert.equal(el('createSurvivorName').value, '')
+  const savesBefore = countCalls(harness.calls, 'savePerson')
+  harness.click('createSurvivorSubmit')
+  await harness.flush()
+  assert.equal(countCalls(harness.calls, 'savePerson'), savesBefore)
+  assert.match(el('status').innerText, /Survivor name is required/)
+})
+
+for (const mode of ['lan-host', 'lan-client']) {
+  test(`creating multiple survivors from a saved template gives each an independent identity (${mode})`, async t => {
+    const dataService = require('../src/dataService')
+    const fs = require('node:fs')
+    const os = require('node:os')
+    const path = require('node:path')
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'kdm-create-identities-'))
+    t.after(() => fs.rmSync(folder, { recursive: true, force: true }))
+    const template = dataService.createPersonTemplate('Template')
+    Object.assign(template, { revision: 8, createdAt: '2020-01-01T00:00:00.000Z', lastReturned: '2020-02-01T00:00:00.000Z', editedBy: 'Template author', strength: 3, notes: ['Starting note'] })
+    dataService.saveDefaultCreateTemplate(folder, template)
+    const harness = setupRendererHarness({ customizeApi(api, context) {
+      api.getAppSettings = async () => ({ survivorDataMode: mode, lanHostAddress: 'host' })
+      api.createPersonTemplate = async name => dataService.createPersonTemplate(name)
+      api.loadDefaultCreateTemplate = async () => dataService.loadDefaultCreateTemplate(folder)
+      api.savePerson = async (person, options) => {
+        context.calls.push({ name: 'savePerson', args: [deepClone(person), options] })
+        const fileName = dataService.savePerson(folder, person, options)
+        context.db[fileName] = dataService.loadPerson(folder, fileName)
+        return { ok: true, fileName }
+      }
+    } })
+    t.after(() => harness.cleanup())
+    await harness.flush(20)
+    for (const name of ['First Survivor', 'Second Survivor', 'First Survivor']) {
+      harness.click('navCreate')
+      await harness.flush(20)
+      harness.document.getElementById('createSurvivorName').value = name
+      harness.click('createSurvivorSubmit')
+      await harness.flush(20)
+    }
+    const files = dataService.listPeople(folder)
+    assert.equal(files.length, 3)
+    const people = files.map(file => dataService.loadPerson(folder, file))
+    assert.equal(new Set(people.map(person => person.id)).size, 3)
+    assert.equal(people.filter(person => person.name === 'First Survivor').length, 2)
+    for (const person of people) {
+      assert.notEqual(person.id, template.id)
+      assert.notEqual(person.createdAt, template.createdAt)
+      assert.equal(person.revision, 1)
+      assert.equal(person.lastReturned, null)
+      assert.equal(person.editedBy, '')
+      assert.equal(person.strength, 3)
+      assert.deepEqual(person.notes, ['Starting note'])
+    }
+    assert.deepEqual(dataService.loadDefaultCreateTemplate(folder), template)
+  })
+}

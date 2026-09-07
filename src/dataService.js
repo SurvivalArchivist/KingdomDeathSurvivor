@@ -48,6 +48,14 @@ const schemaPath = path.join(__dirname, 'validation', 'person.schema.json')
 const personSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'))
 const ajv = new Ajv2020({ allErrors: true, strict: false })
 const validatePerson = ajv.compile(personSchema)
+const validateDefaultCreateTemplate = ajv.compile({
+  ...personSchema,
+  $id: `${personSchema.$id}/default-create-template`,
+  properties: {
+    ...personSchema.properties,
+    name: { ...personSchema.properties.name, minLength: 0 }
+  }
+})
 const CURRENT_PERSON_SCHEMA_VERSION = 6
 
 class ValidationError extends Error {
@@ -871,8 +879,8 @@ function saveDefaultCreateTemplate(basePath, template) {
   const folder = path.join(basePath.trim(), DEFAULT_CREATE_TEMPLATE_FOLDER_NAME)
   fs.mkdirSync(folder, { recursive: true })
   const normalizedTemplate = preparePersonForValidation(template)
-  if (!validatePerson(normalizedTemplate)) {
-    const errors = mapValidationErrors(validatePerson.errors || [])
+  if (!validateDefaultCreateTemplate(normalizedTemplate)) {
+    const errors = mapValidationErrors(validateDefaultCreateTemplate.errors || [])
     throw new ValidationError(`Invalid person data: ${validationErrorSummary(errors)}`, errors)
   }
   const fullPath = path.join(folder, DEFAULT_CREATE_TEMPLATE_FILE_NAME)
@@ -887,8 +895,8 @@ function loadDefaultCreateTemplate(basePath) {
   if (!fs.existsSync(fullPath)) return null
   const raw = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
   const normalizedTemplate = preparePersonForValidation(raw)
-  if (!validatePerson(normalizedTemplate)) {
-    const errors = mapValidationErrors(validatePerson.errors || [])
+  if (!validateDefaultCreateTemplate(normalizedTemplate)) {
+    const errors = mapValidationErrors(validateDefaultCreateTemplate.errors || [])
     throw new ValidationError(`Invalid person data: ${validationErrorSummary(errors)}`, errors)
   }
   return normalizedTemplate

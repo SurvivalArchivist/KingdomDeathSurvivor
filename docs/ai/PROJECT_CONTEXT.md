@@ -72,6 +72,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - `LAN Host` also exposes a Server-Sent Events stream for survivor-data changes; LAN Client uses those events as refresh triggers and still reloads authoritative data through the existing survivor APIs.
 - `LAN Client` routes survivor list/load/save/delete calls to the configured host HTTP API and does not require a local Survivors folder for survivor CRUD.
 - The default new-survivor template lives at `default_survivor_template/default-new-survivor.json` inside the authoritative Survivors folder. There is no separate template Data Source; LAN Clients load and save the Host's copy through the survivor provider/API.
+- Every new survivor form gets fresh identity and history metadata; reusable templates supply starting values only. Keep each draft ID stable through edits/retries, and preserve identity when editing existing survivors.
 - The navbar includes a compact survivor-data status indicator (`Hosting`, `Connected`, `Offline`, or `Error`, plus `Local` in development) that opens Settings when clicked; connection controls stay in Settings.
 - Settings includes explicit `Start Host`, `Stop Host`, `Connect`, and `Disconnect` actions; client disconnect uses `lanClientConnected` so the host address can remain saved.
 - Settings shows LAN Host URLs from local IPv4 addresses and includes a manual `Export Backup` action for copying the configured survivor folder before a session.

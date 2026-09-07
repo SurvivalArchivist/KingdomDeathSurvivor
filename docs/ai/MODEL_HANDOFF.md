@@ -1,5 +1,17 @@
 # Model Handoff Log
 
+## Independent New Survivor Identities
+
+- 2026-09-07: Fixed Create Survivor reusing the default template ID/revision, which could make subsequent creations conflict with or update the first survivor. Each new form now gets fresh identity and history metadata from `createPersonTemplate`, while inheriting only starting values from the reusable template. The draft ID stays stable while editing/retrying; existing survivor edit identity remains unchanged. Regression tests exercise actual disk saves for three survivors (including duplicate names) from one saved template in Host and Client renderer modes, and verify that the template stays unchanged. Verification: `npm run verify` passed all 280 tests. Queued with the blank-template-name fix for the next release.
+
+## Blank Default Template Name
+
+- 2026-09-07: Default new-survivor templates now accept an empty name in both the editor and template save/load validation. Actual survivor saves still require a name; all other template validation stays intact. Added storage and renderer regressions. Verification: `npm run verify` passed all 278 tests. This follow-up is not included in the already-published 3.3.1 release.
+
+## v3.3.1 Publication
+
+- PR #11 merged as `31e2210`; tag `v3.3.1` published successfully through workflow run `34094368273`. macOS, Windows, Linux x64, and Linux ARM64 jobs passed, including Linux packaged startup smoke tests. All 15 expected release assets are present; both Linux checksum manifests match the six package digests reported by GitHub.
+
 ## v3.3.1 Release Preparation
 
 - Prepared 3.3.1 for shared LAN Showdown readiness, unanimous Vignette reset, and Host-owned default survivor template storage. Survivor schema remains 6 and settlement metadata schema remains 1. Local verification covers 276 tests; tagged macOS/Windows/Linux x64/ARM64 builds provide the packaging gate. Live multi-device readiness acceptance remains outstanding.

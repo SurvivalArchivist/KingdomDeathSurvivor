@@ -2891,12 +2891,23 @@ document.addEventListener('DOMContentLoaded', () => {
     openKnowledgeTemplatePickerModal()
   }
 
+  async function renderNewSurvivorForm(template) {
+    const fresh = await window.api.createPersonTemplate(template.name || '')
+    const draft = deepClone(template)
+    // A reusable template supplies starting values, never survivor identity/history.
+    for (const key of ['id', 'createdAt', 'revision', 'updatedAt', 'lastUpdated', 'lastReturned', 'editedBy']) {
+      draft[key] = fresh[key]
+    }
+    renderCreateSurvivorForm(draft)
+  }
+
   async function resetCreateSurvivorForm() {
     const template = await loadDefaultCreateTemplateWithFallback()
     createTemplateDefaults = template
     createEditingFileName = null
     applyCreateViewModeUi()
-    renderCreateSurvivorForm(template)
+    if (createViewMode === 'defaultTemplate') renderCreateSurvivorForm(template)
+    else await renderNewSurvivorForm(template)
   }
 
   function applyCreateViewModeUi() {
@@ -2938,7 +2949,7 @@ document.addEventListener('DOMContentLoaded', () => {
     next.lifetimeReroll = createSurvivorLifetimeReroll.checked
     applyMatchmakerGroup(next, createSurvivorMatchmaker.value)
     applyTinkerGroup(next, createSurvivorTinker.value)
-    if (!next.name) return null
+    if (!next.name && createViewMode !== 'defaultTemplate') return null
     const proficiency = ensureWeaponProficiency(next)
     proficiency.type = createWeaponProficiencyType.value.trim()
 
@@ -4182,7 +4193,7 @@ document.addEventListener('DOMContentLoaded', () => {
       createTemplateDefaults = deepClone(template)
       personJson.value = JSON.stringify(template, null, 2)
       renderVisualEditor(template)
-      renderCreateSurvivorForm(template)
+      await renderNewSurvivorForm(template)
       await refreshMarkdownCollections()
       await refreshKnowledgeTemplateCache()
       syncSettlementAutoRefresh()
@@ -4558,7 +4569,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else {
         createEditingFileName = null
         applyCreateViewModeUi()
-        renderCreateSurvivorForm(createTemplateDefaults)
+        await renderNewSurvivorForm(createTemplateDefaults)
       }
       setPage('create')
     }).catch(err => {
