@@ -1,6 +1,6 @@
 {
   "name": "kingdom-death-survivors",
-  "version": "3.3.2",
+  "version": "3.3.3",
   "description": "Desktop companion app for Kingdom Death survivor management.",
   "desktopName": "kingdom-death-survivors.desktop",
   "main": "src/main.js",

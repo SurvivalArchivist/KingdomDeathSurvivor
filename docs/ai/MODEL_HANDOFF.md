@@ -1,8 +1,18 @@
 # Model Handoff Log
 
+## v3.3.3 Release Preparation
+
+- Prepared 3.3.3 for compact navigation, Settings theme-family selection, current-mode sun/moon display, and hover clipping fixes. Includes the already-published 3.3.2 template fixes. Survivor schema remains 6 and settlement schema remains 1. Release uses the macOS, Windows, Linux x64, and Linux ARM64 publishing workflow.
+
+## Compact Header and Theme Controls
+
+- Follow-up: Removed navbar hover translation to prevent top-edge clipping in its scroll container. Sun/moon now indicates the current mode (sun for light, moon for dark); its tooltip describes the switch action. Replaced the hand-drawn gear with iconmonstr Gear Thin SVG, with source/license recorded beside the markup.
+
+- 2026-09-07: Replaced header title with the existing app icon and Settings text with an accessible gear button. Moved Classic/Zen family selection into Settings and added a header sun/moon toggle that preserves the family. Existing saved theme values remain compatible. Updated renderer coverage for both theme pairs and brightness retention across family changes. Verification: syntax checks, full `npm test`, and diff check.
+
 ## Independent New Survivor Identities
 
-- 2026-09-07: Fixed Create Survivor reusing the default template ID/revision, which could make subsequent creations conflict with or update the first survivor. Each new form now gets fresh identity and history metadata from `createPersonTemplate`, while inheriting only starting values from the reusable template. The draft ID stays stable while editing/retrying; existing survivor edit identity remains unchanged. Regression tests exercise actual disk saves for three survivors (including duplicate names) from one saved template in Host and Client renderer modes, and verify that the template stays unchanged. Verification: `npm run verify` passed all 280 tests. Queued with the blank-template-name fix for the next release.
+- 2026-09-07: Fixed Create Survivor reusing the default template ID/revision, which could make subsequent creations conflict with or update the first survivor. Each new form now gets fresh identity and history metadata from `createPersonTemplate`, while inheriting only starting values from the reusable template. The draft ID stays stable while editing/retrying; existing survivor edit identity remains unchanged. Regression tests exercise actual disk saves for three survivors (including duplicate names) from one saved template in Host and Client renderer modes, and verify that the template stays unchanged. Verification: `npm run verify` passed all 280 tests. Published with the blank-template-name fix in v3.3.2.
 
 ## Blank Default Template Name
 
