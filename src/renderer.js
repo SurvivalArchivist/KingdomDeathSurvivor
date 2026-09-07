@@ -228,6 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const navLanStatus = document.getElementById('navLanStatus')
   const navFullscreenButton = document.getElementById('navFullscreen')
   const themeSelect = document.getElementById('themeSelect')
+  const navThemeToggle = document.getElementById('navThemeToggle')
   const settlementNameSearch = document.getElementById('settlementNameSearch')
   const settlementTraitSearch = document.getElementById('settlementTraitSearch')
   const settlementToggleExtraFiltersButton = document.getElementById('settlementToggleExtraFilters')
@@ -1300,8 +1301,13 @@ document.addEventListener('DOMContentLoaded', () => {
       document.documentElement.style.colorScheme = THEME_OPTIONS[nextTheme].colorScheme
     }
     if (themeSelect instanceof HTMLSelectElement) {
-      themeSelect.value = nextTheme
+      themeSelect.value = nextTheme.startsWith('zen-') ? 'zen' : 'classic'
     }
+    const mode = THEME_OPTIONS[nextTheme].colorScheme
+    navThemeToggle.dataset.mode = mode
+    const toggleLabel = `Switch to ${mode === 'dark' ? 'light' : 'dark'} mode`
+    navThemeToggle.setAttribute('aria-label', toggleLabel)
+    navThemeToggle.setAttribute('title', toggleLabel)
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme)
     } catch {
@@ -4719,7 +4725,12 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   })
   themeSelect.addEventListener('change', () => {
-    applyTheme(themeSelect.value)
+    const isLight = THEME_OPTIONS[currentTheme].colorScheme === 'light'
+    applyTheme(themeSelect.value === 'zen' ? (isLight ? 'zen-day' : 'zen-night') : (isLight ? 'light' : 'dark'))
+  })
+  navThemeToggle.addEventListener('click', () => {
+    const pairedTheme = { dark: 'light', light: 'dark', 'zen-day': 'zen-night', 'zen-night': 'zen-day' }
+    applyTheme(pairedTheme[currentTheme])
   })
   // Shared composition dependencies; each module consumes only its own responsibilities.
   // Accessors keep session resets visible without creating a second state owner.

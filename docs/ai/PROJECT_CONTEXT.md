@@ -35,6 +35,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Depart/End Showdown session lifecycle
 
 ## UI Direction
+- Header branding uses the small app icon; Settings uses a gear button. Settings selects the Classic or Zen theme family, and a header sun/moon button switches its light/dark variant while retaining the family and persisted preference. The icon depicts the current mode (sun for light, moon for dark). Navbar hover styling must keep controls stationary to avoid scroll-container clipping.
 - Prefer simple, efficient layouts over decorative nesting.
 - Keep the rough position of existing tools/workflows, but reduce wrapper layers and visual ceremony.
 - Do not default to rounded, pill-heavy, "safe" controls everywhere; squarer edges are acceptable and often preferred.

@@ -29,7 +29,7 @@ Before making significant changes, check:
 - Keep the rough position of tools and workflows familiar, but strip out excessive layers and oversized containers.
 - Header/navigation should remain thin, single-row, full-width, and consistent across sections.
 - The header is for navigation and global controls only. It should stay clean, stable, and out of the way.
-- Theme selection belongs in the header and should use a dropdown/switcher pattern that can scale to future themes.
+- Theme family selection belongs in Settings. The header uses only a sun/moon button to toggle the selected family’s light/dark variant; preserve the saved preference. Use the small app icon for branding and a gear icon for Settings.
 - Survivor data mode belongs in Settings under the compact `Survivor Data` section; keep connection setup/actions there rather than adding controls to the header.
 - The navbar survivor-data indicator is status-only and opens Settings; do not turn it into connection controls.
 - Do not let Showdown or any other view drift into a different navbar/header treatment without an explicit product decision.

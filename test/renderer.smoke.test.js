@@ -1011,35 +1011,39 @@ test('fullscreen nav button toggles window state and updates label', async t => 
   assert.ok(harness.calls.some(call => call.name === 'toggleFullScreen'))
 })
 
-test('theme selector updates classes and persists preference', async t => {
+test('theme family and brightness controls preserve each other and persist preference', async t => {
   const harness = setupRendererHarness()
   t.after(() => harness.cleanup())
-
   await harness.flush()
-
   const selector = harness.document.getElementById('themeSelect')
-
-  assert.equal(selector.value, 'dark')
-  assert.ok(harness.document.body.classList.contains('theme-dark'))
+  const toggle = harness.document.getElementById('navThemeToggle')
+  assert.equal(selector.value, 'classic')
   assert.equal(harness.document.body.dataset.theme, 'dark')
 
-  selector.value = 'zen-day'
+  for (const [family, expected] of [['zen', 'zen-night'], ['classic', 'dark']]) {
+    selector.value = family
+    selector.dispatchEvent(new FakeEvent('change', { target: selector }))
+    await harness.flush()
+    assert.equal(harness.document.body.dataset.theme, expected)
+  }
+  for (const expected of ['light', 'dark', 'light']) {
+    toggle.dispatchEvent(new FakeEvent('click', { target: toggle }))
+    await harness.flush()
+    assert.equal(selector.value, 'classic')
+    assert.equal(harness.document.body.dataset.theme, expected)
+    assert.equal(global.window.localStorage.getItem('kdm-theme'), expected)
+  }
+  selector.value = 'zen'
   selector.dispatchEvent(new FakeEvent('change', { target: selector }))
   await harness.flush()
-
-  assert.equal(selector.value, 'zen-day')
-  assert.ok(harness.document.body.classList.contains('theme-zen-day'))
   assert.equal(harness.document.body.dataset.theme, 'zen-day')
-  assert.equal(global.window.localStorage.getItem('kdm-theme'), 'zen-day')
-
-  selector.value = 'zen-night'
-  selector.dispatchEvent(new FakeEvent('change', { target: selector }))
-  await harness.flush()
-
-  assert.equal(selector.value, 'zen-night')
-  assert.ok(harness.document.body.classList.contains('theme-zen-night'))
-  assert.equal(harness.document.body.dataset.theme, 'zen-night')
-  assert.equal(global.window.localStorage.getItem('kdm-theme'), 'zen-night')
+  for (const expected of ['zen-night', 'zen-day']) {
+    toggle.dispatchEvent(new FakeEvent('click', { target: toggle }))
+    await harness.flush()
+    assert.equal(selector.value, 'zen')
+    assert.ok(harness.document.body.classList.contains(`theme-${expected}`))
+    assert.equal(global.window.localStorage.getItem('kdm-theme'), expected)
+  }
 })
 
 test('renderer persists app settings including date format', async t => {

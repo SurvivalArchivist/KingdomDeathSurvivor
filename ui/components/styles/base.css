@@ -173,16 +173,10 @@ body {
 
 .top-nav-brand {
   flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
   margin-right: 0.22rem;
-  padding-right: 0.72rem;
-  border-right: 1px solid var(--panel-divider);
-  color: var(--hero-eyebrow);
-  font-family: var(--font-head);
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .top-nav .btn {
@@ -232,7 +226,7 @@ body.showdown-mode .top-nav .nav-showdown-actions {
 }
 
 .top-nav .nav-lan-status:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .top-nav .nav-lan-status[data-lan-state="hosting"],
@@ -255,59 +249,41 @@ body.showdown-mode .top-nav .nav-showdown-actions {
   color: var(--status-error-ink);
 }
 
-.top-nav .nav-theme-switcher {
+.top-nav .nav-icon-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.38rem;
-  padding: 0.16rem 0.2rem 0.16rem 0.56rem;
-  border: 1px solid var(--btn-ghost-border);
-  border-radius: 999px;
-  background: var(--btn-ghost-bg);
-  box-shadow: none;
-  color: var(--muted);
-  flex: 0 0 auto;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
 }
 
-.top-nav .nav-theme-switcher-label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.nav-icon-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.top-nav .nav-theme-select {
-  appearance: none;
-  -webkit-appearance: none;
-  border: 1px solid var(--field-border);
-  border-radius: 999px;
-  background-color: var(--field-bg);
-  background-image:
-    linear-gradient(45deg, transparent 50%, currentColor 50%),
-    linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position:
-    calc(100% - 0.98rem) calc(50% - 0.1rem),
-    calc(100% - 0.74rem) calc(50% - 0.1rem);
-  background-repeat: no-repeat;
-  background-size: 0.38rem 0.38rem;
-  box-shadow: var(--field-shadow);
-  color: var(--field-ink);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.74rem;
-  font-weight: 600;
-  line-height: 1.2;
-  min-width: 6.8rem;
-  padding: 0.3rem 1.8rem 0.3rem 0.7rem;
+.nav-icon-button .settings-gear {
+  fill: currentColor;
+  stroke: none;
 }
 
-.top-nav .nav-theme-select:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--focus-ring);
+#navThemeToggle .theme-sun,
+#navThemeToggle[data-mode="light"] .theme-moon {
+  display: none;
+}
+
+#navThemeToggle[data-mode="light"] .theme-sun {
+  display: block;
 }
 
 .top-nav .btn:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .top-nav .btn.is-active {
@@ -2117,11 +2093,6 @@ textarea:focus-visible {
   .top-nav {
     gap: 0.3rem;
     overflow-x: auto;
-  }
-
-  .top-nav-brand {
-    padding-right: 0.58rem;
-    font-size: 0.7rem;
   }
 
   .top-nav .btn {

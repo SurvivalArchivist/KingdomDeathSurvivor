@@ -7,6 +7,24 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.3.3] - 2026-09-07
+
+### Changed
+
+- Compacted the navigation with the app icon and an iconmonstr Settings gear.
+- Moved Classic/Zen theme selection into Settings; the header sun/moon button switches brightness within the selected family and indicates the current mode.
+
+### Fixed
+
+- Removed navbar hover movement that clipped the tops of buttons and icons.
+
+## [3.3.2] - 2026-09-07
+
+### Fixed
+
+- New survivors receive independent identities when created from the default template.
+- Default survivor templates accept blank names while actual survivor saves still require a name.
+
 ## [3.3.1] - 2026-09-07
 
 ### Added
