@@ -6,6 +6,7 @@ const DEFAULT_HOST = '0.0.0.0'
 const MAX_BODY_BYTES = 1024 * 1024
 const SSE_RETRY_MS = 5000
 const SSE_HEARTBEAT_MS = 25000
+const LAN_PROTOCOL_VERSION = 1
 
 function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload)
@@ -61,14 +62,25 @@ function getOptionsPayload(body) {
   return {}
 }
 
-function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModule = http, onShowdownChanged = () => {} } = {}) {
+function createLanSurvivorHost({
+  app,
+  dataService,
+  host = DEFAULT_HOST,
+  httpModule = http,
+  onShowdownChanged = () => {},
+  onSurvivorDataChanged = () => {},
+  onPlayersChanged = () => {}
+} = {}) {
   if (!app) throw new Error('LAN survivor host requires an app instance')
   if (!dataService) throw new Error('LAN survivor host requires dataService')
 
   let server = null
   let activePort = null
+  const dataSessionId = randomUUID()
   let eventSequence = 0
   const playerByResponse = new Map()
+  const playerDetailsByResponse = new Map()
+  const playerPresence = new Map()
   let showdown = createShowdownReadiness({ onChange: broadcastShowdownChange })
   function broadcastShowdownChange(payload) {
     onShowdownChanged(payload)
@@ -122,7 +134,14 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
     eventClients.delete(res)
     const playerId = playerByResponse.get(res)
     playerByResponse.delete(res)
-    if (playerId) showdown.disconnect(playerId)
+    playerDetailsByResponse.delete(res)
+    if (playerId) {
+      showdown.disconnect(playerId)
+      const previous = playerPresence.get(playerId) || { id: playerId }
+      const connected = [...playerByResponse.values()].includes(playerId)
+      playerPresence.set(playerId, { ...previous, connected, lastSeen: new Date().toISOString() })
+      onPlayersChanged(connectedPlayers())
+    }
     const heartbeat = eventClientHeartbeats.get(res)
     if (heartbeat) clearInterval(heartbeat)
     eventClientHeartbeats.delete(res)
@@ -135,17 +154,39 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
       connection: 'keep-alive',
       'access-control-allow-origin': '*'
     })
-    res.write(`retry: ${SSE_RETRY_MS}\n\n`)
-    writeSse(res, 'ready', {
-      ok: true,
-      mode: 'lan-host',
-      port: activePort
-    })
     eventClients.add(res)
     const requestedId = new URL(req.url, 'http://localhost').searchParams.get('playerId')
     const playerId = requestedId && requestedId !== 'host' && /^[a-zA-Z0-9-]{1,80}$/.test(requestedId) ? requestedId : randomUUID()
     playerByResponse.set(res, playerId)
+    const eventUrl = new URL(req.url, 'http://localhost')
+    const details = {
+      id: playerId,
+      displayName: String(eventUrl.searchParams.get('displayName') || '').trim(),
+      appVersion: String(eventUrl.searchParams.get('appVersion') || '').trim(),
+      protocolVersion: LAN_PROTOCOL_VERSION,
+      connectedAt: new Date().toISOString(),
+      connected: true,
+      lastSeen: new Date().toISOString()
+    }
+    playerDetailsByResponse.set(res, details)
+    playerPresence.set(playerId, details)
+    // Register Showdown presence before announcing that the stream is ready. Otherwise
+    // an automatically connecting client can query readiness in the small window between
+    // receiving `ready` and being added to the Host-owned player roster.
     showdown.connect(playerId)
+    onPlayersChanged(connectedPlayers())
+    res.write(`retry: ${SSE_RETRY_MS}\n\n`)
+    writeSse(res, 'ready', {
+      ok: true,
+      mode: 'lan-host',
+      port: activePort,
+      playerId,
+      protocolVersion: LAN_PROTOCOL_VERSION,
+      appVersion: typeof app.getVersion === 'function' ? app.getVersion() : '',
+      dataSessionId,
+      dataRevision: eventSequence,
+      showdown: showdownState()
+    })
     const heartbeat = setInterval(() => {
       try {
         res.write(': keepalive\n\n')
@@ -163,13 +204,16 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
     res.on?.('close', removeClient)
   }
 
-  function broadcastSurvivorDataChange(action, fileName) {
+  function broadcastSurvivorDataChange(action, fileName, { notifyHost = true } = {}) {
     const payload = {
       action,
       fileName,
       sequence: ++eventSequence,
+      dataSessionId,
+      dataRevision: eventSequence,
       timestamp: new Date().toISOString()
     }
+    if (notifyHost) onSurvivorDataChanged(payload)
     for (const client of [...eventClients]) {
       try {
         writeSse(client, 'survivor-data-changed', payload)
@@ -177,6 +221,11 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
         removeEventClient(client)
       }
     }
+  }
+
+  function connectedPlayers() {
+    const settings = getSettings()
+    return [{ id: 'host', displayName: settings.lanDisplayName || settings.userName || 'Host', appVersion: typeof app.getVersion === 'function' ? app.getVersion() : '', protocolVersion: LAN_PROTOCOL_VERSION, connected: true, connectedAt: null, lastSeen: new Date().toISOString() }, ...playerPresence.values()]
   }
 
   async function handleRequest(req, res) {
@@ -194,12 +243,19 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
           ok: true,
           mode: 'lan-host',
           displayName: settings.lanDisplayName || '',
+          protocolVersion: LAN_PROTOCOL_VERSION,
+          appVersion: typeof app.getVersion === 'function' ? app.getVersion() : '',
           port: activePort
         })
         return
       }
 
       if (method === 'GET' && parts.length === 1 && parts[0] === 'events') {
+        const requestedProtocol = Number(new URL(req.url, 'http://localhost').searchParams.get('protocolVersion'))
+        if (requestedProtocol !== LAN_PROTOCOL_VERSION) {
+          sendJson(res, 409, { ok: false, errorType: 'incompatible-version', message: `LAN protocol ${LAN_PROTOCOL_VERSION} required.` })
+          return
+        }
         registerEventClient(req, res)
         return
       }
@@ -370,6 +426,7 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
     activePort = null
     for (const client of [...eventClients]) {
       try {
+        writeSse(client, 'host-shutdown', { message: 'LAN Host stopped' })
         client.end()
       } catch {
         // Ignore client cleanup failures while the host is stopping.
@@ -397,7 +454,13 @@ function createLanSurvivorHost({ app, dataService, host = DEFAULT_HOST, httpModu
     getStatus,
     handleRequest,
     showdownState,
-    voteShowdown
+    voteShowdown,
+    connectedPlayers() {
+      return connectedPlayers()
+    },
+    announceSurvivorDataChange(action, fileName) {
+      broadcastSurvivorDataChange(action, fileName, { notifyHost: false })
+    }
   }
 }
 

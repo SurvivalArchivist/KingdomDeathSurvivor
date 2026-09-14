@@ -1,6 +1,6 @@
 # LAN Survivor Plan
 
-Last updated: 2026-09-04
+Last updated: 2026-09-14
 
 ## Purpose
 This document records the completed plan for moving survivor data from the local/cloud-shared file model to a LAN-based host/client model, while leaving markdown/reference content on the existing local/cloud-backed approach.
@@ -8,10 +8,11 @@ This document records the completed plan for moving survivor data from the local
 The goal is to reduce the collaboration issues caused by cloud-sync timing, stale local copies, and partial file visibility, without breaking single-user local workflows.
 
 ## Product Goal
-Support three survivor data modes controlled from `Settings`:
-- `Local Files`
+Support two production survivor data modes controlled from `Settings`:
 - `LAN Host`
 - `LAN Client`
+
+`Local Development` remains available only through `npm run dev`; packaged builds and ordinary `npm start` require Host or Client.
 
 Survivor data becomes host-authoritative in LAN modes.
 
@@ -228,15 +229,14 @@ Placement:
 - right side of the current nav, near `Full Screen` and `Theme`
 
 ## Phase 6: LAN Refresh Behavior
-Status: implemented for operation/status refreshes and host-pushed Settlement refresh. The host exposes an SSE stream, the client main process subscribes/reconnects, and Settlement refreshes automatically when host survivor data changes.
-
-Polling remains a fallback and explicit/manual refresh remains available.
+Status: complete. The host exposes an SSE stream, the client main process subscribes/reconnects, and both LAN Host and LAN Client Settlement views reload authoritative data from pushed change notifications. Periodic Settlement polling is disabled in LAN modes; explicit/manual refresh remains available. Local Development retains interval refresh.
 
 Behavior:
-- Settlement can continue using explicit/manual refresh and timed polling
+- Settlement keeps explicit/manual refresh
 - client periodically refreshes status from host
-- host pushes survivor-data change events over Server-Sent Events
-- LAN Client refreshes Settlement automatically when host data changes
+- host pushes survivor and direct Settlement change events over Server-Sent Events
+- LAN Host refreshes when a Client changes survivor data
+- LAN Clients refresh when the Host or another Client changes authoritative data
 
 Closeout decisions:
 - Push refresh intentionally targets Settlement, where replacing the visible list is safe and useful.
@@ -244,7 +244,7 @@ Closeout decisions:
 - Failed LAN reads preserve the current view/list and show consistent reconnect/retry guidance. Offline startup remains usable even when remote survivor data cannot be loaded.
 
 ## Phase 7: Reliability And Recovery
-Status: complete. Host-unavailable recovery, reconnecting status, disconnected write protection, differentiated operation messages, non-fatal offline startup/read failures, host lifecycle controls, discovery, and backup export are implemented and covered by automated tests. A real LAN Host/Client trial passed with no blocking issue.
+Status: complete for the original roadmap. Host-unavailable recovery, reconnecting status, disconnected write protection, differentiated operation messages, non-fatal offline startup/read failures, host lifecycle controls, discovery, backup export, and Host-confirmed reconnect presence are implemented and covered by automated tests. The original Host/Client feature passed a real-world trial; the latest reconnect/readiness and event-only refresh changes still require repeat multi-device acceptance.
 
 Harden the LAN experience for real sessions.
 
@@ -265,6 +265,9 @@ Implemented operational additions:
 - LAN Host mode displays local `http://address:port` URLs clients can enter
 - LAN Client mode can scan and select discovered LAN hosts advertised by host machines
 - failed host startup rolls `lanHostEnabled` back to false so Settings does not imply a host is running
+- automatic reconnect is not reported as connected until the Host acknowledges the Client identity in its authoritative Showdown roster
+- Showdown Depart, Campaign End, and Vignette Reset use a Host-owned unanimous readiness barrier for the Host plus connected Clients
+- the default survivor template and Settlement/Vignette records are Host-owned and accessed remotely by Clients
 
 ## Settings UX Plan
 
@@ -277,7 +280,7 @@ Contents:
 - current mode summary text
 - current connection status text
 
-### Local Files View
+### Local Development View
 Show:
 - survivors folder picker
 
@@ -293,8 +296,8 @@ Show:
 - current hosting status
 - manual backup/export action
 
-Possible later addition:
-- connected client count
+Planned stability addition:
+- connected player count/list with display name, version compatibility, connection state, and last-seen time
 
 ### LAN Client View
 Show:
@@ -365,9 +368,9 @@ New concerns:
 
 This is still a better fit if shared multi-user survivor editing is a core workflow.
 
-## Recommended First MVP
-The first meaningful milestone should be:
-- working `Local Files`, `LAN Host`, `LAN Client` modes in Settings
+## Delivered First MVP
+The first meaningful milestone delivered:
+- working Local Development, `LAN Host`, and `LAN Client` modes in Settings
 - manual host address entry
 - survivor CRUD routed correctly by mode
 - settlement summaries loaded from host in client mode
@@ -380,9 +383,40 @@ The first meaningful milestone should be:
 - settlement, create/edit, showdown, and bulk updates use host-owned survivor data in client mode
 - save conflicts remain safe
 - header shows clear connection status in one compact indicator
-- local single-user mode still works as before
+- development-only local single-user mode remains available through `npm run dev`
 
-## Suggested Future Follow-ups
-- host-side session/client list
-- optional reference-content hosting or caching strategy
-- authentication only if the feature scope expands beyond trusted local networks
+## Stability And QoL Follow-up Roadmap
+
+The original seven phases are complete. Continue with small, observable reliability improvements rather than broad networking rewrites.
+
+### Priority 1: Reconnect Reconciliation
+
+- Status: implemented. The Host includes a process-session ID and monotonic data revision in change events and SSE registration acknowledgements. The Client compares that cursor with its last applied cursor, enters `Synchronizing`, triggers an authoritative Settlement reconciliation after missed changes or a Host restart, and acknowledges the revision only after the renderer reload succeeds.
+- Implemented: reconnect and change-triggered refresh requests are coalesced so an initial burst causes one reload, with a dirty flag ensuring changes received during an in-flight reload cause exactly one follow-up reload.
+- Implemented in automated loopback coverage: disconnect, authoritative revision change while absent, automatic HTTP/SSE reconnect, renderer-acknowledged catch-up, and restored Showdown readiness with the Host blocked at `1/2`. Physical multi-device acceptance remains required.
+
+This is the highest-value stability improvement now that LAN Settlement refresh is event-only.
+
+### Priority 2: Connection And Version Diagnostics
+
+- Status: implemented. Host Settings updates its player list on connect/disconnect and shows identity, app version, connection state, and last-seen time. `/health` and SSE registration expose app/LAN protocol versions, Clients identify themselves during registration, and incompatible protocols are rejected or shown as `Incompatible`. Focused Host regressions cover rejection and disconnected-player retention.
+- Show `Last synchronized` and the reason for `Reconnecting`, `Offline`, or `Error` without adding connection controls to the navbar.
+
+### Priority 3: Stream Recovery Hardening
+
+- Status: implemented for reliable cross-platform signals. An eight-second registration timeout prevents an HTTP connection without a valid Host acknowledgement from remaining indefinitely in a connecting state. A deliberate Host stop sends a final best-effort `host-shutdown` event so Clients move offline immediately and can enter their normal reconnect path.
+- Implemented: automatic stream retries use exponential backoff from one second to a hard 30-second ceiling with ±20% jitter. A healthy registration or explicit settings/Connect action resets the backoff so manual recovery remains immediate.
+- Implemented: system resume, application activation, and window focus cancel pending backoff and immediately restore the stream after a known disconnect. These signals do not restart an already connected or currently connecting stream.
+- Network-interface-change recovery remains event-driven through the available focus/resume signals; Node/Electron has no dependable cross-platform interface-change event, so do not add polling solely for this case.
+
+### Priority 4: Operational Support
+
+- Add a copy/export diagnostics action containing app/protocol versions, role, Host address/port, connection transitions, last event/revision, and recent non-sensitive LAN errors.
+- Provide a compact pre-session LAN check: authoritative folder available, Host running, Clients compatible, event stream registered, and backup reminder/status.
+- Repeat physical Host plus one-or-more Clients acceptance after networking, Electron, provider, settlement-authority, or Showdown coordination changes. Automated real-socket loopback coverage protects the core reconnect/reconciliation/readiness sequence between those sessions.
+
+### Conditional Scope
+
+- Consider authentication only if use expands beyond a trusted local network.
+- Consider reference-content hosting/caching only if local library differences become a demonstrated problem.
+- Do not add peer-to-peer sync, multiple authorities, silent write replay, or lock-based editing as QoL work.

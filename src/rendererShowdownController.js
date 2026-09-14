@@ -3,7 +3,6 @@
     const { element, getState, actions, helpers, services } = config
     const {
       openAddPicker,
-      openKnowledgeScratchEditorForShowdownUpgrade,
       openKnowledgeTemplatePicker,
       openMarkdownFromReference,
       refreshKnowledgeTemplateCache,
@@ -299,20 +298,6 @@
               }
             }
 
-            if (nextMode === 'noTemplate') {
-              await openKnowledgeTemplatePicker({
-                arrayName,
-                mode: 'showdown',
-                slot,
-                action: 'upgrade',
-                index,
-                sourceItem,
-                forceScratchOnly: true
-              })
-              openKnowledgeScratchEditorForShowdownUpgrade()
-              return
-            }
-
             await openKnowledgeTemplatePicker({
               arrayName,
               mode: 'showdown',
@@ -320,8 +305,7 @@
               action: 'upgrade',
               index,
               sourceItem,
-              forceTemplateOnly: nextMode === 'existingTemplate',
-              forceScratchOnly: nextMode === 'noTemplate'
+              forceTemplateOnly: nextMode === 'existingTemplate' && Boolean(sourceItem.nextKnowledgeTemplate)
             })
           }).catch(err => {
             setStatus(err.message || 'Failed to upgrade knowledge', 'error')

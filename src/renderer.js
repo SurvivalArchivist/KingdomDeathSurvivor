@@ -86,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const KNOWLEDGE_LIMIT = 5
 
   const dataSourcesView = document.getElementById('dataSourcesView')
+  const settingsAppVersion = document.getElementById('settingsAppVersion')
   const navDataSourcesButton = document.getElementById('navDataSources')
   const selectSourceSurvivors = document.getElementById('selectSourceSurvivors')
   const selectSourceFightingArts = document.getElementById('selectSourceFightingArts')
@@ -652,9 +653,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let settlementExtraFiltersOpen = false
   let settlementViewController = null
   let pendingSettlementEntryRefresh = false
-  let pendingLanSettlementRefresh = false
+  let lanSettlementRefreshScheduled = false
+  let lanSettlementRefreshRequested = false
+  let lanSettlementRefreshRunning = false
   let lanStatusRefreshTimer = null
   let lanConnectionState = 'local'
+  let pendingLanDataSyncCursor = null
   let discoveredLanHosts = []
   let developmentMode = false
   let startupRoleGateActive = false
@@ -1153,6 +1157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const state = String(statusPayload?.state || '').trim() || 'error'
     const label = String(statusPayload?.label || '').trim() || 'Error'
     const message = String(statusPayload?.message || '').trim() || 'Open Settings'
+    if (statusPayload?.dataSyncCursor) pendingLanDataSyncCursor = { ...statusPayload.dataSyncCursor }
     lanConnectionState = state
     navLanStatus.textContent = label
     navLanStatus.dataset.lanState = state
@@ -1496,12 +1501,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderLanHostInfo(info) {
     if (!settingsLanHostAddresses) return
+    const playersReadout = document.getElementById('settingsLanHostPlayers')
     const urls = Array.isArray(info?.urls) ? info.urls.filter(Boolean) : []
     if (urls.length === 0) {
       settingsLanHostAddresses.textContent = 'Not available'
+      if (playersReadout) playersReadout.textContent = 'Host not running'
       return
     }
     settingsLanHostAddresses.textContent = urls.join(', ')
+    if (playersReadout) {
+      const players = Array.isArray(info?.players) ? info.players : []
+      playersReadout.textContent = players.length
+        ? players.map(player => `${player.displayName || player.id}${player.appVersion ? ` (v${player.appVersion})` : ''} — ${player.connected === false ? `disconnected, last seen ${new Date(player.lastSeen).toLocaleTimeString()}` : 'connected'}`).join(', ')
+        : 'Host only'
+    }
   }
 
   async function refreshLanHostInfo() {
@@ -1554,6 +1567,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function shouldRunSettlementAutoRefresh() {
     return (
+      !['lan-host', 'lan-client'].includes(appSettings.survivorDataMode) &&
       settlementAutoRefreshOn &&
       hasDataFolder &&
       currentPage === 'settlement' &&
@@ -1632,19 +1646,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function requestLanSettlementRefresh() {
-    if (pendingLanSettlementRefresh) return
-    if (!isLanClientMode() || currentPage !== 'settlement' || !hasDataFolder) return
-    pendingLanSettlementRefresh = true
+    if (!['lan-host', 'lan-client'].includes(appSettings.survivorDataMode) || currentPage !== 'settlement' || !hasDataFolder) return
+    lanSettlementRefreshRequested = true
+    if (lanSettlementRefreshScheduled || lanSettlementRefreshRunning) return
+    lanSettlementRefreshScheduled = true
     window.setTimeout(() => {
-      pendingLanSettlementRefresh = false
-      if (!isLanClientMode() || currentPage !== 'settlement' || !hasDataFolder) return
-      if (busy) {
-        requestLanSettlementRefresh()
+      lanSettlementRefreshScheduled = false
+      if (!['lan-host', 'lan-client'].includes(appSettings.survivorDataMode) || currentPage !== 'settlement' || !hasDataFolder) {
+        lanSettlementRefreshRequested = false
         return
       }
+      if (busy) {
+        lanSettlementRefreshScheduled = true
+        window.setTimeout(() => {
+          lanSettlementRefreshScheduled = false
+          requestLanSettlementRefresh()
+        }, 25)
+        return
+      }
+      lanSettlementRefreshRequested = false
+      lanSettlementRefreshRunning = true
       runBusy(async () => {
         await refreshPeople({ silentStatus: true, updateRefreshTimestamp: true })
-        setStatus('Settlement refreshed from LAN host change', 'neutral')
+        setStatus('Settlement refreshed from LAN change', 'neutral')
       }).catch(err => {
         showSurvivorReadFailure(
           err,
@@ -1652,17 +1676,16 @@ document.addEventListener('DOMContentLoaded', () => {
           'Failed to refresh settlement from LAN host',
           'The current settlement list was kept unchanged.'
         )
+      }).finally(() => {
+        lanSettlementRefreshRunning = false
+        if (lanSettlementRefreshRequested) requestLanSettlementRefresh()
       })
     }, 0)
   }
 
   function handleLanSurvivorDataChanged() {
-    if (!isLanClientMode()) return
-    refreshLanConnectionStatus()
-      .catch(() => {})
-      .finally(() => {
-        requestLanSettlementRefresh()
-      })
+    if (!['lan-host', 'lan-client'].includes(appSettings.survivorDataMode)) return
+    requestLanSettlementRefresh()
   }
 
   function setBusy(nextBusy) {
@@ -1831,8 +1854,9 @@ document.addEventListener('DOMContentLoaded', () => {
       appSettings.lanClientConnected !== false
     settingsLanClientDisconnect.disabled =
       busy || appSettings.survivorDataMode !== 'lan-client' || appSettings.lanClientConnected === false
-    settlementAutoRefreshEnabled.disabled = !hasDataFolder || busy
-    settlementAutoRefreshInterval.disabled = !hasDataFolder || busy || !settlementAutoRefreshOn
+    const lanUsesChangeRefresh = ['lan-host', 'lan-client'].includes(appSettings.survivorDataMode)
+    settlementAutoRefreshEnabled.disabled = !hasDataFolder || busy || lanUsesChangeRefresh
+    settlementAutoRefreshInterval.disabled = !hasDataFolder || busy || !settlementAutoRefreshOn || lanUsesChangeRefresh
     settlementRefreshNow.disabled = !hasDataFolder || busy
     settlementAddBulkChangeButton.disabled = !hasDataFolder || busy
     for (const control of settlementBulkRows.querySelectorAll('input, select, button')) {
@@ -2800,6 +2824,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const unlockedCount = templates.filter(template => template.unlocked).length
       const hasSeparator = unlockedCount > 0 && unlockedCount < templates.length
       knowledgeTemplateSelect.selectedIndex = selectedIndex + (hasSeparator && selectedIndex >= unlockedCount ? 1 : 0)
+      knowledgeTemplateSelect.value = templates[selectedIndex].fileName
     }
     syncControlState()
   }
@@ -2859,8 +2884,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     knowledgeTemplateSearch.value = ''
     renderKnowledgeTemplateOptions()
-    knowledgeTemplateScratch.textContent = isUpgrade ? 'Upgrade with Blank Next Level' : 'Create From Scratch'
-    knowledgeTemplateUse.textContent = isUpgrade ? 'Upgrade using Selected Template' : 'Use Selected Template'
+    knowledgeTemplateScratch.textContent = isUpgrade ? 'Create New' : 'Create From Scratch'
+    knowledgeTemplateUse.textContent = isUpgrade ? 'Use Existing Template' : 'Use Selected Template'
     knowledgeTemplateScratch.classList.remove('hidden')
     syncKnowledgeTemplateModalMode()
     openKnowledgeTemplatePickerModal()
@@ -4015,6 +4040,11 @@ document.addEventListener('DOMContentLoaded', () => {
     )
     populatePeople(files)
     await refreshSettlementData(summaryPayload)
+    if (isLanClientMode() && pendingLanDataSyncCursor && typeof window.api.ackLanDataRevision === 'function') {
+      const cursor = pendingLanDataSyncCursor
+      const result = await window.api.ackLanDataRevision(cursor)
+      if (result?.acknowledged && pendingLanDataSyncCursor === cursor) pendingLanDataSyncCursor = null
+    }
     if (updateRefreshTimestamp) updateSettlementLastRefreshed(new Date())
     const unreadableCount = coerceInt(summaryPayload?.unreadableCount, 0)
     if (!silentStatus) {
@@ -4149,6 +4179,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof window.api.getRuntimeInfo === 'function') {
         const runtimeInfo = await window.api.getRuntimeInfo()
         developmentMode = Boolean(runtimeInfo?.isDevelopmentMode)
+        if (settingsAppVersion) {
+          const version = String(runtimeInfo?.appVersion || '').trim()
+          settingsAppVersion.textContent = version ? `v${version.replace(/^v/i, '')}` : 'Version unavailable'
+        }
       }
       if (typeof window.api.getAppSettings === 'function') {
         appSettings = normalizeAppSettings(await window.api.getAppSettings())
@@ -5405,6 +5439,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (typeof window.api.onLanSurvivorDataChanged === 'function') {
     window.api.onLanSurvivorDataChanged(() => {
       handleLanSurvivorDataChanged()
+    })
+  }
+  if (typeof window.api.onLanPlayersChanged === 'function') {
+    window.api.onLanPlayersChanged(() => {
+      if (appSettings.survivorDataMode === 'lan-host') refreshLanHostInfo()
     })
   }
   if (typeof window.api.onLanDiscoveredHostsChanged === 'function') {

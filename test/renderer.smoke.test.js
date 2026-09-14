@@ -628,7 +628,7 @@ function setupRendererHarness(options = {}) {
     },
     async getRuntimeInfo() {
       calls.push({ name: 'getRuntimeInfo', args: [] })
-      return { isDevelopmentMode: true }
+      return { isDevelopmentMode: true, appVersion: '3.4.0' }
     },
     async saveAppSettings(settings) {
       calls.push({ name: 'saveAppSettings', args: [deepClone(settings)] })
@@ -1074,6 +1074,13 @@ test('renderer persists app settings including date format', async t => {
     lanClientConnected: true,
     lanHostEnabled: false
   })
+})
+
+test('Settings displays the running application version', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+  await harness.flush()
+  assert.equal(harness.document.getElementById('settingsAppVersion').textContent, 'v3.4.0')
 })
 
 test('packaged startup gates legacy local mode until Host or Client is chosen', async t => {
@@ -1551,12 +1558,14 @@ test('renderer surfaces LAN delete failure payloads without refreshing settlemen
   assert.ok(harness.db['alice.json'])
 })
 
-test('renderer refreshes settlement when LAN host pushes survivor data changes', async t => {
+test('LAN players refresh Settlement from pushed changes and disable interval controls', async t => {
   const harness = setupRendererHarness()
   t.after(() => harness.cleanup())
 
   await harness.flush()
   assert.equal(harness.document.getElementById('settlementCount').textContent, '2 of 2 survivors shown')
+  assert.equal(harness.document.getElementById('settlementAutoRefreshEnabled').disabled, true)
+  assert.equal(harness.document.getElementById('settlementAutoRefreshInterval').disabled, true)
 
   const before = countCalls(harness.calls, 'listPeopleSummaries')
   harness.db['cara.json'] = makePerson('Cara')
@@ -1566,7 +1575,59 @@ test('renderer refreshes settlement when LAN host pushes survivor data changes',
 
   assert.ok(countCalls(harness.calls, 'listPeopleSummaries') > before)
   assert.equal(harness.document.getElementById('settlementCount').textContent, '3 of 3 survivors shown')
-  assert.match(harness.document.getElementById('status').innerText, /Settlement refreshed from LAN host change/)
+  assert.match(harness.document.getElementById('status').innerText, /Settlement refreshed from LAN change/)
+
+  const mode = harness.document.getElementById('settingsSurvivorDataMode')
+  mode.value = 'lan-host'
+  mode.dispatchEvent(new FakeEvent('change', { target: mode }))
+  await harness.flush()
+  const hostBefore = countCalls(harness.calls, 'listPeopleSummaries')
+  harness.db['dana.json'] = makePerson('Dana')
+  harness.emitLanSurvivorDataChanged({ action: 'save', fileName: 'dana.json' })
+  await new Promise(resolve => setTimeout(resolve, 5))
+  await harness.flush()
+
+  assert.ok(countCalls(harness.calls, 'listPeopleSummaries') > hostBefore)
+  assert.equal(harness.document.getElementById('settlementCount').textContent, '4 of 4 survivors shown')
+  assert.equal(harness.document.getElementById('settlementAutoRefreshEnabled').disabled, true)
+  assert.equal(harness.document.getElementById('settlementAutoRefreshInterval').disabled, true)
+})
+
+test('LAN change bursts coalesce and retain one refresh requested during an active refresh', async t => {
+  let blockRefresh = false
+  let releaseRefresh
+  let refreshStarted
+  const refreshGate = new Promise(resolve => { releaseRefresh = resolve })
+  const started = new Promise(resolve => { refreshStarted = resolve })
+  const harness = setupRendererHarness({
+    customizeApi(api) {
+      const original = api.listPeopleSummaries.bind(api)
+      api.listPeopleSummaries = async () => {
+        if (blockRefresh) {
+          refreshStarted()
+          await refreshGate
+        }
+        return original()
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const before = countCalls(harness.calls, 'listPeopleSummaries')
+  blockRefresh = true
+  harness.emitLanSurvivorDataChanged({ action: 'save', fileName: 'alice.json' })
+  harness.emitLanSurvivorDataChanged({ action: 'save', fileName: 'bob.json' })
+  await started
+
+  harness.emitLanSurvivorDataChanged({ action: 'save', fileName: 'cara.json' })
+  harness.emitLanSurvivorDataChanged({ action: 'delete', fileName: 'dana.json' })
+  blockRefresh = false
+  releaseRefresh()
+  await new Promise(resolve => setTimeout(resolve, 10))
+  await harness.flush(16)
+
+  assert.equal(countCalls(harness.calls, 'listPeopleSummaries') - before, 2)
 })
 
 test('settlement name search waits briefly before rerendering results', async t => {
@@ -2186,6 +2247,75 @@ test('showdown knowledge upgrade applies the configured next template before sav
   assert.equal(alice?.knowledge?.[0]?.name, 'Inner Lantern II')
   assert.equal(alice?.knowledge?.[0]?.knowledgeLevel, 2)
   assert.equal(alice?.knowledge?.[0]?.currentObservations, 0)
+})
+
+test('showdown knowledge upgrade offers create new or an existing template when none is selected', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, context) {
+      context.db['alice.json'] = makePerson('Alice', {
+        knowledge: [{
+          name: 'Inner Lantern',
+          observation: 'Current observation',
+          rules: 'Current rules',
+          observationRequirement: 2,
+          currentObservations: 2,
+          knowledgeLevel: 1,
+          nextKnowledgeMode: 'noTemplate',
+          nextKnowledgeTemplate: ''
+        }]
+      })
+      api.listKnowledgeTemplates = async type => type === 'knowledge'
+        ? [{
+            fileName: 'lantern-l2.json',
+            name: 'Lantern II',
+            template: {
+              name: 'Lantern II',
+              observation: 'Template observation',
+              rules: 'Template rules',
+              observationRequirement: 3,
+              knowledgeLevel: 2,
+              nextKnowledgeMode: 'maxLevel',
+              nextKnowledgeTemplate: ''
+            }
+          }]
+        : []
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  harness.document.getElementById('showdownSelectA').value = 'alice.json'
+  harness.document.getElementById('showdownSelectB').value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush(12)
+
+  const upgradeButton = harness.document.createElement('button')
+  upgradeButton.dataset.showdownUpgradeSlot = 'A'
+  upgradeButton.dataset.showdownUpgradeArray = 'knowledge'
+  upgradeButton.dataset.showdownUpgradeIndex = '0'
+  harness.document.getElementById('showdownView').dispatchEvent(new FakeEvent('click', { target: upgradeButton }))
+  await harness.flush(16)
+
+  const modal = harness.document.getElementById('knowledgeTemplateModal')
+  const createNew = harness.document.getElementById('knowledgeTemplateScratch')
+  const useExisting = harness.document.getElementById('knowledgeTemplateUse')
+  assert.ok(!modal.classList.contains('hidden'))
+  assert.equal(createNew.textContent, 'Create New')
+  assert.equal(useExisting.textContent, 'Use Existing Template')
+  assert.equal(createNew.disabled, false)
+  assert.equal(useExisting.disabled, false)
+
+  harness.click('knowledgeTemplateUse')
+  await harness.flush(12)
+  assert.match(harness.document.getElementById('status').innerText, /Knowledge upgraded from template/)
+
+  harness.click('departShowdown')
+  await harness.flush()
+  harness.click('showdownOver')
+  await harness.flush(16)
+  const alice = findDbPersonByName(harness.db, 'Alice')
+  assert.equal(alice?.knowledge?.[0]?.name, 'Lantern II')
+  assert.equal(alice?.knowledge?.[0]?.knowledgeLevel, 2)
 })
 
 test('settlement sort covers newer and derived columns', async t => {

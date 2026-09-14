@@ -7,6 +7,27 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-09-14
+
+### Added
+
+- Added live LAN Host player diagnostics in Settings, including connection state, display name, app version, and last-seen time.
+- Added the running application version to Settings.
+- Added `Create New` and `Use Existing Template` choices when upgrading Showdown Knowledge without a selected next template.
+
+### Changed
+
+- LAN Host and Client Settlement refresh is now driven by Host change events rather than periodic LAN polling.
+- LAN Clients reconcile missed Host changes using a process-session ID and monotonic data revision, remaining in `Synchronizing` until the authoritative refresh succeeds.
+- Automatic stream retries now use jittered exponential backoff capped at 30 seconds, with immediate recovery after system resume, app activation, or window focus.
+
+### Fixed
+
+- Automatic LAN reconnect now registers and confirms the Client in the Host-owned Showdown roster before reporting Connected, preserving correct readiness counts.
+- Coalesced LAN refresh bursts without losing changes received during an in-progress refresh.
+- Added an eight-second stream-registration timeout and prompt Client notification when the Host intentionally shuts down.
+- Reject incompatible LAN protocol versions before registering a player and report them clearly to Clients.
+
 ## [3.3.3] - 2026-09-07
 
 ### Changed

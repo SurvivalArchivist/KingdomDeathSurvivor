@@ -8,8 +8,18 @@ const os = require('os')
 const path = require('path')
 const Module = require('module')
 const { EventEmitter } = require('events')
+const { createLanSurvivorHost } = require('../src/lanSurvivorHost')
 
 const mainPath = path.join(__dirname, '..', 'src', 'main.js')
+
+async function waitFor(predicate, timeoutMs = 4000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (predicate()) return
+    await new Promise(resolve => setTimeout(resolve, 20))
+  }
+  assert.fail('Timed out waiting for asynchronous LAN state')
+}
 
 class ConflictError extends Error {
   constructor(message) {
@@ -121,6 +131,7 @@ function makeHarness(overrides = {}) {
   const Menu = {
     setApplicationMenu() {}
   }
+  const powerMonitor = overrides.powerMonitor || new EventEmitter()
   const dgramMock = overrides.dgram || {
     createSocket() {
       const socket = new EventEmitter()
@@ -207,7 +218,8 @@ function makeHarness(overrides = {}) {
     },
     dialog,
     nativeImage,
-    Menu
+    Menu,
+    powerMonitor
   }
 
   if (overrides.dataService) Object.assign(dataService, overrides.dataService)
@@ -232,6 +244,7 @@ function makeHarness(overrides = {}) {
     if (request === './dataService') return dataService
     if (request === './lanSurvivorHost' && overrides.lanSurvivorHost) return overrides.lanSurvivorHost
     if (request === 'dgram') return dgramMock
+    if (request === 'http' && overrides.http) return overrides.http
     if (request === 'os' && overrides.os) return overrides.os
     if (request === 'markdown-it') return MarkdownItMock
     return originalLoad.call(this, request, parent, isMain)
@@ -835,6 +848,155 @@ test('get-lan-connection-status reports local and offline LAN states', async t =
   })
 })
 
+test('LAN client retries immediately on window focus and system resume after a known disconnect', async t => {
+  let requestCount = 0
+  const connectedResponses = []
+  const http = {
+    request(eventUrl, _options, onResponse) {
+      requestCount += 1
+      const attempt = requestCount
+      const request = new EventEmitter()
+      request.destroy = () => {}
+      request.end = () => {
+        process.nextTick(() => {
+          if (attempt === 1) {
+            request.emit('error', new Error('Host unavailable'))
+            return
+          }
+          const playerId = eventUrl.searchParams.get('playerId')
+          const response = new EventEmitter()
+          response.statusCode = 200
+          response.setEncoding = () => {}
+          response.resume = () => {}
+          connectedResponses.push(response)
+          onResponse(response)
+          response.emit('data', `event: ready\ndata: ${JSON.stringify({
+            playerId,
+            showdown: { players: [{ id: playerId, connected: true }] },
+            dataSessionId: 'session-1',
+            dataRevision: 0
+          })}\n\n`)
+        })
+      }
+      return request
+    }
+  }
+  const harness = makeHarness({
+    http,
+    dataService: {
+      getSavedAppSettings() {
+        return {
+          survivorDataMode: 'lan-client',
+          lanClientConnected: true,
+          lanAutoReconnect: true,
+          lanHostAddress: '192.168.1.50',
+          lanPort: 3765
+        }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.ready()
+  assert.equal(requestCount, 1)
+
+  harness.electron.BrowserWindow.instances[0].emit('focus')
+  await harness.ready()
+  assert.equal(requestCount, 2)
+
+  connectedResponses[0].emit('close')
+  harness.electron.powerMonitor.emit('resume')
+  await harness.ready()
+  assert.equal(requestCount, 3)
+})
+
+test('real HTTP reconnect catches up the Host revision and restores Showdown presence', async t => {
+  const host = createLanSurvivorHost({
+    app: { getVersion: () => '3.4.0' },
+    host: '127.0.0.1',
+    dataService: {
+      ConflictError,
+      ValidationError,
+      getSavedAppSettings() {
+        return { userName: 'Host', lanDisplayName: 'Table Host' }
+      },
+      ensureDataFolderConfigured() {
+        return '/tmp/survivors'
+      },
+      getSettlementRecord() {
+        return { settlementType: 'campaign' }
+      }
+    }
+  })
+  await host.start(0)
+  const hostPort = host.getStatus().port
+  let settings = {
+    survivorDataMode: 'lan-client',
+    lanClientConnected: true,
+    lanAutoReconnect: true,
+    lanHostAddress: '127.0.0.1',
+    lanPort: hostPort,
+    lanDisplayName: 'Loopback Client'
+  }
+  const harness = makeHarness({
+    dataService: {
+      getSavedAppSettings() {
+        return settings
+      },
+      saveAppSettings(_app, nextSettings) {
+        settings = { ...nextSettings }
+        return settings
+      }
+    }
+  })
+  t.after(async () => {
+    settings = { ...settings, lanClientConnected: false }
+    await harness.handlers.get('save-app-settings')(null, settings)
+    await host.stop()
+    harness.cleanup()
+  })
+  await harness.ready()
+
+  const window = harness.electron.BrowserWindow.instances[0]
+  const reconcileEvents = () => window.sentMessages
+    .filter(message => message.channel === 'lan-survivor-data-changed')
+    .map(message => message.args[0])
+    .filter(payload => payload?.action === 'reconcile')
+  await waitFor(() => host.showdownState().players.length === 2 && reconcileEvents().length === 1)
+  const initialReconcile = reconcileEvents()[0]
+  assert.equal(initialReconcile.dataRevision, 0)
+  assert.deepEqual(
+    await harness.handlers.get('ack-lan-data-revision')(null, {
+      sessionId: initialReconcile.dataSessionId,
+      revision: initialReconcile.dataRevision
+    }),
+    { acknowledged: true }
+  )
+
+  await host.stop()
+  host.announceSurvivorDataChange('save', 'remote-change.json')
+  await host.start(hostPort)
+
+  await waitFor(() => host.showdownState().players.length === 2 &&
+    reconcileEvents().some(payload => payload.dataRevision === 1))
+  const catchUp = reconcileEvents().find(payload => payload.dataRevision === 1)
+  assert.ok(catchUp)
+  assert.deepEqual(
+    await harness.handlers.get('ack-lan-data-revision')(null, {
+      sessionId: catchUp.dataSessionId,
+      revision: catchUp.dataRevision
+    }),
+    { acknowledged: true }
+  )
+
+  const hostVote = host.voteShowdown('host', {
+    round: host.showdownState().round,
+    action: 'depart'
+  })
+  assert.equal(hostVote.phase, 'preparing')
+  assert.equal(hostVote.departed.length, 1)
+  assert.equal(hostVote.players.length, 2)
+})
+
 test('get-lan-host-info reports LAN URLs from local network interfaces', async t => {
   let settings = { survivorDataMode: 'lan-host', lanHostEnabled: true, lanPort: 3765 }
   const harness = makeHarness({
@@ -877,7 +1039,8 @@ test('get-lan-host-info reports LAN URLs from local network interfaces', async t
     running: true,
     port: 4567,
     addresses: ['192.168.1.44'],
-    urls: ['http://192.168.1.44:4567']
+    urls: ['http://192.168.1.44:4567'],
+    players: []
   })
 })
 

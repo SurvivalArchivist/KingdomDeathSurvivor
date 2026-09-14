@@ -1,5 +1,65 @@
 # Model Handoff Log
 
+## Version 3.4.0 Release Preparation
+
+- 2026-09-14: Prepared the 3.4.0 release metadata for the LAN stability and QoL update, including the package/lockfile version bump, changelog, release notes, README release references, and runtime-version test expectations. The release includes Host-confirmed reconnect presence, revision-based event refresh/reconciliation, lossless refresh coalescing, player/protocol diagnostics, registration/shutdown/backoff/wake recovery, Settings version display, and the Showdown Knowledge upgrade template choice.
+
+## Real-Socket LAN Reconnect Lifecycle Coverage
+
+- 2026-09-14: Added an automated loopback acceptance covering the full LAN stability chain over actual HTTP/SSE transport: initial Client registration and revision acknowledgement, Host shutdown, an authoritative data revision while the Client is absent, Host restart, automatic reconnect, renderer-acknowledged catch-up, restored two-player Showdown presence, and the Host remaining blocked at `1/2` after its Depart vote. Physical multi-device and sleep/resume acceptance remains the final validation step.
+
+## LAN Wake And Focus Recovery
+
+- 2026-09-14: Completed the practical stream-recovery slice by making system resume, application activation, and window focus cancel pending reconnect backoff and retry immediately after a known LAN disconnect. Healthy and currently connecting streams are left unchanged, preventing duplicate registrations. Main-process regression coverage verifies both focus and resume paths. Network-interface changes rely on these reliable cross-platform signals rather than adding a polling loop.
+
+## Bounded LAN Reconnect Backoff
+
+- 2026-09-14: Replaced the fixed LAN Client stream retry interval with deterministic bounded exponential backoff: roughly 1, 2, 4, 8, 16, then at most 30 seconds, with ±20% jitter to keep multiple Clients from retrying in lockstep. Valid Host registration and explicit settings/Connect actions reset the sequence so manual recovery is immediate. Added a focused helper and bounds/reset tests; wake/focus recovery is next.
+
+## LAN Stream Registration And Shutdown Recovery
+
+- 2026-09-14: Started stream recovery hardening by adding an eight-second Client registration timeout, preventing a half-open SSE request from leaving LAN status indefinitely in `Connecting`. Intentional Host shutdown now sends a final best-effort `host-shutdown` event before closing streams so Clients move offline immediately and enter normal auto-reconnect behavior. Added focused Host lifecycle regression coverage; bounded backoff and wake/focus recovery remain next.
+
+## Live LAN Player Diagnostics
+
+- 2026-09-14: Completed Host-side player diagnostics by publishing roster changes on connect/disconnect, retaining disconnected identities with last-seen timestamps, and rendering live connection state, display name, and app version in Host Settings. Added regressions for incompatible protocol rejection without roster registration and disconnected-player diagnostic retention.
+
+## Settings Application Version
+
+- 2026-09-14: Added the running Electron application version to the Settings header via runtime info, formatted as `v{version}` and sourced from the packaged app metadata so future releases update automatically. Added renderer coverage using `v3.4.0`.
+
+## LAN Player And Protocol Diagnostics Foundation
+
+- 2026-09-14: Added LAN protocol/app versions to Host health and SSE registration, included Client display name/app version/protocol during registration, rejected incompatible SSE protocols, reported incompatible health responses clearly, and exposed connected Host/Client identities and versions in Host Settings. Last-seen detail and focused compatibility regression coverage remain the next diagnostic slice.
+
+## Lossless LAN Refresh Coalescing
+
+- 2026-09-14: Coalesced bursts of LAN survivor/Settlement change notifications into one authoritative refresh and added an in-flight dirty flag so any number of changes arriving during that refresh schedule exactly one follow-up refresh. Removed redundant per-event health checks because the authoritative refresh already updates LAN status. Renderer regression coverage verifies two initial events plus two in-flight events produce exactly two refreshes without losing the final state.
+
+## LAN Renderer-Acknowledged Synchronization
+
+- 2026-09-14: Completed reconnect data reconciliation by tracking the Host cursor separately as observed, pending, and renderer-applied state. LAN Clients now show `Synchronizing` while an authoritative reload is pending and acknowledge the Host revision only after `refreshPeople` succeeds; failed reloads remain pending instead of falsely reporting fully synchronized. Added the acknowledgement IPC/preload path and status styling. Refresh burst coalescing is the next LAN stability slice.
+
+## LAN Reconnect Data Reconciliation Foundation
+
+- 2026-09-14: Started the top LAN stability roadmap item by adding a Host process-session ID and monotonic data revision to every survivor/Settlement change event and SSE registration acknowledgement. LAN Clients compare the acknowledged cursor with their last observed cursor and trigger an authoritative Settlement reconciliation after missed changes or a Host restart. Host lifecycle coverage verifies revisions survive stream reconnects. Renderer-applied acknowledgement and a `Synchronizing` status remain the next slice.
+
+## LAN Roadmap Reconciliation
+
+- 2026-09-14: Reconciled the LAN survivor plan, implementation handoff, and engineering roadmap with the production Host/Client role gate, Host-owned Settlement/default-template behavior, shared Showdown readiness, Host-confirmed reconnect registration, and event-driven refresh for both LAN roles. Added a prioritized stability/QoL roadmap led by authoritative reconnect catch-up with Host-owned data revisions, followed by refresh coalescing, client/version diagnostics, stream recovery hardening, diagnostics export, and repeat multi-device acceptance.
+
+## Showdown Knowledge Upgrade Choice
+
+- 2026-09-14: When an eligible Knowledge or Tenet Knowledge entry has no preselected next template, its Showdown Upgrade action now opens the chooser with both `Create New` and `Use Existing Template`. A valid preselected next template still applies immediately, while MAX LEVEL remains non-upgradeable.
+
+## Event-Driven LAN Settlement Refresh
+
+- 2026-09-14: LAN Host and LAN Client modes no longer run the periodic Settlement auto-refresh timer. Host survivor saves/deletes and direct Settlement changes are pushed to connected Clients, while Client survivor writes notify the Host renderer and all connected Clients. Change recipients reload authoritative survivor data on receipt; manual Refresh remains available. The interval controls are disabled in both LAN modes; Local Development retains interval refresh.
+
+## LAN Auto-Reconnect Showdown Presence
+
+- 2026-09-14: Fixed automatic LAN Client reconnect recognition with an explicit Host acknowledgement. The Host registers Showdown presence before sending SSE `ready`, and that event now includes the registered player ID and authoritative roster. The Client does not report the live stream as connected until its own registered identity is present, then immediately forwards the acknowledged roster to the renderer. Regressions cover initial event ordering and the full disconnect/reconnect lifecycle, including the Host remaining blocked at `1/2` after its own Depart vote.
+
 ## v3.3.3 Release Preparation
 
 - Prepared 3.3.3 for compact navigation, Settings theme-family selection, current-mode sun/moon display, and hover clipping fixes. Includes the already-published 3.3.2 template fixes. Survivor schema remains 6 and settlement schema remains 1. Release uses the macOS, Windows, Linux x64, and Linux ARM64 publishing workflow.
