@@ -71,6 +71,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Production requires LAN Host or LAN Client. A startup role gate catches new/default and legacy Local configurations before survivor workflows initialize. `npm run dev` adds `--dev` and is the only supported way to expose Local Development; packaged builds and ordinary `npm start` reject Local mode in the main process and provider layer.
 - `LAN Host` uses the selected local survivor folder as authoritative storage and exposes a main-process HTTP JSON API for survivor health/list/load/save/delete operations when enabled in Settings.
 - `LAN Host` also exposes a Server-Sent Events stream for survivor-data changes; LAN Client uses those events as refresh triggers and still reloads authoritative data through the existing survivor APIs.
+- In both LAN Host and LAN Client modes, Settlement refresh is event-driven rather than interval-driven. Host survivor and Settlement writes notify connected Clients, and Client survivor writes notify both the Host renderer and connected Clients; each receiver reloads authoritative data when the change event arrives. Manual refresh remains available. Local Development retains interval refresh.
 - `LAN Client` routes survivor list/load/save/delete calls to the configured host HTTP API and does not require a local Survivors folder for survivor CRUD.
 - The default new-survivor template lives at `default_survivor_template/default-new-survivor.json` inside the authoritative Survivors folder. There is no separate template Data Source; LAN Clients load and save the Host's copy through the survivor provider/API.
 - Every new survivor form gets fresh identity and history metadata; reusable templates supply starting values only. Keep each draft ID stable through edits/retries, and preserve identity when editing existing survivors.
@@ -79,7 +80,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Settings shows LAN Host URLs from local IPv4 addresses and includes a manual `Export Backup` action for copying the configured survivor folder before a session.
 - LAN Host advertises itself with best-effort UDP broadcast; LAN Client Settings can scan/select discovered hosts while retaining manual host address entry as the fallback.
 - In LAN Client mode, survivor write controls are disabled when the latest status is `Offline` or `Error`, survivor operations refresh the navbar status, and writes perform a fresh pre-save status check.
-- LAN Client recovery messaging distinguishes unreachable host, validation failure, stale revision conflict, and generic server error; Auto Reconnect surfaces `Reconnecting` status while checking host health or restoring the live update stream.
+- LAN Client recovery messaging distinguishes unreachable host, validation failure, stale revision conflict, and generic server error; Auto Reconnect surfaces `Reconnecting` status while checking host health or restoring the live update stream. Stream registration has an eight-second acknowledgement timeout, automatic retries use jittered exponential backoff capped at 30 seconds and reset after registration/manual connection actions, and a deliberate Host stop sends a best-effort shutdown event so Clients transition offline promptly. After a known disconnect, system resume, app activation, or window focus retries immediately without duplicating healthy/currently connecting streams.
 - Markdown/reference content remains local/cloud-backed for the first LAN phase; only survivor records are intended to become host-authoritative.
 
 ## Knowledge / Tenet Knowledge Rules
@@ -107,7 +108,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Upgrade logic in showdown:
   - Upgrade appears when `currentObservations >= observationRequirement` and mode != `maxLevel`
   - `existingTemplate`: replace with selected next template
-  - `noTemplate`: create blank next-level entry
+  - When a valid next template is already selected, apply it directly. Otherwise offer both creating a new next-level entry and upgrading from an existing template.
   - `maxLevel`: no upgrade
 
 ## Template Library

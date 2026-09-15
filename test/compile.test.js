@@ -16,6 +16,7 @@ const compileTargets = [
   path.join('src', 'dataService.js'),
   path.join('src', 'settlementService.js'),
   path.join('src', 'lanSurvivorHost.js'),
+  path.join('src', 'lanReconnectBackoff.js'),
   path.join('src', 'survivorProvider.js')
 ]
 

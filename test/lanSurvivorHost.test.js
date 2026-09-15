@@ -40,10 +40,12 @@ async function requestJson(host, path, options = {}) {
   return response
 }
 
-async function openEventStream(host) {
+async function openEventStream(host, playerId = '') {
   const req = new EventEmitter()
   req.method = 'GET'
-  req.url = '/events'
+  const params = new URLSearchParams({ protocolVersion: '1' })
+  if (playerId) params.set('playerId', playerId)
+  req.url = `/events?${params}`
   req.setEncoding = () => {}
   req.destroy = () => {}
   const chunks = []
@@ -63,6 +65,71 @@ async function openEventStream(host) {
   await host.handleRequest(req, res)
   return { req, res, chunks }
 }
+
+test('event stream registers its Showdown player before reporting ready', async t => {
+  const { host } = makeHost()
+  t.after(() => host.stop())
+
+  const stream = await openEventStream(host, 'auto-reconnecting-client')
+  const output = stream.chunks.join('')
+  const showdownIndex = output.indexOf('event: showdown-changed')
+  const readyIndex = output.indexOf('event: ready')
+
+  assert.ok(showdownIndex >= 0)
+  assert.ok(readyIndex > showdownIndex)
+  assert.deepEqual(host.showdownState().players, [
+    { id: 'host', connected: true },
+    { id: 'auto-reconnecting-client', connected: true }
+  ])
+  const readyData = output.slice(readyIndex).match(/data: (.+)\n/)?.[1]
+  const ready = JSON.parse(readyData)
+  assert.equal(ready.playerId, 'auto-reconnecting-client')
+  assert.deepEqual(ready.showdown.players, host.showdownState().players)
+  assert.ok(ready.dataSessionId)
+  assert.equal(ready.dataRevision, 0)
+})
+
+test('automatic stream reconnection restores the player before departure can complete', async t => {
+  const { host } = makeHost({ getSettlementRecord: () => ({ settlementType: 'campaign' }) })
+  t.after(() => host.stop())
+
+  const first = await openEventStream(host, 'returning-client')
+  first.req.emit('close')
+  assert.deepEqual(host.showdownState().players, [{ id: 'host', connected: true }])
+
+  const reconnected = await openEventStream(host, 'returning-client')
+  const readyData = reconnected.chunks.join('').match(/event: ready\ndata: (.+)\n/)?.[1]
+  const ready = JSON.parse(readyData)
+  assert.equal(ready.showdown.players.length, 2)
+
+  const hostVote = host.voteShowdown('host', { round: ready.showdown.round, action: 'depart' })
+  assert.equal(hostVote.phase, 'preparing')
+  assert.equal(hostVote.departed.length, 1)
+  assert.equal(hostVote.players.length, 2)
+})
+
+test('stopping the LAN host explicitly tells connected clients it is shutting down', async () => {
+  const fakeHttp = {
+    createServer() {
+      const server = new EventEmitter()
+      server.listen = (_port, _host, callback) => process.nextTick(callback)
+      server.address = () => ({ port: 3765 })
+      server.close = callback => process.nextTick(() => callback?.())
+      return server
+    }
+  }
+  const { host } = makeHost({}, { httpModule: fakeHttp })
+  await host.start(3765)
+  const stream = await openEventStream(host, 'shutdown-client')
+
+  await host.stop()
+
+  const output = stream.chunks.join('')
+  assert.match(output, /event: host-shutdown/)
+  assert.match(output, /"message":"LAN Host stopped"/)
+  assert.equal(stream.res.ended, true)
+  assert.deepEqual(host.getStatus(), { running: false, port: null })
+})
 
 function makeHost(overrides = {}, hostOptions = {}) {
   const calls = []
@@ -118,6 +185,7 @@ test('LAN survivor host exposes health and survivor read endpoints', async t => 
   assert.equal(health.body.ok, true)
   assert.equal(health.body.mode, 'lan-host')
   assert.equal(health.body.displayName, 'Lantern Host')
+  assert.equal(health.body.protocolVersion, 1)
 
   assert.deepEqual((await requestJson(host, '/survivors')).body, ['alice.json'])
   assert.deepEqual((await requestJson(host, '/survivors/summaries')).body.records, [
@@ -125,6 +193,26 @@ test('LAN survivor host exposes health and survivor read endpoints', async t => 
   ])
   assert.deepEqual((await requestJson(host, '/survivors/alice.json')).body, { name: 'Alice' })
   assert.deepEqual(calls.filter(call => call[0] === 'listPeople'), [['listPeople', '/tmp/survivors']])
+})
+
+test('LAN host rejects incompatible event protocols without registering a player', async () => {
+  const { host } = makeHost()
+  const response = await requestJson(host, '/events?protocolVersion=99')
+  assert.equal(response.status, 409)
+  assert.equal(response.body.errorType, 'incompatible-version')
+  assert.equal(host.connectedPlayers().length, 1)
+})
+
+test('LAN host retains disconnected player diagnostics with last-seen state', async () => {
+  const updates = []
+  const { host } = makeHost({}, { onPlayersChanged: players => updates.push(players) })
+  const stream = await openEventStream(host, 'diagnostic-client')
+  assert.equal(host.connectedPlayers()[1].connected, true)
+  stream.req.emit('close')
+  const player = host.connectedPlayers()[1]
+  assert.equal(player.connected, false)
+  assert.ok(player.lastSeen)
+  assert.ok(updates.length >= 2)
 })
 
 test('LAN host serves its settlement and returns registration warnings without failing survivor saves', async t => {
@@ -191,7 +279,8 @@ test('LAN survivor host reads and saves the default template in the survivor fol
 })
 
 test('LAN survivor host streams survivor data change events', async t => {
-  const { host } = makeHost()
+  const hostNotifications = []
+  const { host } = makeHost({}, { onSurvivorDataChanged: payload => hostNotifications.push(payload) })
   const stream = await openEventStream(host)
 
   assert.equal(stream.res.statusCode, 200)
@@ -207,7 +296,22 @@ test('LAN survivor host streams survivor data change events', async t => {
   assert.match(output, /event: survivor-data-changed/)
   assert.match(output, /"action":"save"/)
   assert.match(output, /"fileName":"alice\.json"/)
+  assert.equal(hostNotifications.length, 1)
+  assert.equal(hostNotifications[0].fileName, 'alice.json')
+  assert.ok(hostNotifications[0].dataSessionId)
+  assert.equal(hostNotifications[0].dataRevision, 1)
+
+  host.announceSurvivorDataChange('delete', 'bob.json')
+  assert.match(stream.chunks.join(''), /"action":"delete"/)
+  assert.match(stream.chunks.join(''), /"fileName":"bob\.json"/)
+  assert.equal(hostNotifications.length, 1)
   stream.req.emit('close')
+
+  const reconnected = await openEventStream(host, 'returning-data-client')
+  const readyData = reconnected.chunks.join('').match(/event: ready\ndata: (.+)\n/)?.[1]
+  const ready = JSON.parse(readyData)
+  assert.equal(ready.dataSessionId, hostNotifications[0].dataSessionId)
+  assert.equal(ready.dataRevision, 2)
 })
 
 test('LAN survivor host can recover after a failed start', async t => {

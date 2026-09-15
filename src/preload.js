@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('lan-showdown-changed', wrapped)
   },
   getLanConnectionStatus: () => ipcRenderer.invoke('get-lan-connection-status'),
+  ackLanDataRevision: cursor => ipcRenderer.invoke('ack-lan-data-revision', cursor),
   getLanHostInfo: () => ipcRenderer.invoke('get-lan-host-info'),
   getLanDiscoveredHosts: () => ipcRenderer.invoke('get-lan-discovered-hosts'),
   exportSurvivorDataBackup: () => ipcRenderer.invoke('export-survivor-data-backup'),
@@ -43,6 +44,12 @@ contextBridge.exposeInMainWorld('api', {
     return () => {
       ipcRenderer.removeListener('lan-survivor-data-changed', wrapped)
     }
+  },
+  onLanPlayersChanged: listener => {
+    if (typeof listener !== 'function') return () => {}
+    const wrapped = (_event, players) => listener(players)
+    ipcRenderer.on('lan-players-changed', wrapped)
+    return () => ipcRenderer.removeListener('lan-players-changed', wrapped)
   },
   onLanDiscoveredHostsChanged: listener => {
     if (typeof listener !== 'function') return () => {}

@@ -1,6 +1,6 @@
 # Engineering Roadmap
 
-Last updated: 2026-09-07
+Last updated: 2026-09-14
 
 ## Purpose
 
@@ -10,8 +10,8 @@ Roadmap entries are directions to investigate or implement deliberately, not aut
 
 ## Current Baseline
 
-- Version 3.3.1 is prepared for tagged release.
-- The standard preflight passes 276/276 tests.
+- Version 3.4.0 is the current release candidate; 3.3.3 remains the latest tag until publishing completes.
+- The current working tree passes 292 tests, including real-socket LAN reconnect/reconciliation/readiness lifecycle coverage, event-driven Host/Client refresh, bounded wake-aware stream recovery, and Showdown knowledge-upgrade choice coverage.
 - Production and full npm audits report zero vulnerabilities after updating transitive `fast-uri` to 3.1.7.
 - Windows setup and portable builds passed user acceptance with Electron 41.10.4 and Electron Builder 26.15.7.
 - Production is Host/Client only; Local Development is exposed only through `npm run dev`. New/default and legacy Local configurations are gated at startup until a role is selected.
@@ -22,16 +22,16 @@ Roadmap entries are directions to investigate or implement deliberately, not aut
 
 ## Recommended Order
 
-1. Continue the selected Host/Client production direction by making Host readiness and Client connection mandatory before normal workflows, if required by the next product decision.
-2. Consolidate remaining mode/capability checks after the startup role gate has settled.
-3. Confirm the open product decisions in the Knowledge predecessor-link proposal, then implement it on top of the selected capability foundation.
-4. Keep the survivor index deferred until authority rules are proven and profiling or operational experience demonstrates a need.
-5. Split Settlement renderer responsibilities only when meaningful Settlement work makes that boundary useful.
-6. Continue renderer/test/performance work when driven by a concrete feature, measured bottleneck, or regression risk.
+1. Repeat physical multi-device acceptance for the stream-recovery work now covered over automated real-socket loopback: registration timeout, bounded reconnect backoff, wake/focus recovery, reconciliation, and explicit Host-shutdown signaling.
+2. Continue the selected Host/Client production direction by deciding whether successful Host readiness or Client connection is mandatory before normal workflows.
+3. Consolidate remaining mode/capability checks after the startup role gate has settled.
+4. Confirm the open product decisions in the Knowledge predecessor-link proposal, then implement it on top of the selected capability foundation.
+5. Keep the survivor index deferred until authority rules are proven and profiling or operational experience demonstrates a need.
+6. Split Settlement renderer responsibilities only when meaningful Settlement work makes that boundary useful.
 
 ## Selected: Host/Client Production with Development-only Local Mode
 
-Status: **selected and partially implemented**.
+Status: **selected and substantially implemented**.
 
 The options and their delivery implications are in `docs/FEATURE_CAPABILITY_AND_SETTLEMENT_AUTHORITY_PLAN.md`.
 
@@ -46,7 +46,7 @@ Option A retains Local Files for per-survivor features and derived queries, but 
 
 Option B removes Local Files from the main app. First launch requires choosing Host or Client; a Host must configure and start its authoritative storage, while a Client must join a Host before the rest of the app becomes available. Local-only operation may later continue as a separately maintained app or fork, but that is not part of this decision or plan.
 
-The implemented first step requires Host or Client in production and retains Local solely as a developer workflow. Mandatory Host startup and successful Client connection before entering every normal workflow remain separate follow-up decisions.
+Production requires Host or Client and retains Local solely as a developer workflow. Host authority is enforced for direct Settlement changes, while Clients route survivor, settlement-read, default-template, and Showdown coordination through the Host. Mandatory successful Host startup or Client connection before entering every normal workflow remains a separate follow-up decision.
 
 ## Deferred: Settlement Survivor Index
 
@@ -141,9 +141,13 @@ Previously planned rename, departed Showdown, partial-save, knowledge-upgrade, v
 
 ### LAN Maintenance
 
-- Repeat Host/Client acceptance after substantial Electron, provider, network, capability, or settlement-authority changes.
-- Consider host-side client visibility only if operational experience demonstrates a need.
-- Consider authentication or reference-content hosting only if scope expands beyond trusted local survivor-data sharing.
+Priority order:
+
+1. Repeat physical Host/Client acceptance for disconnect/reconnect, sleep/resume, authoritative reconciliation, and Showdown player recognition. Automated real-socket recovery coverage is implemented.
+2. Add exportable non-sensitive LAN diagnostics and a compact pre-session readiness check.
+3. Repeat Host/Client acceptance after substantial Electron, provider, network, capability, settlement-authority, or Showdown coordination changes.
+
+Authentication and reference-content hosting remain conditional on demonstrated scope beyond trusted local survivor-data sharing. Peer-to-peer sync, silent failed-write replay, and multiple survivor authorities remain out of scope.
 
 ### Packaging and Distribution
 

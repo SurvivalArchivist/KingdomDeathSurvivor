@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, nativeImage, Menu } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, nativeImage, Menu, powerMonitor } = require('electron')
 const fs = require('fs')
 const { randomUUID } = require('crypto')
 const showdownPlayerId = randomUUID()
@@ -10,15 +10,21 @@ const path = require('path')
 const MarkdownIt = require('markdown-it')
 const dataService = require('./dataService')
 const { createLanSurvivorHost } = require('./lanSurvivorHost')
+const { createLanReconnectBackoff } = require('./lanReconnectBackoff')
 const { createSurvivorProvider, normalizeLanHostBaseUrl } = require('./survivorProvider')
 
 let mainWindow
 let lanSurvivorHost
 let lanClientEventRequest = null
 let lanClientEventReconnectTimer = null
+let lanClientEventRegistrationTimer = null
 let lanClientEventBuffer = ''
 let lanClientEventGeneration = 0
 let lanClientEventState = { connected: false, errorMessage: '' }
+const lanClientReconnectBackoff = createLanReconnectBackoff()
+let lanClientDataCursor = null
+let lanClientAppliedDataCursor = null
+let lanClientPendingDataCursor = null
 let lanDiscoverySocket = null
 let lanDiscoveryAdvertiseTimer = null
 const discoveredLanHosts = new Map()
@@ -27,6 +33,8 @@ const appIconPngPath = path.join(__dirname, '..', 'ui', 'assets', 'app-icon.png'
 const LAN_DISCOVERY_PORT = 3766
 const LAN_DISCOVERY_STALE_MS = 15000
 const LAN_DISCOVERY_ADVERTISE_MS = 3000
+const LAN_PROTOCOL_VERSION = 1
+const LAN_EVENT_REGISTRATION_TIMEOUT_MS = 8000
 const SMOKE_TEST_ARG = '--smoke-test'
 const SMOKE_TEST_TIMEOUT_MS = 20000
 const SMOKE_TEST_SUCCESS_MARKER = 'KDM_PACKAGED_SMOKE_TEST_OK'
@@ -115,6 +123,7 @@ function createWindow() {
   }
   mainWindow.on('enter-full-screen', () => sendFullScreenState(mainWindow))
   mainWindow.on('leave-full-screen', () => sendFullScreenState(mainWindow))
+  mainWindow.on('focus', () => recoverLanClientEventStream())
   if (isSmokeTest) configureSmokeTest(mainWindow)
   const loadPromise = mainWindow.loadFile(path.join(__dirname, '..', 'ui', 'components', 'index.html'))
   if (isSmokeTest && loadPromise && typeof loadPromise.catch === 'function') {
@@ -128,7 +137,13 @@ function getSurvivorProvider() {
 
 function getLanSurvivorHost() {
   if (!lanSurvivorHost) {
-    lanSurvivorHost = createLanSurvivorHost({ app, dataService, onShowdownChanged: payload => sendRendererEvent('lan-showdown-changed', payload) })
+    lanSurvivorHost = createLanSurvivorHost({
+      app,
+      dataService,
+      onShowdownChanged: payload => sendRendererEvent('lan-showdown-changed', payload),
+      onSurvivorDataChanged: payload => sendRendererEvent('lan-survivor-data-changed', payload),
+      onPlayersChanged: players => sendRendererEvent('lan-players-changed', players)
+    })
   }
   return lanSurvivorHost
 }
@@ -243,7 +258,8 @@ function getLanHostInfo() {
     running: Boolean(hostStatus.running),
     port,
     addresses,
-    urls: addresses.map(address => `http://${address}:${port}`)
+    urls: addresses.map(address => `http://${address}:${port}`),
+    players: hostStatus.running ? getLanSurvivorHost().connectedPlayers?.() || [] : []
   }
 }
 
@@ -359,6 +375,10 @@ function stopLanClientEventStream() {
     clearTimeout(lanClientEventReconnectTimer)
     lanClientEventReconnectTimer = null
   }
+  if (lanClientEventRegistrationTimer) {
+    clearTimeout(lanClientEventRegistrationTimer)
+    lanClientEventRegistrationTimer = null
+  }
   if (lanClientEventRequest) {
     try {
       lanClientEventRequest.destroy()
@@ -405,22 +425,82 @@ function handleLanClientEventChunk(chunk, generation) {
   lanClientEventBuffer = events.pop() || ''
   for (const rawEvent of events) {
     const parsed = parseSseEvent(rawEvent)
-    if (!['survivor-data-changed', 'showdown-changed'].includes(parsed.eventName)) continue
+    if (!['ready', 'host-shutdown', 'survivor-data-changed', 'showdown-changed'].includes(parsed.eventName)) continue
     let payload = null
     try {
       payload = JSON.parse(parsed.data)
     } catch {
       payload = { action: 'unknown' }
     }
+    if (parsed.eventName === 'ready') {
+      const registered = payload?.playerId === showdownPlayerId &&
+        payload?.showdown?.players?.some(player => player?.id === showdownPlayerId && player.connected)
+      if (!registered) {
+        markLanClientEventDisconnected('LAN Host did not confirm this player registration', generation)
+        try {
+          lanClientEventRequest?.destroy()
+        } catch {
+          // Ignore request cleanup failures; the reconnect timer still runs.
+        }
+        scheduleLanClientEventReconnect(generation)
+        continue
+      }
+      if (lanClientEventRegistrationTimer) {
+        clearTimeout(lanClientEventRegistrationTimer)
+        lanClientEventRegistrationTimer = null
+      }
+      lanClientReconnectBackoff.reset()
+      const nextDataCursor = {
+        sessionId: String(payload?.dataSessionId || ''),
+        revision: Math.max(0, Number(payload?.dataRevision) || 0)
+      }
+      const dataReconciliationRequired =
+        !lanClientAppliedDataCursor ||
+        !nextDataCursor.sessionId ||
+        lanClientAppliedDataCursor.sessionId !== nextDataCursor.sessionId ||
+        lanClientAppliedDataCursor.revision !== nextDataCursor.revision
+      lanClientDataCursor = nextDataCursor
+      if (dataReconciliationRequired) lanClientPendingDataCursor = nextDataCursor
+      lanClientEventState = { connected: true, errorMessage: '' }
+      sendLanConnectionStatusChanged()
+      sendRendererEvent('lan-showdown-changed', { ...payload.showdown, playerId: showdownPlayerId })
+      if (dataReconciliationRequired) {
+        sendRendererEvent('lan-survivor-data-changed', {
+          action: 'reconcile',
+          dataSessionId: nextDataCursor.sessionId,
+          dataRevision: nextDataCursor.revision
+        })
+      }
+      continue
+    }
+    if (parsed.eventName === 'host-shutdown') {
+      markLanClientEventDisconnected(payload?.message || 'LAN Host stopped', generation)
+      try {
+        lanClientEventRequest?.destroy()
+      } catch {
+        // The response close path will also attempt reconnection.
+      }
+      scheduleLanClientEventReconnect(generation)
+      continue
+    }
+    if (parsed.eventName === 'survivor-data-changed') {
+      lanClientDataCursor = {
+        sessionId: String(payload?.dataSessionId || lanClientDataCursor?.sessionId || ''),
+        revision: Math.max(0, Number(payload?.dataRevision ?? payload?.sequence) || 0)
+      }
+      lanClientPendingDataCursor = lanClientDataCursor
+      sendLanConnectionStatusChanged()
+    }
     sendRendererEvent(parsed.eventName === 'showdown-changed' ? 'lan-showdown-changed' : 'lan-survivor-data-changed', payload)
   }
 }
 
-function scheduleLanClientEventReconnect(delayMs = 5000, generation = lanClientEventGeneration) {
+function scheduleLanClientEventReconnect(generation = lanClientEventGeneration) {
   if (!isCurrentLanClientEventGeneration(generation)) return
   const settings = dataService.getSavedAppSettings(app)
   if (!settings.lanAutoReconnect || !shouldRunLanClientEventStream(settings)) return
   if (lanClientEventReconnectTimer) return
+  const delayMs = lanClientReconnectBackoff.nextDelay()
   lanClientEventReconnectTimer = setTimeout(() => {
     lanClientEventReconnectTimer = null
     if (!isCurrentLanClientEventGeneration(generation)) return
@@ -428,8 +508,23 @@ function scheduleLanClientEventReconnect(delayMs = 5000, generation = lanClientE
   }, delayMs)
 }
 
+function recoverLanClientEventStream() {
+  const settings = dataService.getSavedAppSettings(app)
+  const hasKnownDisconnect = !lanClientEventState.connected &&
+    Boolean(lanClientEventState.errorMessage) &&
+    lanClientEventState.errorMessage !== 'LAN event stream connecting'
+  if (!hasKnownDisconnect || !shouldRunLanClientEventStream(settings)) return false
+  lanClientReconnectBackoff.reset()
+  syncLanClientEventStream()
+  return true
+}
+
 function markLanClientEventDisconnected(message, generation = lanClientEventGeneration) {
   if (!isCurrentLanClientEventGeneration(generation)) return
+  if (lanClientEventRegistrationTimer) {
+    clearTimeout(lanClientEventRegistrationTimer)
+    lanClientEventRegistrationTimer = null
+  }
   lanClientEventState = { connected: false, errorMessage: String(message || 'LAN event stream disconnected') }
   sendLanConnectionStatusChanged()
 }
@@ -452,6 +547,9 @@ function syncLanClientEventStream() {
   try {
     eventUrl = new URL('/events', baseUrl)
     eventUrl.searchParams.set('playerId', showdownPlayerId)
+    eventUrl.searchParams.set('displayName', settings.lanDisplayName || settings.userName || '')
+    eventUrl.searchParams.set('appVersion', typeof app.getVersion === 'function' ? app.getVersion() : '')
+    eventUrl.searchParams.set('protocolVersion', String(LAN_PROTOCOL_VERSION))
   } catch {
     lanClientEventState = { connected: false, errorMessage: 'Invalid LAN host event URL' }
     return
@@ -472,11 +570,9 @@ function syncLanClientEventStream() {
     if (response.statusCode !== 200) {
       markLanClientEventDisconnected(`LAN event stream returned ${response.statusCode}`, generation)
       response.resume()
-      scheduleLanClientEventReconnect(5000, generation)
+      scheduleLanClientEventReconnect(generation)
       return
     }
-    lanClientEventState = { connected: true, errorMessage: '' }
-    sendLanConnectionStatusChanged()
     response.setEncoding('utf8')
     response.on('data', chunk => handleLanClientEventChunk(chunk, generation))
 
@@ -485,16 +581,28 @@ function syncLanClientEventStream() {
       if (responseClosed) return
       responseClosed = true
       markLanClientEventDisconnected(message, generation)
-      scheduleLanClientEventReconnect(5000, generation)
+      scheduleLanClientEventReconnect(generation)
     }
     response.on('end', () => handleResponseDisconnect('LAN event stream ended'))
     response.on('close', () => handleResponseDisconnect('LAN event stream closed'))
     response.on('error', err => handleResponseDisconnect(err.message || 'LAN event stream failed'))
   })
   lanClientEventRequest = request
+  lanClientEventRegistrationTimer = setTimeout(() => {
+    lanClientEventRegistrationTimer = null
+    if (!isCurrentLanClientEventGeneration(generation) || lanClientEventState.connected) return
+    markLanClientEventDisconnected('LAN Host registration timed out', generation)
+    try {
+      request.destroy()
+    } catch {
+      // Ignore request cleanup failures; the reconnect timer still runs.
+    }
+    scheduleLanClientEventReconnect(generation)
+  }, LAN_EVENT_REGISTRATION_TIMEOUT_MS)
+  lanClientEventRegistrationTimer.unref?.()
   request.on('error', err => {
     markLanClientEventDisconnected(err.message || 'LAN event stream failed', generation)
-    scheduleLanClientEventReconnect(5000, generation)
+    scheduleLanClientEventReconnect(generation)
   })
   request.end()
 }
@@ -553,24 +661,31 @@ async function getLanConnectionStatus() {
         return { mode, state: 'offline', label: 'Offline', message: `LAN host returned ${response.status}` }
       }
       const payload = await response.json().catch(() => null)
+      if (Number(payload?.protocolVersion) !== LAN_PROTOCOL_VERSION) {
+        return { mode, state: 'error', label: 'Incompatible', message: `Host uses LAN protocol ${payload?.protocolVersion ?? 'unknown'}; this app requires ${LAN_PROTOCOL_VERSION}.` }
+      }
       const pushWaiting =
         settings.lanAutoReconnect &&
         settings.lanClientConnected !== false &&
         !lanClientEventState.connected &&
         Boolean(lanClientEventState.errorMessage)
+      const synchronizing = lanClientEventState.connected && Boolean(lanClientPendingDataCursor)
       return {
         mode,
-        state: payload?.ok === false ? 'offline' : pushWaiting ? 'reconnecting' : 'connected',
-        label: payload?.ok === false ? 'Offline' : pushWaiting ? 'Reconnecting' : 'Connected',
+        state: payload?.ok === false ? 'offline' : pushWaiting ? 'reconnecting' : synchronizing ? 'synchronizing' : 'connected',
+        label: payload?.ok === false ? 'Offline' : pushWaiting ? 'Reconnecting' : synchronizing ? 'Synchronizing' : 'Connected',
         message:
           payload?.ok === false
             ? 'LAN host is unavailable'
             : pushWaiting
               ? 'Connected to LAN host; restoring live updates'
+              : synchronizing
+                ? 'Connected to LAN host; applying authoritative data updates'
               : payload?.displayName
                 ? `Connected to ${payload.displayName}`
                 : 'Connected to LAN host',
-        pushConnected: lanClientEventState.connected
+        pushConnected: lanClientEventState.connected,
+        ...(lanClientPendingDataCursor ? { dataSyncCursor: { ...lanClientPendingDataCursor } } : {})
       }
     } catch {
       return { mode, state: 'offline', label: 'Offline', message: 'LAN host is unavailable' }
@@ -600,7 +715,9 @@ app.whenReady().then(() => {
     console.error('Failed to start LAN survivor host:', err)
   })
   startLanDiscoveryService()
+  lanClientReconnectBackoff.reset()
   syncLanClientEventStream()
+  powerMonitor?.on?.('resume', recoverLanClientEventStream)
 })
 
 app.on('window-all-closed', () => {
@@ -609,6 +726,7 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  recoverLanClientEventStream()
 })
 
 app.on('before-quit', () => {
@@ -648,7 +766,10 @@ ipcMain.handle('get-app-settings', () => {
   return dataService.getSavedAppSettings(app)
 })
 
-ipcMain.handle('get-runtime-info', () => ({ isDevelopmentMode: isDevelopmentMode() }))
+ipcMain.handle('get-runtime-info', () => ({
+  isDevelopmentMode: isDevelopmentMode(),
+  appVersion: typeof app.getVersion === 'function' ? app.getVersion() : require('../package.json').version
+}))
 
 ipcMain.handle('save-app-settings', async (_event, settings) => {
   if (!isDevelopmentMode() && !['lan-host', 'lan-client'].includes(String(settings?.survivorDataMode || '').trim())) {
@@ -664,6 +785,7 @@ ipcMain.handle('save-app-settings', async (_event, settings) => {
     throw err
   }
   advertiseLanHost()
+  lanClientReconnectBackoff.reset()
   syncLanClientEventStream()
   return saved
 })
@@ -696,6 +818,19 @@ ipcMain.handle('get-lan-connection-status', () => {
   return getLanConnectionStatus()
 })
 
+ipcMain.handle('ack-lan-data-revision', (_event, cursor) => {
+  if (!lanClientPendingDataCursor) return { acknowledged: false }
+  const sessionId = String(cursor?.sessionId || '')
+  const revision = Math.max(0, Number(cursor?.revision) || 0)
+  if (sessionId !== lanClientPendingDataCursor.sessionId || revision !== lanClientPendingDataCursor.revision) {
+    return { acknowledged: false }
+  }
+  lanClientAppliedDataCursor = { sessionId, revision }
+  lanClientPendingDataCursor = null
+  sendLanConnectionStatusChanged()
+  return { acknowledged: true }
+})
+
 ipcMain.handle('get-lan-host-info', () => {
   return getLanHostInfo()
 })
@@ -714,7 +849,9 @@ ipcMain.handle('list-people', async () => {
 
 ipcMain.handle('save-settlement-name', async (_event, input) => {
   try {
-    return { ok: true, record: await getSurvivorProvider().saveSettlementName(input) }
+    const record = await getSurvivorProvider().saveSettlementName(input)
+    getLanSurvivorHost().announceSurvivorDataChange?.('settlement-save', 'settlement.json')
+    return { ok: true, record }
   } catch (err) {
     const payload = getSurvivorErrorPayload(err)
     if (payload) return payload
@@ -724,7 +861,9 @@ ipcMain.handle('save-settlement-name', async (_event, input) => {
 
 ipcMain.handle('save-settlement-settings', async (_event, input) => {
   try {
-    return { ok: true, record: await getSurvivorProvider().saveSettlementSettings(input) }
+    const record = await getSurvivorProvider().saveSettlementSettings(input)
+    getLanSurvivorHost().announceSurvivorDataChange?.('settlement-save', 'settlement.json')
+    return { ok: true, record }
   } catch (err) {
     const payload = getSurvivorErrorPayload(err)
     if (payload) return payload
@@ -734,7 +873,9 @@ ipcMain.handle('save-settlement-settings', async (_event, input) => {
 
 ipcMain.handle('save-settlement-vignette-template', async (_event, input) => {
   try {
-    return { ok: true, record: await getSurvivorProvider().saveSettlementVignetteTemplate(input) }
+    const record = await getSurvivorProvider().saveSettlementVignetteTemplate(input)
+    getLanSurvivorHost().announceSurvivorDataChange?.('settlement-template-save', 'settlement.json')
+    return { ok: true, record }
   } catch (err) {
     const payload = getSurvivorErrorPayload(err)
     if (payload) return payload
@@ -744,7 +885,9 @@ ipcMain.handle('save-settlement-vignette-template', async (_event, input) => {
 
 ipcMain.handle('restore-settlement-vignette-template', async (_event, input) => {
   try {
-    return { ok: true, ...(await getSurvivorProvider().restoreSettlementVignetteTemplate(input)) }
+    const result = await getSurvivorProvider().restoreSettlementVignetteTemplate(input)
+    getLanSurvivorHost().announceSurvivorDataChange?.('settlement-template-restore', 'settlement.json')
+    return { ok: true, ...result }
   } catch (err) {
     const payload = getSurvivorErrorPayload(err)
     if (payload) return payload
@@ -771,6 +914,9 @@ ipcMain.handle('save-person', async (_event, person, options) => {
       editorName: appSettings.userName || ''
     })
     const settlementWarning = provider.getSettlementWarning?.()
+    if (appSettings.survivorDataMode === 'lan-host') {
+      getLanSurvivorHost().announceSurvivorDataChange?.('save', fileName)
+    }
     return { ok: true, fileName, ...(settlementWarning ? { settlementWarning } : {}) }
   } catch (err) {
     const payload = getSurvivorErrorPayload(err)
@@ -781,7 +927,12 @@ ipcMain.handle('save-person', async (_event, person, options) => {
 
 ipcMain.handle('delete-person', async (_event, fileName) => {
   try {
-    return await getSurvivorProvider().deletePerson(fileName)
+    const appSettings = dataService.getSavedAppSettings(app)
+    const result = await getSurvivorProvider().deletePerson(fileName)
+    if (appSettings.survivorDataMode === 'lan-host' && result?.deleted) {
+      getLanSurvivorHost().announceSurvivorDataChange?.('delete', fileName)
+    }
+    return result
   } catch (err) {
     const payload = getSurvivorErrorPayload(err)
     if (payload) return { deleted: false, ...payload }
