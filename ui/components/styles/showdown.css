@@ -909,10 +909,32 @@ body.showdown-mode .showdown-card {
   text-transform: capitalize;
 }
 
+.recorded-severe-injury-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.severe-injury-count {
+  min-width: 2rem;
+  color: var(--muted);
+  font-weight: 800;
+  text-align: center;
+}
+
+.severe-injury-heal {
+  padding: 0.28rem 0.48rem;
+  font-size: 0.78rem;
+}
+
 .severe-injury-table th:last-child,
 .severe-injury-action-cell {
   width: 5.5rem;
   text-align: center;
+}
+
+.severe-injury-action-cell > * + * {
+  margin-left: 0.3rem;
 }
 
 .severe-injury-apply {

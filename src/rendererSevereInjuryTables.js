@@ -179,7 +179,11 @@
       },
       'Ruptured Muscle': {
         safe: false,
-        bleedingOnly: 1
+        bleedingOnly: 1,
+        actions: [
+          { type: 'recordImpairment' },
+          { type: 'addNote', text: 'Cannot activate fighting arts — Ruptured Muscle' }
+        ]
       },
       Contracture: {
         safe: true,
@@ -284,7 +288,14 @@
           { type: 'addBleeding', amount: 1 }
         ]
       },
-      'Destroyed Genitals': { safe: false, bleedingOnly: 1 },
+      'Destroyed Genitals': {
+        safe: false,
+        bleedingOnly: 1,
+        actions: [
+          { type: 'recordImpairment' },
+          { type: 'addNote', text: 'Cannot be nominated for the Intimacy story event — Destroyed Genitals' }
+        ]
+      },
       'Broken Hip': {
         safe: true,
         actions: [
@@ -318,7 +329,11 @@
       },
       Hamstrung: {
         safe: false,
-        bleedingOnly: 1
+        bleedingOnly: 1,
+        actions: [
+          { type: 'recordImpairment' },
+          { type: 'addNote', text: 'Cannot use fighting arts or abilities — Hamstrung' }
+        ]
       },
       'Torn Achilles Tendon': {
         safe: true,
@@ -336,7 +351,14 @@
           { type: 'addBleeding', amount: 1 }
         ]
       },
-      'Broken Leg': { safe: false, bleedingOnly: 1 },
+      'Broken Leg': {
+        safe: false,
+        bleedingOnly: 1,
+        actions: [
+          { type: 'recordImpairment' },
+          { type: 'adjustField', field: 'movement', amount: -1 }
+        ]
+      },
       'Bloody Thighs': { safe: true, actions: [{ type: 'addBleeding', amount: 2 }] }
     })
   })
@@ -422,6 +444,9 @@
       if (definition.requires === 'courageAtLeast3' && Number(person?.courage || 0) < 3) return { kind: 'none' }
       return { kind: 'apply' }
     }
+    if (recordEvaluation.permanent) {
+      return { kind: 'record', bleedingTokens: Math.max(0, Number(definition.bleedingOnly || 0)) }
+    }
     if (Number(definition.bleedingOnly || 0) > 0) {
       return { kind: 'bleeding', bleedingTokens: Number(definition.bleedingOnly) }
     }
@@ -438,7 +463,7 @@
     if (!notes.some(note => String(note || '').trim().toLowerCase() === text.toLowerCase())) notes.push(text)
   }
 
-  function recordCappedSevereInjury(person, location, title) {
+  function recordPermanentSevereInjury(person, location, title) {
     const normalizedLocation = String(location || '').trim().toLowerCase()
     const injuryTitle = String(title || '').trim()
     const legacyCount = getRecordedSevereInjuryCount(normalizedLocation, injuryTitle, person.impairments || [])
@@ -461,11 +486,68 @@
     return record.count
   }
 
+  function removeReminder(person, text) {
+    if (!Array.isArray(person.notes)) return
+    const normalizedText = String(text || '').trim().toLowerCase()
+    person.notes = person.notes.filter(note => String(note || '').trim().toLowerCase() !== normalizedText)
+  }
+
+  function healSevereInjury({ location, title, person } = {}) {
+    if (!person) return { ok: false, outcome: 'none', changes: [] }
+    const limit = getSevereInjuryRecordLimit(location, title)
+    const countBefore = getRecordedSevereInjuryCount(location, title, person)
+    if (!limit || countBefore < 1) return { ok: false, outcome: 'none', changes: [] }
+
+    const normalizedLocation = String(location || '').trim().toLowerCase()
+    const injuryTitle = String(title || '').trim()
+    const injuries = ensureArray(person, 'severeInjuries')
+    let recordIndex = injuries.findIndex(
+      injury =>
+        String(injury?.location || '').trim().toLowerCase() === normalizedLocation &&
+        String(injury?.name || '').trim().toLowerCase() === injuryTitle.toLowerCase()
+    )
+    if (recordIndex < 0 && Array.isArray(person.impairments)) {
+      const legacyMatches = person.impairments.filter(
+        impairment => String(impairment || '').trim().toLowerCase() === injuryTitle.toLowerCase()
+      ).length
+      if (legacyMatches > 0) {
+        injuries.push({ location: normalizedLocation, name: injuryTitle, count: legacyMatches })
+        recordIndex = injuries.length - 1
+        person.impairments = person.impairments.filter(
+          impairment => String(impairment || '').trim().toLowerCase() !== injuryTitle.toLowerCase()
+        )
+      }
+    }
+    if (recordIndex < 0) return { ok: false, outcome: 'none', changes: [] }
+
+    const remainingCount = countBefore - 1
+    if (remainingCount > 0) injuries[recordIndex].count = remainingCount
+    else injuries.splice(recordIndex, 1)
+
+    const changes = [`healed ${injuryTitle} (${remainingCount} remaining)`]
+    const definition = getSevereInjuryActionDefinition(location, title)
+    for (const action of definition?.actions || []) {
+      const minimumRecordCount = Math.max(1, Number(action.minimumRecordCount || 1))
+      if (minimumRecordCount > countBefore) continue
+      if (action.type === 'adjustField') {
+        const amount = -Number(action.amount || 0)
+        person[action.field] = Number(person[action.field] || 0) + amount
+        changes.push(`${action.field} ${amount >= 0 ? '+' : ''}${amount}`)
+      } else if (action.type === 'addNote' && remainingCount < minimumRecordCount) {
+        removeReminder(person, action.text)
+        changes.push(`removed reminder: ${action.text}`)
+      }
+    }
+    return { ok: true, outcome: 'healed', remainingCount, changes }
+  }
+
   function applySevereInjuryAction({ location, title, person, armor, modifiers, mode = 'apply' } = {}) {
     if (!person || !armor) return { ok: false, outcome: 'none', changes: [] }
     const availability = getSevereInjuryActionAvailability(location, title, person)
     if (mode === 'bleeding') {
-      if (availability.kind !== 'bleeding') return { ok: false, outcome: 'none', changes: [] }
+      if (availability.kind !== 'bleeding' && !(availability.kind === 'record' && availability.bleedingTokens > 0)) {
+        return { ok: false, outcome: 'none', changes: [] }
+      }
       const amount = Math.max(0, Number(availability.bleedingTokens || 0))
       armor.bleedingTokens = Math.max(0, Number(armor.bleedingTokens || 0) + amount)
       return { ok: true, outcome: 'bleeding-only', changes: [`+${amount} bleeding token${amount === 1 ? '' : 's'}`] }
@@ -474,17 +556,22 @@
       armor.bleedingTokens = Math.max(0, Number(armor.bleedingTokens || 0) + 1)
       return { ok: true, outcome: 'maximum-bleeding', changes: ['+1 bleeding token (permanent injury already at maximum)'] }
     }
-    if (availability.kind !== 'apply') return { ok: false, outcome: 'none', changes: [] }
+    if (availability.kind !== 'apply' && !(mode === 'record' && availability.kind === 'record')) {
+      return { ok: false, outcome: 'none', changes: [] }
+    }
 
     const definition = getSevereInjuryActionDefinition(location, title)
     const recordEvaluation = evaluateSevereInjuryResult(location, title, person)
     const willRecord =
-      Number.isInteger(recordEvaluation.maxRecords) &&
+      recordEvaluation.permanent &&
       definition.actions.some(action => action.type === 'recordImpairment')
     const recordCountAfter = recordEvaluation.recordedCount + (willRecord ? 1 : 0)
     const changes = []
     for (const action of definition.actions) {
       if (Number(action.minimumRecordCount || 0) > recordCountAfter) continue
+      if (mode === 'record' && action.type !== 'recordImpairment' && action.type !== 'adjustField' && action.type !== 'addNote') {
+        continue
+      }
       if (action.type === 'die') {
         person.isAlive = false
         changes.push('marked dead')
@@ -496,9 +583,12 @@
         person.weaponProficiency.level = Math.max(0, Math.min(8, before + Number(action.amount || 0)))
         changes.push(`weapon proficiency ${Number(action.amount || 0) >= 0 ? '+' : ''}${Number(action.amount || 0)}`)
       } else if (action.type === 'recordImpairment') {
-        if (Number.isInteger(recordEvaluation.maxRecords)) {
-          const count = recordCappedSevereInjury(person, location, title)
-          changes.push(`recorded ${String(title || '').trim()} (${count}/${recordEvaluation.maxRecords})`)
+        if (recordEvaluation.permanent) {
+          const count = recordPermanentSevereInjury(person, location, title)
+          const countLabel = Number.isInteger(recordEvaluation.maxRecords)
+            ? `${count}/${recordEvaluation.maxRecords}`
+            : String(count)
+          changes.push(`recorded ${String(title || '').trim()} (${countLabel})`)
         }
       } else if (action.type === 'adjustField') {
         const amount = Number(action.amount || 0)
@@ -548,13 +638,22 @@
     return `<span class="severe-injury-pips" aria-label="${escapeHtml(title)}: ${count} of ${limit.maxRecords} recorded">${pips}</span>`
   }
 
+  function renderSevereInjuryCount(location, title, person) {
+    const limit = getSevereInjuryRecordLimit(location, title)
+    if (!limit) return ''
+    if (Number.isInteger(limit.maxRecords)) return renderSevereInjuryPips(location, title, person)
+    const count = getRecordedSevereInjuryCount(location, title, person)
+    return count > 0
+      ? `<span class="severe-injury-count" aria-label="${escapeHtml(title)}: ${count} recorded">×${count}</span>`
+      : ''
+  }
+
   function renderRecordedSevereInjuries(person) {
     const rows = Object.entries(RECORDING_LIMITS).flatMap(([location, limits]) =>
       Object.entries(limits)
-        .filter(([, maxRecords]) => Number.isInteger(maxRecords))
         .filter(([title]) => getRecordedSevereInjuryCount(location, title, person) > 0)
         .map(([title]) =>
-          `<li class="recorded-severe-injury"><span><strong>${escapeHtml(title)}</strong><span class="recorded-severe-injury-location">${escapeHtml(location)}</span></span>${renderSevereInjuryPips(location, title, person)}</li>`
+          `<li class="recorded-severe-injury"><span><strong>${escapeHtml(title)}</strong><span class="recorded-severe-injury-location">${escapeHtml(location)}</span></span><span class="recorded-severe-injury-controls">${renderSevereInjuryCount(location, title, person)}<button type="button" class="btn btn-secondary severe-injury-heal" data-action="healSevereInjury" data-severe-location="${escapeHtml(location)}" data-severe-title="${escapeHtml(title)}">Heal</button></span></li>`
         )
     )
     return rows.length
@@ -570,14 +669,19 @@
     const rows = table.rows
       .map(([roll, title, description]) => {
         const availability = slot && person ? getSevereInjuryActionAvailability(location, title, person) : { kind: 'none' }
-        const actionMarkup =
+        let actionMarkup =
           availability.kind === 'apply'
             ? `<button type="button" class="btn btn-secondary severe-injury-apply" data-severe-action="apply" data-severe-location="${escapeHtml(location)}" data-severe-title="${escapeHtml(title)}" data-severe-slot="${slot}">Apply</button>`
+            : availability.kind === 'record'
+              ? `<button type="button" class="btn btn-secondary severe-injury-apply" data-severe-action="record" data-severe-location="${escapeHtml(location)}" data-severe-title="${escapeHtml(title)}" data-severe-slot="${slot}">Record</button>`
             : availability.kind === 'bleeding'
               ? `<button type="button" class="severe-injury-bleeding-only" data-severe-action="bleeding" data-severe-location="${escapeHtml(location)}" data-severe-title="${escapeHtml(title)}" data-severe-slot="${slot}" aria-label="Add ${availability.bleedingTokens} bleeding token for ${escapeHtml(title)}; resolve other effects manually" title="Add bleeding token only; resolve other effects manually"><svg aria-hidden="true"><use href="#icon-bleeding"></use></svg><span>+${availability.bleedingTokens}</span></button>`
               : ''
-        const pips = person ? renderSevereInjuryPips(location, title, person) : ''
-        return `<tr><th scope="row">${escapeHtml(roll)}</th><td><span class="severe-injury-title"><strong>${escapeHtml(title)}</strong>${pips}</span></td><td>${escapeHtml(description)}</td><td class="severe-injury-action-cell">${actionMarkup}</td></tr>`
+        if (availability.kind === 'record' && availability.bleedingTokens > 0) {
+          actionMarkup += `<button type="button" class="severe-injury-bleeding-only" data-severe-action="bleeding" data-severe-location="${escapeHtml(location)}" data-severe-title="${escapeHtml(title)}" data-severe-slot="${slot}" aria-label="Add ${availability.bleedingTokens} bleeding token for ${escapeHtml(title)}; resolve other effects manually" title="Add bleeding token only; resolve other effects manually"><svg aria-hidden="true"><use href="#icon-bleeding"></use></svg><span>+${availability.bleedingTokens}</span></button>`
+        }
+        const recordIndicator = person ? renderSevereInjuryCount(location, title, person) : ''
+        return `<tr><th scope="row">${escapeHtml(roll)}</th><td><span class="severe-injury-title"><strong>${escapeHtml(title)}</strong>${recordIndicator}</span></td><td>${escapeHtml(description)}</td><td class="severe-injury-action-cell">${actionMarkup}</td></tr>`
       })
       .join('')
     return `<div class="severe-injury-reference"><table class="severe-injury-table"><thead><tr><th scope="col">Roll</th><th scope="col">Title</th><th scope="col">Description</th><th scope="col">Action</th></tr></thead><tbody>${rows}</tbody></table></div>`
@@ -590,6 +694,7 @@
     getRecordedSevereInjuryCount,
     getSevereInjuryRecordLimit,
     getSevereInjuryTable,
+    healSevereInjury,
     renderRecordedSevereInjuries,
     renderSevereInjuryTable
   }

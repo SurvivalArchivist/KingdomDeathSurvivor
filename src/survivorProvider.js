@@ -18,6 +18,15 @@ function createLocalSurvivorProvider({ app, dataService, mode = SURVIVOR_DATA_MO
     return dataService.ensureDataFolderConfigured(app)
   }
 
+  function getDataSources() {
+    return dataService.getSavedDataSources(app)
+  }
+
+  function getKnowledgeTemplatePath(type) {
+    if (type !== 'tenetKnowledge' && type !== 'knowledge') throw new Error('Invalid knowledge template type')
+    return String(getDataSources().knowledges || '').trim()
+  }
+
   return {
     mode,
     getSettlementRecord() {
@@ -66,6 +75,33 @@ function createLocalSurvivorProvider({ app, dataService, mode = SURVIVOR_DATA_MO
     deletePerson(fileName) {
       dataService.deletePerson(getDataPath(), fileName)
       return { deleted: true }
+    },
+    listMarkdownCollections() {
+      return dataService.listMarkdownCollections(getDataSources())
+    },
+    listMarkdownFiles(collectionId) {
+      return dataService.listMarkdownFiles(getDataSources(), collectionId)
+    },
+    loadMarkdownFile(collectionId, fileName) {
+      return dataService.loadMarkdownFile(getDataSources(), collectionId, fileName)
+    },
+    saveKnowledgeTemplate(type, template) {
+      const templatePath = getKnowledgeTemplatePath(type)
+      if (!templatePath) throw new Error('No Knowledges folder selected')
+      return dataService.saveKnowledgeTemplate(templatePath, type, template)
+    },
+    listKnowledgeTemplates(type) {
+      const templatePath = getKnowledgeTemplatePath(type)
+      return templatePath ? dataService.listKnowledgeTemplates(templatePath, type) : []
+    },
+    saveNeurosisTemplate(template) {
+      const templatePath = String(getDataSources().neuroses || '').trim()
+      if (!templatePath) throw new Error('No Neuroses folder selected')
+      return dataService.saveNeurosisTemplate(templatePath, template)
+    },
+    listNeurosisTemplates() {
+      const templatePath = String(getDataSources().neuroses || '').trim()
+      return templatePath ? dataService.listNeurosisTemplates(templatePath) : []
     }
   }
 }
@@ -204,6 +240,37 @@ function createLanClientSurvivorProvider({ settings, dataService, fetchImpl = gl
     },
     deletePerson(fileName) {
       return requestJson(survivorPath(fileName), { method: 'DELETE' })
+    },
+    listMarkdownCollections() {
+      return requestJson('/references/markdown/collections')
+    },
+    listMarkdownFiles(collectionId) {
+      return requestJson(`/references/markdown/${encodeURIComponent(String(collectionId || ''))}`)
+    },
+    loadMarkdownFile(collectionId, fileName) {
+      return requestJson(
+        `/references/markdown/${encodeURIComponent(String(collectionId || ''))}/${encodeURIComponent(String(fileName || ''))}`
+      )
+    },
+    async saveKnowledgeTemplate(type, template) {
+      const response = await requestJson(`/references/knowledge/${encodeURIComponent(String(type || ''))}`, {
+        method: 'POST',
+        body: JSON.stringify({ template })
+      })
+      return response?.fileName
+    },
+    listKnowledgeTemplates(type) {
+      return requestJson(`/references/knowledge/${encodeURIComponent(String(type || ''))}`)
+    },
+    async saveNeurosisTemplate(template) {
+      const response = await requestJson('/references/neuroses', {
+        method: 'POST',
+        body: JSON.stringify({ template })
+      })
+      return response?.fileName
+    },
+    listNeurosisTemplates() {
+      return requestJson('/references/neuroses')
     }
   }
 }

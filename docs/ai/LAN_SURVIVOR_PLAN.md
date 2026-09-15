@@ -1,9 +1,9 @@
 # LAN Survivor Plan
 
-Last updated: 2026-09-14
+Last updated: 2026-09-15
 
 ## Purpose
-This document records the completed plan for moving survivor data from the local/cloud-shared file model to a LAN-based host/client model, while leaving markdown/reference content on the existing local/cloud-backed approach.
+This document records the completed plan for moving survivor data and shared reference collections from client-local/cloud-shared files to a LAN Host authority.
 
 The goal is to reduce the collaboration issues caused by cloud-sync timing, stale local copies, and partial file visibility, without breaking single-user local workflows.
 
@@ -14,9 +14,7 @@ Support two production survivor data modes controlled from `Settings`:
 
 `Local Development` remains available only through `npm run dev`; packaged builds and ordinary `npm start` require Host or Client.
 
-Survivor data becomes host-authoritative in LAN modes.
-
-Reference content remains unchanged in phase 1:
+Survivor data is host-authoritative in LAN modes. The later reference-authority extension also makes these Host-owned for LAN Clients:
 - Fighting Arts
 - Secret Fighting Arts
 - Knowledges
@@ -82,11 +80,11 @@ Included:
 - delete survivor
 - showdown and create/edit flows over LAN
 
-Not included in phase 1:
+Not included in the original phase 1:
 - automatic LAN discovery
 - internet/WAN support
 - user accounts/authentication
-- markdown/reference hosting over LAN
+- markdown/reference hosting over LAN (implemented later for the listed shared collections)
 - peer-to-peer sync
 - multi-host merge logic
 
@@ -334,13 +332,13 @@ Messaging examples:
 ### In LAN Host Mode
 - survivors are host-owned and persisted on host machine
 - host local user and LAN clients use the same host-owned survivor source
-- markdown/reference content remains local/cloud for now
+- shared markdown/reference collections are read from the Host's configured folders
 - settings remain local to each machine
 
 ### In LAN Client Mode
 - survivors come only from the host
 - client does not directly edit local survivor files
-- markdown/reference content remains local/cloud for now
+- supported shared markdown/reference content comes only from the Host; listings refresh when pickers open so mid-session additions do not require reconnecting
 
 ## Expected Benefits
 This model should eliminate many of the current shared-cloud survivor problems:
@@ -418,5 +416,5 @@ This is the highest-value stability improvement now that LAN Settlement refresh 
 ### Conditional Scope
 
 - Consider authentication only if use expands beyond a trusted local network.
-- Consider reference-content hosting/caching only if local library differences become a demonstrated problem.
+- Shared reference hosting is implemented. Consider client-side caching/offline mirrors only if disconnected reference access becomes a demonstrated need; never let a cache become a second authority.
 - Do not add peer-to-peer sync, multiple authorities, silent write replay, or lock-based editing as QoL work.

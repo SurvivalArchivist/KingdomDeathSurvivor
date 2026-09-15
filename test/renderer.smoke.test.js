@@ -552,6 +552,12 @@ function seedRendererQueryElements(document) {
     })
   })
 
+  for (let index = 0; index < 5; index += 1) {
+    makeElement('div', element => {
+      element.dataset.hostReferenceSource = ''
+    })
+  }
+
   ;[
     'name',
     'age',
@@ -629,7 +635,7 @@ function setupRendererHarness(options = {}) {
     },
     async getRuntimeInfo() {
       calls.push({ name: 'getRuntimeInfo', args: [] })
-      return { isDevelopmentMode: true, appVersion: '3.5.0' }
+      return { isDevelopmentMode: true, appVersion: '3.5.1' }
     },
     async saveAppSettings(settings) {
       calls.push({ name: 'saveAppSettings', args: [deepClone(settings)] })
@@ -1084,7 +1090,7 @@ test('Settings displays the running application version', async t => {
   const harness = setupRendererHarness()
   t.after(() => harness.cleanup())
   await harness.flush()
-  assert.equal(harness.document.getElementById('settingsAppVersion').textContent, 'v3.5.0')
+  assert.equal(harness.document.getElementById('settingsAppVersion').textContent, 'v3.5.1')
 })
 
 test('packaged startup gates legacy local mode until Host or Client is chosen', async t => {
@@ -1215,6 +1221,56 @@ test('renderer enables survivor workflows for LAN client without local survivor 
   assert.equal(refreshPeople.disabled, false)
   assert.equal(createSubmit.disabled, false)
   assert.ok(listCalls.length >= 1)
+})
+
+test('LAN Client hides local reference folders because the Host is authoritative', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const referenceRows = harness.document.querySelectorAll('[data-host-reference-source]')
+  assert.equal(referenceRows.length, 5)
+  assert.ok(referenceRows.every(row => row.hidden))
+  assert.match(harness.document.getElementById('settingsLanHint').textContent, /all shared reference collections/)
+})
+
+test('opening a markdown picker fetches the latest Host collection and files', async t => {
+  let midGameFileAdded = false
+  const harness = setupRendererHarness({
+    customizeApi(api, { calls }) {
+      api.listMarkdownCollections = async () => {
+        calls.push({ name: 'listMarkdownCollections', args: [] })
+        return [{ id: 'fightingArts', category: 'fightingArts', label: 'Fighting Arts', count: midGameFileAdded ? 2 : 1 }]
+      }
+      api.listMarkdownFiles = async collectionId => {
+        calls.push({ name: 'listMarkdownFiles', args: [collectionId] })
+        return midGameFileAdded
+          ? [
+              { fileName: 'first.md', title: 'First', preview: 'Initial' },
+              { fileName: 'added-mid-game.md', title: 'Added Mid Game', preview: 'New' }
+            ]
+          : [{ fileName: 'first.md', title: 'First', preview: 'Initial' }]
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const collectionsBeforeOpen = countCalls(harness.calls, 'listMarkdownCollections')
+  midGameFileAdded = true
+  harness.click('addFightingArt')
+  await harness.flush()
+  const collectionSelect = harness.document.getElementById('addMarkdownCollection')
+  collectionSelect.value = 'fightingArts'
+  harness.dispatch(collectionSelect, 'change')
+  await harness.flush()
+
+  assert.equal(countCalls(harness.calls, 'listMarkdownCollections'), collectionsBeforeOpen + 1)
+  assert.deepEqual(
+    harness.calls.filter(call => call.name === 'listMarkdownFiles').at(-1)?.args,
+    ['fightingArts']
+  )
+  assert.equal(harness.document.getElementById('addMarkdownOptions').children.length, 2)
 })
 
 test('renderer explains the campaign reset when survivor files are incompatible', async t => {
@@ -1766,6 +1822,39 @@ test('Create/View Survivor displays persisted severe injuries as pips', async t 
   assert.match(severeInjuries, /aria-label="Blind: 1 of 2 recorded"/)
   assert.equal((severeInjuries.match(/severe-injury-pip is-filled/g) || []).length, 1)
   assert.equal((severeInjuries.match(/class="severe-injury-pip"/g) || []).length, 1)
+})
+
+test('Create/View Survivor heals one unlimited severe injury and saves the reversed effect', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(_api, { db }) {
+      db['alice.json'].accuracy = -2
+      db['alice.json'].severeInjuries = [{ location: 'arms', name: 'Contracture', count: 2 }]
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush(12)
+
+  const settlementTableBody = harness.document.getElementById('settlementTableBody')
+  const aliceRow = settlementTableBody.children.find(child => child.dataset.fileName === 'alice.json')
+  harness.dispatch(settlementTableBody, 'click', { target: aliceRow })
+  await harness.flush(12)
+
+  const createView = harness.document.getElementById('createSurvivorView')
+  const healButton = harness.document.createElement('button')
+  healButton.dataset.action = 'healSevereInjury'
+  healButton.dataset.severeLocation = 'arms'
+  healButton.dataset.severeTitle = 'Contracture'
+  harness.dispatch(createView, 'click', { target: healButton })
+
+  assert.equal(harness.document.getElementById('createSurvivorAccuracy').value, '-1')
+  assert.match(harness.document.getElementById('createSevereInjuries').innerHTML, /Contracture: 1 recorded">×1/)
+
+  harness.click('createSurvivorSubmit')
+  await harness.flush(16)
+
+  const saved = findDbPersonByName(harness.db, 'Alice')
+  assert.equal(saved.accuracy, -1)
+  assert.deepEqual(saved.severeInjuries, [{ location: 'arms', name: 'Contracture', count: 1 }])
 })
 
 test('departed showdown keeps locked slot selections when selectors change', async t => {

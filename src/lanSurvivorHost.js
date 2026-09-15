@@ -6,7 +6,7 @@ const DEFAULT_HOST = '0.0.0.0'
 const MAX_BODY_BYTES = 1024 * 1024
 const SSE_RETRY_MS = 5000
 const SSE_HEARTBEAT_MS = 25000
-const LAN_PROTOCOL_VERSION = 1
+const LAN_PROTOCOL_VERSION = 2
 
 function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload)
@@ -102,6 +102,15 @@ function createLanSurvivorHost({
 
   function getSettings() {
     return dataService.getSavedAppSettings(app)
+  }
+
+  function getDataSources() {
+    return dataService.getSavedDataSources(app)
+  }
+
+  function getKnowledgeTemplatePath(type) {
+    if (type !== 'tenetKnowledge' && type !== 'knowledge') throw new Error('Invalid knowledge template type')
+    return String(getDataSources().knowledges || '').trim()
   }
 
   function handleSaveError(err) {
@@ -273,6 +282,63 @@ function createLanSurvivorHost({
           return
         }
       }
+
+      if (method === 'GET' && parts.length === 3 && parts[0] === 'references' && parts[1] === 'markdown' && parts[2] === 'collections') {
+        const collections = dataService.listMarkdownCollections(getDataSources()).map(collection => ({
+          id: collection.id,
+          source: 'lan-host',
+          category: collection.category,
+          folder: 'LAN Host',
+          label: collection.label,
+          count: collection.count
+        }))
+        sendJson(res, 200, collections)
+        return
+      }
+
+      if (method === 'GET' && parts.length === 3 && parts[0] === 'references' && parts[1] === 'markdown') {
+        sendJson(res, 200, dataService.listMarkdownFiles(getDataSources(), parts[2]))
+        return
+      }
+
+      if (method === 'GET' && parts.length === 4 && parts[0] === 'references' && parts[1] === 'markdown') {
+        const doc = dataService.loadMarkdownFile(getDataSources(), parts[2], parts[3])
+        sendJson(res, 200, { ...doc, source: 'lan-host', folder: 'LAN Host' })
+        return
+      }
+
+      if (parts.length === 3 && parts[0] === 'references' && parts[1] === 'knowledge') {
+        const templatePath = getKnowledgeTemplatePath(parts[2])
+        if (method === 'GET') {
+          sendJson(res, 200, templatePath ? dataService.listKnowledgeTemplates(templatePath, parts[2]) : [])
+          return
+        }
+        if (method === 'POST') {
+          if (!templatePath) throw new Error('No Knowledges folder selected')
+          const body = await readJsonBody(req)
+          const template = body && typeof body === 'object' && body.template ? body.template : body
+          const fileName = dataService.saveKnowledgeTemplate(templatePath, parts[2], template)
+          sendJson(res, 200, { ok: true, fileName })
+          return
+        }
+      }
+
+      if (parts.length === 2 && parts[0] === 'references' && parts[1] === 'neuroses') {
+        const templatePath = String(getDataSources().neuroses || '').trim()
+        if (method === 'GET') {
+          sendJson(res, 200, templatePath ? dataService.listNeurosisTemplates(templatePath) : [])
+          return
+        }
+        if (method === 'POST') {
+          if (!templatePath) throw new Error('No Neuroses folder selected')
+          const body = await readJsonBody(req)
+          const template = body && typeof body === 'object' && body.template ? body.template : body
+          const fileName = dataService.saveNeurosisTemplate(templatePath, template)
+          sendJson(res, 200, { ok: true, fileName })
+          return
+        }
+      }
+
       const dataPath = getDataPath()
 
       if (method === 'GET' && parts.length === 1 && parts[0] === 'default-survivor-template') {

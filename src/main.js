@@ -33,7 +33,7 @@ const appIconPngPath = path.join(__dirname, '..', 'ui', 'assets', 'app-icon.png'
 const LAN_DISCOVERY_PORT = 3766
 const LAN_DISCOVERY_STALE_MS = 15000
 const LAN_DISCOVERY_ADVERTISE_MS = 3000
-const LAN_PROTOCOL_VERSION = 1
+const LAN_PROTOCOL_VERSION = 2
 const LAN_EVENT_REGISTRATION_TIMEOUT_MS = 8000
 const SMOKE_TEST_ARG = '--smoke-test'
 const SMOKE_TEST_TIMEOUT_MS = 20000
@@ -954,61 +954,37 @@ ipcMain.handle('load-default-create-template', async () => {
 })
 
 ipcMain.handle('list-markdown-collections', () => {
-  const dataSources = dataService.getSavedDataSources(app)
-  return dataService.listMarkdownCollections(dataSources)
+  return getSurvivorProvider().listMarkdownCollections()
 })
 
 ipcMain.handle('list-markdown-files', (_event, collectionId) => {
-  const dataSources = dataService.getSavedDataSources(app)
-  return dataService.listMarkdownFiles(dataSources, collectionId)
+  return getSurvivorProvider().listMarkdownFiles(collectionId)
 })
 
-ipcMain.handle('load-markdown-file', (_event, collectionId, fileName) => {
-  const dataSources = dataService.getSavedDataSources(app)
-  const doc = dataService.loadMarkdownFile(dataSources, collectionId, fileName)
+ipcMain.handle('load-markdown-file', async (_event, collectionId, fileName) => {
+  const doc = await getSurvivorProvider().loadMarkdownFile(collectionId, fileName)
   return {
     ...doc,
     html: markdown.render(doc.markdown)
   }
 })
 
-function resolveKnowledgeTemplatePath(dataSources, type) {
-  if (type !== 'tenetKnowledge' && type !== 'knowledge') throw new Error('Invalid knowledge template type')
-  return String(dataSources.knowledges || '').trim()
-}
-
-ipcMain.handle('save-knowledge-template', (_event, type, template) => {
-  const dataSources = dataService.getSavedDataSources(app)
-  const templatePath = resolveKnowledgeTemplatePath(dataSources, type)
-  if (!templatePath) {
-    throw new Error('No Knowledges folder selected')
-  }
-  const fileName = dataService.saveKnowledgeTemplate(templatePath, type, template)
+ipcMain.handle('save-knowledge-template', async (_event, type, template) => {
+  const fileName = await getSurvivorProvider().saveKnowledgeTemplate(type, template)
   return { ok: true, fileName }
 })
 
 ipcMain.handle('list-knowledge-templates', (_event, type) => {
-  const dataSources = dataService.getSavedDataSources(app)
-  const templatePath = resolveKnowledgeTemplatePath(dataSources, type)
-  if (!templatePath) return []
-  return dataService.listKnowledgeTemplates(templatePath, type)
+  return getSurvivorProvider().listKnowledgeTemplates(type)
 })
 
-ipcMain.handle('save-neurosis-template', (_event, template) => {
-  const dataSources = dataService.getSavedDataSources(app)
-  const templatePath = String(dataSources.neuroses || '').trim()
-  if (!templatePath) {
-    throw new Error('No Neuroses folder selected')
-  }
-  const fileName = dataService.saveNeurosisTemplate(templatePath, template)
+ipcMain.handle('save-neurosis-template', async (_event, template) => {
+  const fileName = await getSurvivorProvider().saveNeurosisTemplate(template)
   return { ok: true, fileName }
 })
 
 ipcMain.handle('list-neurosis-templates', () => {
-  const dataSources = dataService.getSavedDataSources(app)
-  const templatePath = String(dataSources.neuroses || '').trim()
-  if (!templatePath) return []
-  return dataService.listNeurosisTemplates(templatePath)
+  return getSurvivorProvider().listNeurosisTemplates()
 })
 
 ipcMain.handle('get-full-screen-state', () => {

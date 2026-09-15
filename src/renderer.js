@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const {
     applySevereInjuryAction,
     getSevereInjuryTable,
+    healSevereInjury,
     renderRecordedSevereInjuries,
     renderSevereInjuryTable
   } = severeInjuryTables
@@ -133,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const settingsLanStatus = document.getElementById('settingsLanStatus')
   const settingsLanHint = document.getElementById('settingsLanHint')
   const survivorSourceRow = document.getElementById('survivorSourceRow')
+  const hostReferenceSourceRows = [...document.querySelectorAll('[data-host-reference-source]')]
   const lanClientSettings = [...document.querySelectorAll('[data-lan-client-setting]')]
   const lanHostSettings = [...document.querySelectorAll('[data-lan-host-setting]')]
   const status = document.getElementById('status')
@@ -1401,6 +1403,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const row of lanHostSettings) row.hidden = !isHost
     for (const row of lanClientSettings) row.hidden = !isClient
     survivorSourceRow.hidden = isClient
+    for (const row of hostReferenceSourceRows) row.hidden = isClient
 
     if (isHost) {
       settingsLanStatus.textContent = appSettings.lanHostEnabled ? 'Host mode ready' : 'Host mode configured'
@@ -1412,7 +1415,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : appSettings.lanHostAddress
             ? 'Client mode configured'
             : 'Client host not set'
-      settingsLanHint.textContent = 'LAN Client reads and writes survivor records through the configured host address.'
+      settingsLanHint.textContent = 'LAN Client uses the Host for survivor records and all shared reference collections.'
     } else {
       settingsLanStatus.textContent = 'Local files mode'
       settingsLanHint.textContent = 'Local Files reads and writes survivor JSON in the selected Survivors folder.'
@@ -2091,6 +2094,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderShowdownSlot(slot)
     openSevereInjuryTable(location, slot)
+    setStatus(`${title}: ${result.changes.join('; ')}`, 'success')
+  }
+
+  function healCreateSevereInjury(button) {
+    const person = buildCreateSurvivorPayload()
+    if (!person) return
+    const title = button.dataset.severeTitle
+    const result = healSevereInjury({
+      location: button.dataset.severeLocation,
+      title,
+      person
+    })
+    if (!result.ok) {
+      setStatus(`Unable to heal ${title}`, 'error')
+      return
+    }
+    createViewBase = deepClone(person)
+    for (const [inputId, config] of Object.entries(createNumericConfig)) {
+      const input = document.getElementById(inputId)
+      if (input) input.value = String(getValueByPath(person, config.field) ?? config.min ?? 0)
+    }
+    renderCreateArrayRows(person)
+    syncCreateDirtyState()
     setStatus(`${title}: ${result.changes.join('; ')}`, 'success')
   }
 
@@ -4007,6 +4033,8 @@ document.addEventListener('DOMContentLoaded', () => {
     addPickerState.arrayName = arrayName
     addPickerState.mode = mode
     addPickerState.slot = slot
+    markdownCollections = await window.api.listMarkdownCollections()
+    resetShowdownMarkdownContentCache()
     addPickerState.collections = markdownCollections.filter(collection =>
       collectionMatchesArray(collection, arrayName)
     )
@@ -5050,6 +5078,11 @@ document.addEventListener('DOMContentLoaded', () => {
   createSurvivorView.addEventListener('click', event => {
     const target = event.target
     if (!(target instanceof HTMLElement)) return
+    const healButton = target.closest('button[data-action="healSevereInjury"]')
+    if (healButton instanceof HTMLButtonElement) {
+      healCreateSevereInjury(healButton)
+      return
+    }
     if (target.dataset.createStepTarget) {
       const input = document.getElementById(target.dataset.createStepTarget)
       const config = createNumericConfig[target.dataset.createStepTarget]

@@ -386,8 +386,8 @@ test('tenet knowledge template handlers require the shared knowledges folder', a
   const saveHandler = harness.handlers.get('save-knowledge-template')
   const listHandler = harness.handlers.get('list-knowledge-templates')
 
-  assert.throws(() => saveHandler(null, 'tenetKnowledge', { name: 'Tenet 2' }), /No Knowledges folder selected/)
-  assert.throws(() => saveHandler(null, 'knowledge', { name: 'Knowledge 2' }), /No Knowledges folder selected/)
+  await assert.rejects(() => saveHandler(null, 'tenetKnowledge', { name: 'Tenet 2' }), /No Knowledges folder selected/)
+  await assert.rejects(() => saveHandler(null, 'knowledge', { name: 'Knowledge 2' }), /No Knowledges folder selected/)
   const listResult = await listHandler(null, 'knowledge')
   assert.deepEqual(listResult, [])
   assert.deepEqual(calls, [])
@@ -445,7 +445,7 @@ test('packaged runtime rejects Local Files settings and reports production mode'
   const runtimeHandler = harness.handlers.get('get-runtime-info')
   const saveHandler = harness.handlers.get('save-app-settings')
 
-  assert.deepEqual(await runtimeHandler(), { isDevelopmentMode: false, appVersion: '3.5.0' })
+  assert.deepEqual(await runtimeHandler(), { isDevelopmentMode: false, appVersion: '3.5.1' })
   await assert.rejects(
     () => saveHandler(null, { survivorDataMode: 'local' }),
     /only available through npm run dev/

@@ -209,6 +209,38 @@ test('LAN client survivor provider calls host survivor endpoints', async () => {
   )
 })
 
+test('LAN client reference methods always request the Host', async () => {
+  const requests = []
+  const provider = createLanClientSurvivorProvider({
+    settings: { lanHostAddress: 'host', lanPort: 3765 },
+    dataService: {},
+    fetchImpl: async (url, options = {}) => {
+      requests.push({ url, method: options.method || 'GET', body: options.body })
+      const fileName = url.endsWith('/references/neuroses') ? 'fear.json' : 'knowledge.json'
+      if (options.method === 'POST') return { ok: true, status: 200, json: async () => ({ ok: true, fileName }) }
+      return { ok: true, status: 200, json: async () => [] }
+    }
+  })
+
+  await provider.listMarkdownCollections()
+  await provider.listMarkdownFiles('fightingArts')
+  await provider.loadMarkdownFile('disorders', 'nested/fear.md')
+  await provider.listKnowledgeTemplates('knowledge')
+  assert.equal(await provider.saveKnowledgeTemplate('knowledge', { name: 'New' }), 'knowledge.json')
+  await provider.listNeurosisTemplates()
+  assert.equal(await provider.saveNeurosisTemplate({ name: 'Fear' }), 'fear.json')
+
+  assert.deepEqual(requests.map(request => [request.method, request.url]), [
+    ['GET', 'http://host:3765/references/markdown/collections'],
+    ['GET', 'http://host:3765/references/markdown/fightingArts'],
+    ['GET', 'http://host:3765/references/markdown/disorders/nested%2Ffear.md'],
+    ['GET', 'http://host:3765/references/knowledge/knowledge'],
+    ['POST', 'http://host:3765/references/knowledge/knowledge'],
+    ['GET', 'http://host:3765/references/neuroses'],
+    ['POST', 'http://host:3765/references/neuroses']
+  ])
+})
+
 test('LAN client survivor provider maps host conflict and validation payloads', async () => {
   const { dataService } = makeDataService()
   const provider = createLanClientSurvivorProvider({

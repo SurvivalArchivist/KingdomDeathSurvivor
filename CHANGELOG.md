@@ -7,6 +7,26 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.5.1] - 2026-09-15
+
+### Added
+
+- Added exact count tracking for every severe injury described as permanent, including unlimited recurring injuries displayed as `×N`.
+- Added `Heal` controls to Create/View Survivor records that remove one injury occurrence and reverse its deterministic permanent stat or restriction effects without removing bleeding or temporary consequences.
+- Added Host-authoritative LAN access for Fighting Arts, Secret Fighting Arts, Disorders, Knowledges/Tenet Knowledges, and Neuroses.
+
+### Changed
+
+- LAN Clients now fetch reference listings from the Host whenever a picker opens, allowing files added during a session to appear without reconnecting.
+- Permanent severe results with manual or random consequences expose a safe `Record` action for their deterministic permanent portion while leaving the remaining resolution manual.
+- Increased the LAN protocol version to `2`; Host and Clients must both run 3.5.1 or another protocol-2 build.
+
+### Fixed
+
+- Unlimited permanent injuries no longer lose their occurrence history.
+- Healing legacy capped injuries migrates their old impairment entries into the count-based severe-injury record.
+- LAN Clients no longer use differing local reference collections during shared play.
+
 ## [3.5.0] - 2026-09-15
 
 ### Added

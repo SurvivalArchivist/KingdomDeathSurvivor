@@ -7,6 +7,7 @@ const {
   getSevereInjuryActionAvailability,
   getSevereInjuryRecordLimit,
   getSevereInjuryTable,
+  healSevereInjury,
   renderRecordedSevereInjuries,
   renderSevereInjuryTable
 } = require('../src/rendererSevereInjuryTables')
@@ -35,6 +36,18 @@ test('exposes permanent severe injury recording limits', () => {
   assert.deepEqual(getSevereInjuryRecordLimit('arms', 'Contracture'), { permanent: true, maxRecords: null })
   assert.equal(getSevereInjuryRecordLimit('brain', 'Frenzy'), null)
   assert.equal(getSevereInjuryRecordLimit('head', 'Concussion'), null)
+})
+
+test('classifies every table result described as permanent for recording', () => {
+  for (const location of ['head', 'arms', 'body', 'waist', 'legs']) {
+    for (const [, title, description] of getSevereInjuryTable(location).rows) {
+      assert.equal(
+        Boolean(getSevereInjuryRecordLimit(location, title)),
+        /\bpermanent\b/i.test(description),
+        `${location}/${title} permanence metadata must match its table text`
+      )
+    }
+  }
 })
 
 test('converts capped duplicate permanent injuries into one bleeding token', () => {
@@ -78,7 +91,7 @@ test('offers full, bleeding-only, or no action according to result safety', () =
   person.courage = 3
   assert.deepEqual(getSevereInjuryActionAvailability('head', 'Destroyed tooth', person), { kind: 'apply' })
   assert.deepEqual(getSevereInjuryActionAvailability('arms', 'Ruptured Muscle', person), {
-    kind: 'bleeding',
+    kind: 'record',
     bleedingTokens: 1
   })
 })
@@ -122,7 +135,8 @@ test('classifies every severe result against the safe automation boundary', () =
     },
     arms: {
       apply: ['Die of Shock', 'Bleeding', 'Dismembered Arm', 'Contracture', 'Broken Arm', 'Spiral Fracture', 'Dislocated Shoulder'],
-      bleeding: ['Ruptured Muscle'],
+      record: ['Ruptured Muscle'],
+      bleeding: [],
       none: ['Hit the Dirt']
     },
     body: {
@@ -132,12 +146,14 @@ test('classifies every severe result against the safe automation boundary', () =
     },
     waist: {
       apply: ['Bleeding Kidneys', 'Intestinal Prolapse', 'Warped Pelvis', 'Broken Hip', 'Slashed Back'],
-      bleeding: ['Destroyed Genitals', 'Bruised Tailbone'],
+      record: ['Destroyed Genitals'],
+      bleeding: ['Bruised Tailbone'],
       none: ['Final Breath', 'Belly-up']
     },
     legs: {
       apply: ['Bloody Geyser', 'Bleeding', 'Dismembered Leg', 'Torn Achilles Tendon', 'Torn Muscle', 'Bloody Thighs'],
-      bleeding: ['Hamstrung', 'Broken Leg'],
+      record: ['Hamstrung', 'Broken Leg'],
+      bleeding: [],
       none: ['Lost Balance']
     }
   }
@@ -185,7 +201,7 @@ test('applies deterministic permanent changes and capped-injury bleeding fallbac
   assert.equal(armor.bleedingTokens, 3)
 })
 
-test('applies repeatable permanent effects without listing them as injuries', () => {
+test('records every occurrence of repeatable permanent injuries', () => {
   const person = { accuracy: 0, impairments: [], severeInjuries: [], notes: [] }
   const armor = { bleedingTokens: 0 }
 
@@ -194,8 +210,111 @@ test('applies repeatable permanent effects without listing them as injuries', ()
 
   assert.equal(person.accuracy, -2)
   assert.equal(armor.bleedingTokens, 2)
-  assert.deepEqual(person.severeInjuries, [])
+  assert.deepEqual(person.severeInjuries, [{ location: 'arms', name: 'Contracture', count: 2 }])
   assert.deepEqual(person.impairments, [])
+})
+
+test('records safe permanent portions of results that still require manual resolution', () => {
+  const person = { movement: 5, impairments: [], severeInjuries: [], notes: [] }
+  const armor = { bleedingTokens: 0 }
+
+  const recorded = applySevereInjuryAction({
+    location: 'legs',
+    title: 'Broken Leg',
+    person,
+    armor,
+    modifiers: {},
+    mode: 'record'
+  })
+
+  assert.equal(recorded.ok, true)
+  assert.deepEqual(person.severeInjuries, [{ location: 'legs', name: 'Broken Leg', count: 1 }])
+  assert.equal(person.movement, 4)
+  assert.equal(armor.bleedingTokens, 0)
+})
+
+test('every permanent result can be recorded through its available action', () => {
+  for (const location of ['head', 'arms', 'body', 'waist', 'legs']) {
+    for (const [, title, description] of getSevereInjuryTable(location).rows) {
+      if (!/\bpermanent\b/i.test(description)) continue
+      const person = {
+        courage: 3,
+        movement: 5,
+        speed: 0,
+        accuracy: 0,
+        strength: 0,
+        luck: 0,
+        evasion: 0,
+        impairments: [],
+        severeInjuries: [],
+        notes: []
+      }
+      const availability = getSevereInjuryActionAvailability(location, title, person)
+      assert.ok(availability.kind === 'apply' || availability.kind === 'record', `${location}/${title} needs a record action`)
+      const result = applySevereInjuryAction({
+        location,
+        title,
+        person,
+        armor: { bleedingTokens: 0 },
+        modifiers: {},
+        mode: availability.kind
+      })
+      assert.equal(result.ok, true, `${location}/${title} record action should succeed`)
+      assert.equal(person.severeInjuries[0]?.count, 1, `${location}/${title} should record one occurrence`)
+    }
+  }
+})
+
+test('heals one injury occurrence and reverses only its permanent effects', () => {
+  const person = {
+    movement: 1,
+    accuracy: -2,
+    impairments: [],
+    severeInjuries: [
+      { location: 'arms', name: 'Contracture', count: 2 },
+      { location: 'legs', name: 'Dismembered Leg', count: 2 }
+    ],
+    notes: [
+      'Cannot dash — Dismembered Leg',
+      'Retire at the end of the next showdown or settlement phase — Two Dismembered Legs'
+    ]
+  }
+  const armor = { bleedingTokens: 7 }
+
+  const repeatable = healSevereInjury({ location: 'arms', title: 'Contracture', person })
+  assert.equal(repeatable.ok, true)
+  assert.equal(person.accuracy, -1)
+  assert.deepEqual(person.severeInjuries[0], { location: 'arms', name: 'Contracture', count: 1 })
+
+  const capped = healSevereInjury({ location: 'legs', title: 'Dismembered Leg', person })
+  assert.equal(capped.ok, true)
+  assert.equal(person.movement, 3)
+  assert.equal(person.severeInjuries[1].count, 1)
+  assert.ok(person.notes.includes('Cannot dash — Dismembered Leg'))
+  assert.ok(!person.notes.some(note => note.startsWith('Retire at the end of the next showdown')))
+  assert.equal(armor.bleedingTokens, 7)
+
+  healSevereInjury({ location: 'legs', title: 'Dismembered Leg', person })
+  assert.equal(person.movement, 5)
+  assert.equal(person.severeInjuries.some(injury => injury.name === 'Dismembered Leg'), false)
+  assert.ok(!person.notes.includes('Cannot dash — Dismembered Leg'))
+})
+
+test('healing migrates and decrements legacy impairment records', () => {
+  const person = {
+    accuracy: -2,
+    impairments: ['Broken Arm', 'Broken Arm'],
+    severeInjuries: [],
+    notes: []
+  }
+
+  const result = healSevereInjury({ location: 'arms', title: 'Broken Arm', person })
+
+  assert.equal(result.ok, true)
+  assert.equal(person.accuracy, -1)
+  assert.equal(person.strength, 1)
+  assert.deepEqual(person.impairments, [])
+  assert.deepEqual(person.severeInjuries, [{ location: 'arms', name: 'Broken Arm', count: 1 }])
 })
 
 test('applies safe temporary tokens and persistent reminders', () => {
@@ -301,6 +420,18 @@ test('renders only actions safe for the selected survivor', () => {
   assert.doesNotMatch(markup, /data-severe-title="Destroyed tooth"/)
 })
 
+test('renders Record plus bleeding for permanent results with manual effects', () => {
+  const markup = renderSevereInjuryTable('legs', {
+    slot: 'A',
+    person: { movement: 5, impairments: [], severeInjuries: [], notes: [] }
+  })
+  const brokenLegRow = markup.match(/<tr><th scope="row">8<\/th>[\s\S]*?<\/tr>/)?.[0] || ''
+  assert.match(brokenLegRow, /data-severe-action="record"/)
+  assert.match(brokenLegRow, />Record<\/button>/)
+  assert.match(brokenLegRow, /data-severe-action="bleeding"/)
+  assert.doesNotMatch(brokenLegRow, /data-severe-action="apply"/)
+})
+
 test('renders a bleeding symbol instead of Apply when a permanent injury is capped', () => {
   const markup = renderSevereInjuryTable('head', {
     slot: 'A',
@@ -321,7 +452,7 @@ test('renders a bleeding symbol instead of Apply when a permanent injury is capp
   assert.doesNotMatch(markup, /Permanent injury limit:/)
 })
 
-test('renders filled and empty pips for capped injuries only', () => {
+test('renders pips for capped injuries and counts for unlimited injuries', () => {
   const markup = renderSevereInjuryTable('head', {
     slot: 'A',
     person: {
@@ -341,13 +472,14 @@ test('renders filled and empty pips for capped injuries only', () => {
 
   const unlimitedMarkup = renderSevereInjuryTable('waist', {
     slot: 'A',
-    person: { severeInjuries: [] }
+    person: { severeInjuries: [{ location: 'waist', name: 'Warped Pelvis', count: 4 }] }
   })
   const warpedPelvisCell = unlimitedMarkup.match(/Warped Pelvis[\s\S]*?<\/td>/)?.[0] || ''
   assert.doesNotMatch(warpedPelvisCell, /severe-injury-pip/)
+  assert.match(warpedPelvisCell, /aria-label="Warped Pelvis: 4 recorded">×4/)
 })
 
-test('renders suffered capped injuries outside the table without repeatable injuries', () => {
+test('renders all permanent injuries with healing controls outside the table', () => {
   const markup = renderRecordedSevereInjuries({
     severeInjuries: [
       { location: 'head', name: 'Blind', count: 1 },
@@ -357,7 +489,9 @@ test('renders suffered capped injuries outside the table without repeatable inju
 
   assert.match(markup, /<strong>Blind<\/strong>/)
   assert.match(markup, /aria-label="Blind: 1 of 2 recorded"/)
-  assert.doesNotMatch(markup, /Warped Pelvis/)
+  assert.match(markup, /<strong>Warped Pelvis<\/strong>/)
+  assert.match(markup, /aria-label="Warped Pelvis: 4 recorded">×4/)
+  assert.equal((markup.match(/data-action="healSevereInjury"/g) || []).length, 2)
   assert.match(renderRecordedSevereInjuries({ severeInjuries: [] }), /No severe injuries\./)
 })
 

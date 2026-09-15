@@ -43,7 +43,7 @@ async function requestJson(host, path, options = {}) {
 async function openEventStream(host, playerId = '') {
   const req = new EventEmitter()
   req.method = 'GET'
-  const params = new URLSearchParams({ protocolVersion: '1' })
+  const params = new URLSearchParams({ protocolVersion: '2' })
   if (playerId) params.set('playerId', playerId)
   req.url = `/events?${params}`
   req.setEncoding = () => {}
@@ -185,7 +185,7 @@ test('LAN survivor host exposes health and survivor read endpoints', async t => 
   assert.equal(health.body.ok, true)
   assert.equal(health.body.mode, 'lan-host')
   assert.equal(health.body.displayName, 'Lantern Host')
-  assert.equal(health.body.protocolVersion, 1)
+  assert.equal(health.body.protocolVersion, 2)
 
   assert.deepEqual((await requestJson(host, '/survivors')).body, ['alice.json'])
   assert.deepEqual((await requestJson(host, '/survivors/summaries')).body.records, [
@@ -193,6 +193,73 @@ test('LAN survivor host exposes health and survivor read endpoints', async t => 
   ])
   assert.deepEqual((await requestJson(host, '/survivors/alice.json')).body, { name: 'Alice' })
   assert.deepEqual(calls.filter(call => call[0] === 'listPeople'), [['listPeople', '/tmp/survivors']])
+})
+
+test('LAN host serves live reference collections without exposing local paths', async () => {
+  const files = [{ fileName: 'first.md', title: 'First', preview: 'Initial' }]
+  const saved = []
+  const { host } = makeHost({
+    getSavedDataSources() {
+      return {
+        fightingArts: '/private/host/fighting-arts',
+        secretFightingArts: '/private/host/secret-fighting-arts',
+        knowledges: '/private/host/knowledges',
+        neuroses: '/private/host/neuroses',
+        disorders: '/private/host/disorders'
+      }
+    },
+    listMarkdownCollections() {
+      return [{ id: 'fightingArts', source: 'configured', category: 'fightingArts', folder: '/private/host/fighting-arts', label: 'Fighting Arts', count: files.length }]
+    },
+    listMarkdownFiles(_sources, collectionId) {
+      assert.equal(collectionId, 'fightingArts')
+      return [...files]
+    },
+    loadMarkdownFile(_sources, collectionId, fileName) {
+      return { collectionId, folder: '/private/host/fighting-arts', fileName, title: 'Nested', markdown: '# Rules' }
+    },
+    listKnowledgeTemplates(_path, type) {
+      return [{ fileName: `${type}.json`, name: type, template: { name: type } }]
+    },
+    saveKnowledgeTemplate(_path, type, template) {
+      saved.push(['knowledge', type, template])
+      return 'saved-knowledge.json'
+    },
+    listNeurosisTemplates() {
+      return [{ fileName: 'fear.json', name: 'Fear', template: { name: 'Fear', neurosis: 'Run' } }]
+    },
+    saveNeurosisTemplate(_path, template) {
+      saved.push(['neurosis', template])
+      return 'saved-neurosis.json'
+    }
+  })
+
+  const collections = await requestJson(host, '/references/markdown/collections')
+  assert.equal(collections.status, 200)
+  assert.deepEqual(collections.body, [{
+    id: 'fightingArts', source: 'lan-host', category: 'fightingArts', folder: 'LAN Host', label: 'Fighting Arts', count: 1
+  }])
+  assert.deepEqual((await requestJson(host, '/references/markdown/fightingArts')).body, files)
+
+  files.push({ fileName: 'added-mid-game.md', title: 'Added Mid Game', preview: 'New' })
+  assert.equal((await requestJson(host, '/references/markdown/fightingArts')).body.length, 2)
+
+  const doc = (await requestJson(host, '/references/markdown/fightingArts/folder%2Fnested.md')).body
+  assert.equal(doc.fileName, 'folder/nested.md')
+  assert.equal(doc.folder, 'LAN Host')
+  assert.equal(doc.source, 'lan-host')
+  assert.deepEqual((await requestJson(host, '/references/knowledge/knowledge')).body[0].name, 'knowledge')
+  assert.equal((await requestJson(host, '/references/knowledge/knowledge', {
+    method: 'POST', body: JSON.stringify({ template: { name: 'Saved' } })
+  })).body.fileName, 'saved-knowledge.json')
+  assert.equal((await requestJson(host, '/references/neuroses')).body[0].name, 'Fear')
+  assert.equal((await requestJson(host, '/references/neuroses', {
+    method: 'POST', body: JSON.stringify({ template: { name: 'Saved Fear', neurosis: 'Hide' } })
+  })).body.fileName, 'saved-neurosis.json')
+  assert.deepEqual(saved, [
+    ['knowledge', 'knowledge', { name: 'Saved' }],
+    ['neurosis', { name: 'Saved Fear', neurosis: 'Hide' }]
+  ])
 })
 
 test('LAN host rejects incompatible event protocols without registering a player', async () => {

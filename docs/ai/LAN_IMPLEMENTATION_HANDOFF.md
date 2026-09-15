@@ -1,6 +1,6 @@
 # LAN Implementation Handoff
 
-Last updated: 2026-09-14
+Last updated: 2026-09-15
 
 ## Purpose
 This is the working progress file for the v3 LAN survivor-data effort. Use it with:
@@ -68,6 +68,7 @@ Completed so far:
 - A real-socket loopback lifecycle regression now stops the Host, advances its data revision while the Client is absent, restarts it, waits through automatic SSE reconnect, acknowledges the renderer reconciliation, and verifies the restored two-player Showdown barrier (`1/2` after the Host votes Depart).
 - The default new-survivor template lives under the Host's authoritative Survivors folder and is loaded/saved remotely by Clients.
 - Direct Settlement edits and Vignette template operations are Host-only; Client survivor saves still register settlement discoveries through the Host journal/recovery flow.
+- Shared reference collections are Host-authoritative for LAN Clients. Fighting Arts, Secret Fighting Arts, Disorders, Knowledge/Tenet Knowledge templates, and Neurosis templates use Host API routes; the relevant Client-side source pickers are hidden. Picker listings refresh on every open so Host collection changes appear without reconnecting, while markdown bodies load on demand.
 
 Operational boundary:
 - Discovery is best-effort on local networks; manual host URL entry remains the supported fallback when routers/firewalls block UDP broadcast.
@@ -77,9 +78,9 @@ Operational boundary:
 - Local mode is development-only. Production startup requires a persisted LAN Host or LAN Client role.
 - `LAN Host` uses the existing local survivor folder and existing `dataService` validation/conflict/history behavior.
 - `LAN Client` routes survivor CRUD to `http://{lanHostAddress}:{lanPort}` and does not require a local Survivors folder.
-- Markdown/reference content remains local/cloud-backed. Only survivor CRUD moves through the survivor-provider abstraction.
+- LAN Host and Local Development read reference content from their configured folders. LAN Clients route supported shared reference list/load/template operations through the Host and never expose or depend on Host filesystem paths.
 - The renderer should continue calling the existing `window.api` survivor methods; avoid LAN-specific renderer rewrites.
-- The HTTP API is intentionally scoped to Host-authoritative survivor CRUD, Settlement/default-template reads and permitted operations, Showdown coordination, health, and events; markdown/reference APIs remain local.
+- The HTTP API covers Host-authoritative survivor CRUD, Settlement/default-template operations, Showdown coordination, shared reference list/load/template operations, health, and events.
 - The navbar indicator is status-only; do not add connection controls there.
 - LAN Client write hardening is renderer-side UX protection; host/API errors still remain the authority.
 - Existing LAN Client configs default `lanClientConnected` to true for backward-compatible behavior.
