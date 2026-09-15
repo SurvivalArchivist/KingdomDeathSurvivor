@@ -106,6 +106,10 @@
               armor.insanityHeavy ? 'checked' : ''
             } /></label>`
           : ''
+      const stepperLabel =
+        field === 'insanityPts'
+          ? `<div class="showdown-reference-heading"><button type="button" class="showdown-danger-button" data-showdown-severe-table="brain" data-showdown-severe-slot="${slot}" aria-label="Open Brain Trauma table" title="Open Brain Trauma table">⚠</button><span class="showdown-stepper-label">${iconLabel(icon, label)}</span></div>`
+          : `<span class="showdown-stepper-label">${iconLabel(icon, label)}</span>`
       const controlsClass =
         field === 'insanityPts'
           ? 'showdown-stepper-controls showdown-stepper-controls-insanity'
@@ -113,7 +117,7 @@
 
       return `
       <div class="showdown-stepper showdown-stepper-simple${extraClass}">
-        <span class="showdown-stepper-label">${iconLabel(icon, label)}</span>
+        ${stepperLabel}
         <div class="${controlsClass}">
           <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="-1" data-showdown-min="${
             min ?? ''
@@ -413,7 +417,10 @@
                       } />Heavy</label>`
                 return `
               <div class="showdown-armor-stepper">
-                <span>${iconLabel(icon, label)}</span>
+                <div class="showdown-armor-heading">
+                  <button type="button" class="showdown-danger-button" data-showdown-severe-table="${part}" data-showdown-severe-slot="${slot}" aria-label="Open ${label} severe injury table" title="Open ${label} severe injury table">⚠</button>
+                  ${iconLabel(icon, label)}
+                </div>
                 <button type="button" data-showdown-slot="${slot}" data-showdown-part="${part}" data-showdown-delta="-1">-</button>
                 <strong class="showdown-static-value showdown-armor-value">${armor[part]}</strong>
                 <button type="button" data-showdown-slot="${slot}" data-showdown-part="${part}" data-showdown-delta="1">+</button>

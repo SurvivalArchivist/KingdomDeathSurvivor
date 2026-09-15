@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const knowledgeTemplateHelpers = window.KDMKnowledgeTemplateHelpers
   const settlementHelpers = window.KDMSettlementHelpers
+  const severeInjuryTables = window.KDMSevereInjuryTables
   const showdownState = window.KDMShowdownState
   const showdownViewModule = window.KDMShowdownView
   const showdownSessionModule = window.KDMShowdownSession
@@ -22,6 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (!settlementHelpers) {
     console.error('Settlement helpers not available')
+    return
+  }
+  if (!severeInjuryTables) {
+    console.error('Severe injury tables not available')
     return
   }
   if (!showdownState) {
@@ -55,6 +60,12 @@ document.addEventListener('DOMContentLoaded', () => {
     getSettlementStatsTotal,
     getSettlementTimestampSortValue
   } = settlementHelpers
+  const {
+    applySevereInjuryAction,
+    getSevereInjuryTable,
+    renderRecordedSevereInjuries,
+    renderSevereInjuryTable
+  } = severeInjuryTables
   const {
     SHOWDOWN_DEFAULT_PAGE,
     SHOWDOWN_PAGE_CONFIG,
@@ -282,6 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const createAddNoteButton = document.getElementById('createAddNote')
   const createAbilities = document.getElementById('createAbilities')
   const createImpairments = document.getElementById('createImpairments')
+  const createSevereInjuries = document.getElementById('createSevereInjuries')
   const createNotes = document.getElementById('createNotes')
   const createFightingArts = document.getElementById('createFightingArts')
   const createSecretFightingArts = document.getElementById('createSecretFightingArts')
@@ -482,6 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createAddNoteButton,
     createAbilities,
     createImpairments,
+    createSevereInjuries,
     createNotes,
     createFightingArts,
     createSecretFightingArts,
@@ -2039,6 +2052,48 @@ document.addEventListener('DOMContentLoaded', () => {
     insertMarkdownButton.classList.remove('hidden')
   }
 
+  function openSevereInjuryTable(location, slot) {
+    const table = getSevereInjuryTable(location)
+    if (!table) return
+    const normalizedSlot = slot === 'A' || slot === 'B' ? slot : ''
+    markdownModalTitle.textContent = table.title
+    markdownModalBody.innerHTML = renderSevereInjuryTable(location, {
+      slot: normalizedSlot,
+      person: normalizedSlot ? showdownPeople[normalizedSlot]?.person : null
+    })
+    insertMarkdownButton.classList.add('hidden')
+    markdownModal.classList.remove('hidden')
+    markdownModal.setAttribute('aria-hidden', 'false')
+  }
+
+  function applyShowdownSevereInjury(button) {
+    const slot = button.dataset.severeSlot
+    const location = button.dataset.severeLocation
+    const title = button.dataset.severeTitle
+    const mode = button.dataset.severeAction
+    if ((slot !== 'A' && slot !== 'B') || !showdownPeople[slot]?.person) return
+    if (showdownReadinessLocked) {
+      setStatus('Showdown changes are locked while a shared action is waiting for players', 'error')
+      return
+    }
+    const person = showdownPeople[slot].person
+    const result = applySevereInjuryAction({
+      location,
+      title,
+      person,
+      armor: showdownArmor[slot],
+      modifiers: showdownModifiers[slot],
+      mode
+    })
+    if (!result.ok) {
+      setStatus(`Unable to apply ${title}`, 'error')
+      return
+    }
+    renderShowdownSlot(slot)
+    openSevereInjuryTable(location, slot)
+    setStatus(`${title}: ${result.changes.join('; ')}`, 'success')
+  }
+
   function closeAddPickerModal() {
     addMarkdownModal.classList.add('hidden')
     addMarkdownModal.setAttribute('aria-hidden', 'true')
@@ -2164,6 +2219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const arrayName of TEXT_ENTRY_ARRAYS) syncCreateTextDraftState(arrayName)
     renderCreateTextRows(createAbilities, createArrayState.abilities, 'abilities')
     renderCreateTextRows(createImpairments, createArrayState.impairments, 'impairments')
+    createSevereInjuries.innerHTML = renderRecordedSevereInjuries(source)
     renderCreateTextRows(createNotes, createArrayState.notes, 'notes')
     renderArrayRows(createFightingArts, createArrayState.fightingArts, 'fightingArts')
     renderArrayRows(createSecretFightingArts, createArrayState.secretFightingArts, 'secretFightingArts')
@@ -4821,6 +4877,7 @@ document.addEventListener('DOMContentLoaded', () => {
       openKnowledgeScratchEditorForShowdownUpgrade,
       openKnowledgeTemplatePicker,
       openMarkdownFromReference,
+      openSevereInjuryTable,
       refreshKnowledgeTemplateCache,
       renderShowdownSlot,
       replaceKnowledgeEntryInShowdown,
@@ -5377,6 +5434,15 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   })
   markdownModal.addEventListener('click', event => {
+    const rawTarget = event.target
+    const target = rawTarget instanceof HTMLElement ? rawTarget : rawTarget?.parentElement
+    const severeActionButton = target instanceof HTMLElement
+      ? target.closest('button[data-severe-action][data-severe-slot]')
+      : null
+    if (severeActionButton instanceof HTMLButtonElement) {
+      applyShowdownSevereInjury(severeActionButton)
+      return
+    }
     if (event.target === markdownModal) closeModal()
   })
   addMarkdownModal.addEventListener('click', event => {

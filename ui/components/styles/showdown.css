@@ -769,6 +769,7 @@ body.showdown-mode .showdown-card {
 }
 
 .showdown-armor-stepper {
+  position: relative;
   display: grid;
   grid-template-columns: 24px minmax(44px, 62px) 24px;
   grid-template-rows: auto auto;
@@ -782,10 +783,176 @@ body.showdown-mode .showdown-card {
   min-width: 0;
 }
 
-.showdown-armor-stepper span {
+.showdown-reference-heading,
+.showdown-armor-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.showdown-armor-heading {
   grid-column: 1 / -1;
   grid-row: 1;
-  justify-self: center;
+  justify-content: center;
+}
+
+.showdown-reference-heading .showdown-stepper-label {
+  flex: 1 1 auto;
+}
+
+.showdown-card .showdown-armor-heading button.showdown-danger-button,
+.showdown-card .showdown-reference-heading button.showdown-danger-button {
+  position: static;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 19px;
+  grid-row: auto;
+  width: 19px;
+  height: 19px;
+  min-width: 19px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #e48655;
+  font-size: 0.74rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.showdown-card .showdown-armor-heading button.showdown-danger-button:hover,
+.showdown-card .showdown-reference-heading button.showdown-danger-button:hover,
+.showdown-card .showdown-armor-heading button.showdown-danger-button:focus-visible,
+.showdown-card .showdown-reference-heading button.showdown-danger-button:focus-visible {
+  background: rgba(228, 134, 85, 0.16);
+  color: #ffae7d;
+}
+
+.severe-injury-reference {
+  overflow-x: auto;
+}
+
+.severe-injury-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.severe-injury-table th,
+.severe-injury-table td {
+  padding: 0.62rem 0.7rem;
+  border: 1px solid var(--outline);
+  text-align: left;
+  vertical-align: top;
+}
+
+.severe-injury-table thead th {
+  background: rgba(228, 134, 85, 0.12);
+}
+
+.severe-injury-table tbody th {
+  width: 4.4rem;
+  white-space: nowrap;
+}
+
+.severe-injury-table td:nth-child(2) {
+  width: 11.5rem;
+}
+
+.severe-injury-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+}
+
+.severe-injury-pips {
+  display: inline-flex;
+  gap: 0.2rem;
+}
+
+.severe-injury-pip {
+  width: 0.58rem;
+  height: 0.58rem;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  color: var(--muted);
+}
+
+.severe-injury-pip.is-filled {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.recorded-severe-injuries {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recorded-severe-injury {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--panel-divider);
+}
+
+.recorded-severe-injury-location {
+  margin-left: 0.45rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: capitalize;
+}
+
+.severe-injury-table th:last-child,
+.severe-injury-action-cell {
+  width: 5.5rem;
+  text-align: center;
+}
+
+.severe-injury-apply {
+  min-width: 4.6rem;
+  padding: 0.28rem 0.48rem;
+  font-size: 0.78rem;
+}
+
+.severe-injury-bleeding-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.16rem;
+  min-width: 2.8rem;
+  padding: 0.24rem 0.36rem;
+  border: 1px solid rgba(180, 73, 62, 0.62);
+  border-radius: 5px;
+  background: rgba(132, 42, 35, 0.18);
+  color: #e48671;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.severe-injury-bleeding-only svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.severe-injury-bleeding-only:hover,
+.severe-injury-bleeding-only:focus-visible {
+  background: rgba(180, 73, 62, 0.28);
+  color: #ff9a84;
+}
+
+.showdown-armor-heading .icon-label {
   font-size: 0.8rem;
   color: var(--muted);
   white-space: nowrap;

@@ -1,6 +1,6 @@
 # Engineering Roadmap
 
-Last updated: 2026-09-14
+Last updated: 2026-09-15
 
 ## Purpose
 
@@ -10,8 +10,8 @@ Roadmap entries are directions to investigate or implement deliberately, not aut
 
 ## Current Baseline
 
-- Version 3.4.0 is the current release candidate; 3.3.3 remains the latest tag until publishing completes.
-- The current working tree passes 292 tests, including real-socket LAN reconnect/reconciliation/readiness lifecycle coverage, event-driven Host/Client refresh, bounded wake-aware stream recovery, and Showdown knowledge-upgrade choice coverage.
+- Version 3.5.0 is the current release candidate; 3.4.0 remains the latest tag until publishing completes.
+- The current working tree passes 314 tests, including real-socket LAN reconnect/reconciliation/readiness lifecycle coverage, event-driven Host/Client refresh, Showdown knowledge-upgrade choice coverage, and severe-injury action/count/pip regressions.
 - Production and full npm audits report zero vulnerabilities after updating transitive `fast-uri` to 3.1.7.
 - Windows setup and portable builds passed user acceptance with Electron 41.10.4 and Electron Builder 26.15.7.
 - Production is Host/Client only; Local Development is exposed only through `npm run dev`. New/default and legacy Local configurations are gated at startup until a role is selected.

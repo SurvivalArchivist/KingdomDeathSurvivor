@@ -10,3 +10,6 @@ dist/
 
 # Local/user scratch
 user/
+
+# Reference files
+reference_files/

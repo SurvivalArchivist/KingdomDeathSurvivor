@@ -7,6 +7,24 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-09-15
+
+### Added
+
+- Added built-in Brain Trauma and severe injury tables to Showdown through small danger controls beside Insanity and each armor location.
+- Added conservative immediate actions for deterministic severe-injury effects, with bleeding-only controls where the remaining result must be resolved manually.
+- Added persistent count-based tracking for capped permanent severe injuries and filled/empty pip displays in both the severe tables and Create/View Survivor records.
+
+### Changed
+
+- Permanent injuries that may occur indefinitely now apply their concrete effects without creating repeated injury-name entries.
+- Private source reference files are explicitly excluded from version control; severe tables have no runtime dependency on them.
+
+### Fixed
+
+- Replaced capped injury actions with a bleeding-token action after the survivor reaches the canonical once/twice limit.
+- Existing schema-v6 survivors automatically receive an empty severe-injury record, while legacy duplicate impairment names remain recognised for cap compatibility.
+
 ## [3.4.0] - 2026-09-14
 
 ### Added

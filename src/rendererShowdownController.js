@@ -5,6 +5,7 @@
       openAddPicker,
       openKnowledgeTemplatePicker,
       openMarkdownFromReference,
+      openSevereInjuryTable,
       refreshKnowledgeTemplateCache,
       renderShowdownSlot,
       replaceKnowledgeEntryInShowdown,
@@ -153,8 +154,6 @@
 
     function bindEvents() {
       element.addEventListener('click', event => {
-        if (getState().showdownReadinessLocked) return
-        const { showdownArmor, showdownPageBySlot, showdownPeople, knowledgeTemplateCache } = getState()
         const rawTarget = event.target
         const target =
           rawTarget instanceof HTMLElement
@@ -163,6 +162,18 @@
               ? rawTarget.parentElement
               : null
         if (!(target instanceof HTMLElement)) return
+
+        const severeTableButton = target.closest('button[data-showdown-severe-table]')
+        if (severeTableButton instanceof HTMLButtonElement) {
+          openSevereInjuryTable(
+            severeTableButton.dataset.showdownSevereTable,
+            severeTableButton.dataset.showdownSevereSlot
+          )
+          return
+        }
+
+        if (getState().showdownReadinessLocked) return
+        const { showdownArmor, showdownPageBySlot, showdownPeople, knowledgeTemplateCache } = getState()
 
         const pageButton = target.closest('button[data-showdown-page-slot][data-showdown-page]')
         if (pageButton instanceof HTMLButtonElement) {

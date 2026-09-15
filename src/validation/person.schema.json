@@ -35,6 +35,7 @@
     "understanding",
     "abilities",
     "impairments",
+    "severeInjuries",
     "notes",
     "fightingArts",
     "secretFightingArts",
@@ -255,6 +256,38 @@
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "severeInjuries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "location",
+          "name",
+          "count"
+        ],
+        "properties": {
+          "location": {
+            "type": "string",
+            "enum": [
+              "head",
+              "arms",
+              "body",
+              "waist",
+              "legs"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
       }
     },
     "notes": {

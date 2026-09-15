@@ -34,6 +34,7 @@ test('save/load/list roundtrip with template', () => {
   const basePath = path.join(root, 'data')
 
   const person = dataService.createPersonTemplate('Ava')
+  person.severeInjuries = [{ location: 'head', name: 'Blind', count: 1 }]
   const fileName = dataService.savePerson(basePath, person)
 
   assert.equal(fileName, `${person.id}_ava.json`)
@@ -43,6 +44,19 @@ test('save/load/list roundtrip with template', () => {
   assert.equal(loaded.id, person.id)
   assert.equal(loaded.name, 'Ava')
   assert.equal(loaded.age, 0)
+  assert.deepEqual(loaded.severeInjuries, [{ location: 'head', name: 'Blind', count: 1 }])
+})
+
+test('loadPerson defaults the count-based severe injury record for existing survivors', () => {
+  const root = makeTempDir()
+  const basePath = path.join(root, 'data')
+  const person = dataService.createPersonTemplate('Existing Survivor')
+  const fileName = `${person.id}_existing-survivor.json`
+  delete person.severeInjuries
+  fs.mkdirSync(basePath, { recursive: true })
+  fs.writeFileSync(path.join(basePath, fileName), JSON.stringify(person), 'utf8')
+
+  assert.deepEqual(dataService.loadPerson(basePath, fileName).severeInjuries, [])
 })
 
 test('listPeopleSummaries returns settlement-safe summaries and skips unreadable files', () => {

@@ -153,6 +153,9 @@ function preparePersonForValidation(person, options = {}) {
   if (typeof next.notes === 'undefined') {
     next.notes = []
   }
+  if (typeof next.severeInjuries === 'undefined') {
+    next.severeInjuries = []
+  }
   if (typeof next.lastUpdated !== 'string') {
     next.lastUpdated = typeof next.updatedAt === 'string' ? next.updatedAt : ''
   }
@@ -583,6 +586,7 @@ function summarizeTraitSearchText(person) {
   const traitArrays = [
     person.abilities,
     person.impairments,
+    person.severeInjuries,
     person.notes,
     person.fightingArts,
     person.secretFightingArts,
@@ -863,6 +867,7 @@ function createPersonTemplate(name = 'New Survivor') {
     tinker: false,
     abilities: [],
     impairments: [],
+    severeInjuries: [],
     notes: [],
     fightingArts: [],
     secretFightingArts: [],

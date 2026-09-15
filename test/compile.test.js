@@ -9,6 +9,7 @@ const compileTargets = [
   path.join('src', 'renderer.js'),
   path.join('src', 'rendererKnowledgeTemplateHelpers.js'),
   path.join('src', 'rendererSettlementHelpers.js'),
+  path.join('src', 'rendererSevereInjuryTables.js'),
   path.join('src', 'rendererShowdownState.js'),
   path.join('src', 'rendererShowdownView.js'),
   path.join('src', 'rendererShowdownController.js'),

@@ -501,6 +501,7 @@ function makePerson(name, overrides = {}) {
     tinker: false,
     abilities: [],
     impairments: [],
+    severeInjuries: [],
     notes: [],
     fightingArts: [],
     secretFightingArts: [],
@@ -628,7 +629,7 @@ function setupRendererHarness(options = {}) {
     },
     async getRuntimeInfo() {
       calls.push({ name: 'getRuntimeInfo', args: [] })
-      return { isDevelopmentMode: true, appVersion: '3.4.0' }
+      return { isDevelopmentMode: true, appVersion: '3.5.0' }
     },
     async saveAppSettings(settings) {
       calls.push({ name: 'saveAppSettings', args: [deepClone(settings)] })
@@ -924,6 +925,7 @@ function setupRendererHarness(options = {}) {
 
   const knowledgeHelperPath = path.join(__dirname, '..', 'src', 'rendererKnowledgeTemplateHelpers.js')
   const settlementHelperPath = path.join(__dirname, '..', 'src', 'rendererSettlementHelpers.js')
+  const severeInjuryTablesPath = path.join(__dirname, '..', 'src', 'rendererSevereInjuryTables.js')
   const showdownStatePath = path.join(__dirname, '..', 'src', 'rendererShowdownState.js')
   const showdownViewPath = path.join(__dirname, '..', 'src', 'rendererShowdownView.js')
   const showdownControllerPath = path.join(__dirname, '..', 'src', 'rendererShowdownController.js')
@@ -931,6 +933,7 @@ function setupRendererHarness(options = {}) {
   const rendererPath = path.join(__dirname, '..', 'src', 'renderer.js')
   delete require.cache[knowledgeHelperPath]
   delete require.cache[settlementHelperPath]
+  delete require.cache[severeInjuryTablesPath]
   delete require.cache[showdownStatePath]
   delete require.cache[showdownViewPath]
   delete require.cache[showdownControllerPath]
@@ -938,6 +941,7 @@ function setupRendererHarness(options = {}) {
   delete require.cache[rendererPath]
   require(knowledgeHelperPath)
   require(settlementHelperPath)
+  require(severeInjuryTablesPath)
   require(showdownStatePath)
   require(showdownViewPath)
   require(showdownControllerPath)
@@ -1080,7 +1084,7 @@ test('Settings displays the running application version', async t => {
   const harness = setupRendererHarness()
   t.after(() => harness.cleanup())
   await harness.flush()
-  assert.equal(harness.document.getElementById('settingsAppVersion').textContent, 'v3.4.0')
+  assert.equal(harness.document.getElementById('settingsAppVersion').textContent, 'v3.5.0')
 })
 
 test('packaged startup gates legacy local mode until Host or Client is chosen', async t => {
@@ -1741,6 +1745,29 @@ test('editing an existing survivor rename removes the old settlement record', as
   assert.ok(!harness.calls.some(call => call.name === 'deletePerson' && call.args[0] === 'alice.json'))
 })
 
+test('Create/View Survivor displays persisted severe injuries as pips', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(_api, { db }) {
+      db['alice.json'].severeInjuries = [{ location: 'head', name: 'Blind', count: 1 }]
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush(12)
+
+  const settlementTableBody = harness.document.getElementById('settlementTableBody')
+  const aliceRow = settlementTableBody.children.find(child => child.dataset.fileName === 'alice.json')
+  assert.ok(aliceRow)
+
+  harness.dispatch(settlementTableBody, 'click', { target: aliceRow })
+  await harness.flush(12)
+
+  const severeInjuries = harness.document.getElementById('createSevereInjuries').innerHTML
+  assert.match(severeInjuries, /<strong>Blind<\/strong>/)
+  assert.match(severeInjuries, /aria-label="Blind: 1 of 2 recorded"/)
+  assert.equal((severeInjuries.match(/severe-injury-pip is-filled/g) || []).length, 1)
+  assert.equal((severeInjuries.match(/class="severe-injury-pip"/g) || []).length, 1)
+})
+
 test('departed showdown keeps locked slot selections when selectors change', async t => {
   const harness = setupRendererHarness()
   t.after(() => harness.cleanup())
@@ -1804,6 +1831,95 @@ test('showdown temp combat modifiers can go negative while tokens clamp at zero'
   await harness.flush()
 
   assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Tokens \(\+\)<\/span>[\s\S]*showdown-static-value">0</)
+})
+
+test('showdown danger controls open built-in severe injury tables', async t => {
+  const harness = setupRendererHarness({ customizeApi(api) {
+    api.getAppSettings = async () => ({ survivorDataMode: 'local' })
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  const showdownSelectA = harness.document.getElementById('showdownSelectA')
+  const showdownSelectB = harness.document.getElementById('showdownSelectB')
+  const showdownView = harness.document.getElementById('showdownView')
+  const showdownCardA = harness.document.getElementById('showdownCardA')
+
+  showdownSelectA.value = 'alice.json'
+  showdownSelectB.value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush()
+
+  const dangerControls = showdownCardA.innerHTML.match(/data-showdown-severe-table=/g) || []
+  assert.equal(dangerControls.length, 6)
+  for (const location of ['brain', 'head', 'arms', 'body', 'waist', 'legs']) {
+    assert.match(showdownCardA.innerHTML, new RegExp(`data-showdown-severe-table="${location}"`))
+  }
+  assert.match(
+    showdownCardA.innerHTML,
+    /showdown-armor-heading[\s\S]*?data-showdown-severe-table="head"[\s\S]*?Head[\s\S]*?<\/div>[\s\S]*?data-showdown-part="head"[^>]*data-showdown-delta="-1"/
+  )
+  assert.match(
+    showdownCardA.innerHTML,
+    /showdown-reference-heading[\s\S]*?data-showdown-severe-table="brain"[\s\S]*?Insanity[\s\S]*?<\/div>/
+  )
+
+  const openTableButton = harness.document.createElement('button')
+  openTableButton.dataset.showdownSevereTable = 'head'
+  openTableButton.dataset.showdownSevereSlot = 'A'
+  showdownView.dispatchEvent(new FakeEvent('click', { target: openTableButton }))
+
+  assert.equal(harness.document.getElementById('markdownModalTitle').textContent, 'Head Severe Injury')
+  assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /Head Explosion!/)
+  assert.doesNotMatch(harness.document.getElementById('markdownModalBody').innerHTML, /Permanent injury limit:/)
+  assert.doesNotMatch(harness.document.getElementById('markdownModalBody').innerHTML, /<th scope="col">Record<\/th>/)
+  assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /data-severe-title="Decapitation"[^>]*>Apply<\/button>/)
+  assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /data-severe-title="Concussion"/)
+  assert.doesNotMatch(harness.document.getElementById('markdownModalBody').innerHTML, /data-severe-title="Head Explosion!"/)
+
+  const confirmationBaseline = harness.confirms.length
+  const bleedingOnlyButton = harness.document.createElement('button')
+  Object.assign(bleedingOnlyButton.dataset, {
+    severeAction: 'bleeding',
+    severeLocation: 'head',
+    severeTitle: 'Concussion',
+    severeSlot: 'A'
+  })
+  harness.document.getElementById('markdownModal').dispatchEvent(new FakeEvent('click', { target: bleedingOnlyButton }))
+  assert.match(showdownCardA.innerHTML, /Bleeding Tokens[\s\S]*?showdown-static-value">1</)
+
+  const applyButton = harness.document.createElement('button')
+  Object.assign(applyButton.dataset, {
+    severeAction: 'apply',
+    severeLocation: 'head',
+    severeTitle: 'Deaf',
+    severeSlot: 'A'
+  })
+  harness.document.getElementById('markdownModal').dispatchEvent(new FakeEvent('click', { target: applyButton }))
+  assert.match(showdownCardA.innerHTML, /showdown-stat-name[\s\S]*?Evasion[\s\S]*?showdown-stat-total-value">-1</)
+  assert.match(showdownCardA.innerHTML, /Bleeding Tokens[\s\S]*?showdown-static-value">2</)
+  assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /aria-label="Deaf: 1 of 1 recorded"/)
+  assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /severe-injury-pip is-filled/)
+  assert.match(
+    harness.document.getElementById('markdownModalBody').innerHTML,
+    /data-severe-action="bleeding"[^>]*data-severe-title="Deaf"/
+  )
+  assert.doesNotMatch(
+    harness.document.getElementById('markdownModalBody').innerHTML,
+    /data-severe-action="apply"[^>]*data-severe-title="Deaf"/
+  )
+  assert.equal(harness.confirms.length, confirmationBaseline)
+  assert.equal(harness.document.getElementById('markdownModal').getAttribute('aria-hidden'), 'false')
+  assert.ok(harness.document.getElementById('insertMarkdown').classList.contains('hidden'))
+
+  harness.click('closeMarkdownModal')
+  harness.click('departShowdown')
+  await harness.flush()
+  openTableButton.dataset.showdownSevereTable = 'brain'
+  showdownView.dispatchEvent(new FakeEvent('click', { target: openTableButton }))
+
+  assert.equal(harness.document.getElementById('markdownModalTitle').textContent, 'Brain Trauma')
+  assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /Mortal Terror/)
 })
 
 test('refresh showdown survivors replaces persisted data only before departure', async t => {
