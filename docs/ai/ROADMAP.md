@@ -10,8 +10,8 @@ Roadmap entries are directions to investigate or implement deliberately, not aut
 
 ## Current Baseline
 
-- Version 3.5.1 is the current release candidate; 3.5.0 remains the latest tag until publishing completes.
-- The current working tree passes 325 tests, including real-socket LAN reconnect/reconciliation/readiness lifecycle coverage, Host-authoritative reference libraries, and permanent severe-injury count/heal regressions.
+- Version 3.5.2 is the current release candidate; 3.5.1 remains the latest tag until publishing completes.
+- The current working tree passes 327 tests, including real-socket LAN reconnect/reconciliation/readiness lifecycle coverage, Host-authoritative reference libraries, permanent severe-injury count/heal regressions, survivor-tag coverage, and Settings compatibility-table coverage.
 - Production and full npm audits report zero vulnerabilities after updating transitive `fast-uri` to 3.1.7.
 - Windows setup and portable builds passed user acceptance with Electron 41.10.4 and Electron Builder 26.15.7.
 - Production is Host/Client only; Local Development is exposed only through `npm run dev`. New/default and legacy Local configurations are gated at startup until a role is selected.

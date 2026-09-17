@@ -100,6 +100,7 @@ test('listPeopleSummaries returns settlement-safe summaries and skips unreadable
       evasion: 0,
       courage: 4,
       understanding: 3,
+      tags: [],
       lastUpdated: result.records[0].person.lastUpdated,
       lastReturned: null,
       isAlive: true,

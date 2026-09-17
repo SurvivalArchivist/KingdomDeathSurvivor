@@ -1,5 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const fs = require('fs')
 const path = require('path')
 
 class FakeClassList {
@@ -635,7 +636,7 @@ function setupRendererHarness(options = {}) {
     },
     async getRuntimeInfo() {
       calls.push({ name: 'getRuntimeInfo', args: [] })
-      return { isDevelopmentMode: true, appVersion: '3.5.1' }
+      return { isDevelopmentMode: true, appVersion: '3.5.2' }
     },
     async saveAppSettings(settings) {
       calls.push({ name: 'saveAppSettings', args: [deepClone(settings)] })
@@ -1090,7 +1091,15 @@ test('Settings displays the running application version', async t => {
   const harness = setupRendererHarness()
   t.after(() => harness.cleanup())
   await harness.flush()
-  assert.equal(harness.document.getElementById('settingsAppVersion').textContent, 'v3.5.1')
+  assert.equal(harness.document.getElementById('settingsAppVersion').textContent, 'v3.5.2')
+})
+
+test('Settings documents LAN protocol and survivor-file compatibility separately', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'ui', 'components', 'index.html'), 'utf8')
+  assert.match(html, /3\.0\.0–3\.3\.3[\s\S]*?Legacy, unversioned[\s\S]*?Use matching app versions/)
+  assert.match(html, /3\.4\.0–3\.5\.0[\s\S]*?Protocol 1[\s\S]*?Yes, within this row/)
+  assert.match(html, /3\.5\.1\+[\s\S]*?Protocol 2[\s\S]*?both report Protocol 2/)
+  assert.match(html, /up to 3\.0\.0 uses the legacy format; 3\.0\.1\+ uses schema version 6/)
 })
 
 test('packaged startup gates legacy local mode until Host or Client is chosen', async t => {
@@ -1975,7 +1984,7 @@ test('showdown danger controls open built-in severe injury tables', async t => {
     severeSlot: 'A'
   })
   harness.document.getElementById('markdownModal').dispatchEvent(new FakeEvent('click', { target: bleedingOnlyButton }))
-  assert.match(showdownCardA.innerHTML, /Bleeding Tokens[\s\S]*?showdown-static-value">1</)
+  assert.match(showdownCardA.innerHTML, /aria-label="Bleeding tokens"[\s\S]*?showdown-static-value">1</)
 
   const applyButton = harness.document.createElement('button')
   Object.assign(applyButton.dataset, {
@@ -1986,10 +1995,11 @@ test('showdown danger controls open built-in severe injury tables', async t => {
   })
   harness.document.getElementById('markdownModal').dispatchEvent(new FakeEvent('click', { target: applyButton }))
   assert.match(showdownCardA.innerHTML, /showdown-stat-name[\s\S]*?Evasion[\s\S]*?showdown-stat-total-value">-1</)
-  assert.match(showdownCardA.innerHTML, /Bleeding Tokens[\s\S]*?showdown-static-value">2</)
+  assert.match(showdownCardA.innerHTML, /aria-label="Bleeding tokens"[\s\S]*?showdown-static-value">2</)
   assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /aria-label="Deaf: 1 of 1 recorded"/)
   assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /severe-injury-pip is-filled/)
-  assert.match(
+  assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /severe-injury-applied[^>]*disabled[^>]*>Applied<\/button>/)
+  assert.doesNotMatch(
     harness.document.getElementById('markdownModalBody').innerHTML,
     /data-severe-action="bleeding"[^>]*data-severe-title="Deaf"/
   )
@@ -2131,7 +2141,7 @@ test('successful showdown end saves both survivors, clears selections, and reset
   await harness.flush(12)
 
   assert.equal((showdownCardA.innerHTML.match(/showdown-armor-value">0</g) || []).length, 5)
-  assert.match(showdownCardA.innerHTML, /Bleeding Tokens[\s\S]*?showdown-static-value">0</)
+  assert.match(showdownCardA.innerHTML, /aria-label="Bleeding tokens"[\s\S]*?showdown-static-value">0</)
   assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Temp<\/span>[\s\S]*?showdown-static-value">0</)
   assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Tokens \(\+\)<\/span>[\s\S]*?showdown-static-value">0</)
 
@@ -3221,9 +3231,11 @@ for (const mode of ['local', 'lan-client', 'lan-host']) {
     assert.equal(el('settlementType').value, 'campaign')
     assert.equal(el('settlementLanternYear').value, '4')
     assert.match(el('settlementReturnList').innerHTML, /Alice/)
-    assert.match(el('settlementReturnList').innerHTML, /Lantern Year 3/)
+    assert.match(el('settlementReturnList').innerHTML, /<table class="settlement-data-table">/)
+    assert.match(el('settlementReturnList').innerHTML, /Lantern Year/)
     assert.match(el('settlementReturnList').innerHTML, /Dead/)
     assert.match(el('settlementKnowledgeList').innerHTML, /Lantern/)
+    assert.match(el('settlementKnowledgeList').innerHTML, /<table class="settlement-data-table">/)
     assert.equal(el('settlementName').disabled, mode === 'lan-client')
     assert.equal(el('settlementType').disabled, mode === 'lan-client')
     if (mode === 'lan-host') {
@@ -3236,7 +3248,7 @@ for (const mode of ['local', 'lan-client', 'lan-host']) {
       assert.equal(el('setVignetteTemplate').disabled, true)
       harness.click('saveSettlementName')
       await harness.flush()
-      assert.deepEqual(savedInput, { id: 'settlement', revision: 1, name: 'New Home', settlementType: 'vignette', lanternYear: 5 })
+      assert.deepEqual(savedInput, { id: 'settlement', revision: 1, name: 'New Home', settlementType: 'vignette', lanternYear: 5, tags: [] })
       assert.match(el('settlementRecordStatus').textContent, /saved/)
       assert.equal(el('settlementType').disabled, true)
       assert.equal(el('setVignetteTemplate').disabled, false)

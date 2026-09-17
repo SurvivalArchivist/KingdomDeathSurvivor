@@ -38,12 +38,15 @@
 
     const p = person || {}
     const slot = slotLabel === 'A' ? 'A' : 'B'
-    const vitalStats = [
+    const primaryVitalStats = [
       ['age', 'Age', 0, 16, 'icon-vitals'],
-      ['survivalPts', 'Survival', 0, null, 'icon-vitals'],
-      ['insanityPts', 'Insanity', 0, null, 'icon-vitals'],
+      ['lumi', 'Lumi', 0, null, 'icon-vitals'],
       ['systemicPressurePts', 'S. Pressure', 0, null, 'icon-vitals'],
       ['tormentPts', 'Torment', 0, null, 'icon-vitals']
+    ]
+    const secondaryVitalStats = [
+      ['survivalPts', 'Survival', 0, null, null],
+      ['insanityPts', 'Insanity', 0, null, null]
     ]
     const mindHeaderStats = [
       {
@@ -98,7 +101,9 @@
         field === 'understanding'
           ? ' showdown-stepper-understanding'
           : field === 'insanityPts'
-            ? ' showdown-stepper-insanity'
+            ? ' showdown-stepper-insanity showdown-stepper-key-stat'
+            : field === 'survivalPts'
+              ? ' showdown-stepper-survival showdown-stepper-key-stat'
             : ''
       const insanityCheck =
         field === 'insanityPts'
@@ -208,37 +213,34 @@
       </div>`
     }
 
-    const renderProficiencyStepper = () => `
-      <div class="showdown-stepper showdown-stepper-simple showdown-stepper-proficiency-combined">
-        <div class="showdown-proficiency-header">
-          <span class="showdown-stepper-label showdown-stepper-label-proficiency">${iconLabel('icon-stats', 'Weapon Prof')}</span>
-          <div class="showdown-stepper-controls showdown-stepper-controls-proficiency-rank">
-            <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="-1" aria-label="Decrease proficiency rank">-</button>
-            <strong class="showdown-static-value">${proficiencyLevel}</strong>
-            <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="1" aria-label="Increase proficiency rank">+</button>
+    const renderProficiencyStepper = () => {
+      const popoverId = `showdown-proficiency-${slot}`
+      return `
+        <div class="showdown-proficiency-trigger">
+          <button type="button" class="showdown-proficiency-trigger-button" popovertarget="${popoverId}" aria-label="Weapon proficiency" title="Weapon proficiency">
+            <svg aria-hidden="true"><use href="#icon-shield"></use></svg>
+          </button>
+          <div id="${popoverId}" class="showdown-proficiency-popover" data-showdown-proficiency-popover popover="auto">
+            <div class="showdown-stepper showdown-stepper-simple showdown-stepper-proficiency-combined">
+              <div class="showdown-proficiency-header">
+                <span class="showdown-stepper-label showdown-stepper-label-proficiency">Weapon Proficiency</span>
+                <div class="showdown-stepper-controls showdown-stepper-controls-proficiency-rank">
+                  <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="-1" aria-label="Decrease proficiency rank">-</button>
+                  <strong class="showdown-static-value">${proficiencyLevel}</strong>
+                  <button type="button" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="level" data-showdown-proficiency-delta="1" aria-label="Increase proficiency rank">+</button>
+                </div>
+              </div>
+              <div class="showdown-proficiency-inline">
+                <input type="text" class="showdown-proficiency-type-input" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="type" value="${String(proficiency.type || '')}" placeholder="Type" aria-label="Weapon proficiency type" />
+                <label class="showdown-proficiency-reminder" title="Temporary weapon proficiency reminder">
+                  <input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="proficiencyReminder" aria-label="Weapon proficiency reminder" ${armor.proficiencyReminder ? 'checked' : ''} />
+                </label>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="showdown-proficiency-inline">
-          <input
-            type="text"
-            class="showdown-proficiency-type-input"
-            data-showdown-proficiency-slot="${slot}"
-            data-showdown-proficiency-field="type"
-            value="${String(proficiency.type || '')}"
-            placeholder="Type"
-            aria-label="Weapon proficiency type"
-          />
-          <label class="showdown-proficiency-reminder" title="Temporary weapon proficiency reminder">
-            <input
-              type="checkbox"
-              data-showdown-slot="${slot}"
-              data-showdown-armor-check="proficiencyReminder"
-              aria-label="Weapon proficiency reminder"
-              ${armor.proficiencyReminder ? 'checked' : ''}
-            />
-          </label>
-        </div>
-      </div>`
+      `
+    }
 
     const renderShowdownKnowledgeCopy = (item, level, req, nextDisplay, headerControls) => `
       <div class="showdown-array-copy showdown-array-copy-knowledge">
@@ -361,15 +363,16 @@
           </label>
         </div>
         <section class="showdown-group showdown-group-vitals">
-          <h4>${iconLabel('icon-vitals', 'Age / Survival / Insanity')}</h4>
           <div class="showdown-stats showdown-stats-vitals">
-            ${vitalStats.map(renderBaseStepper).join('')}
-            ${renderProficiencyStepper()}
+            ${primaryVitalStats.map(renderBaseStepper).join('')}
           </div>
           <div class="showdown-stats showdown-stats-vitals showdown-stats-vitals-bleeding">
-            ${renderBaseStepper(['lumi', 'Lumi', 0, null, 'icon-vitals'])}
+            ${renderProficiencyStepper()}
+            ${secondaryVitalStats.map(renderBaseStepper).join('')}
             <div class="showdown-stepper showdown-stepper-simple showdown-stepper-bleeding">
-              <span class="showdown-stepper-label">${iconLabel('icon-bleeding', 'Bleeding Tokens')}</span>
+              <span class="showdown-stepper-label showdown-bleeding-icon" aria-label="Bleeding tokens" title="Bleeding tokens">
+                <svg aria-hidden="true"><use href="#icon-bleeding"></use></svg>
+              </span>
               <div class="showdown-stepper-controls">
                 <button type="button" data-showdown-slot="${slot}" data-showdown-part="bleedingTokens" data-showdown-delta="-1">-</button>
                 <strong class="showdown-static-value">${Math.max(0, coerceNumber(armor.bleedingTokens, 0))}</strong>
@@ -578,8 +581,13 @@
   function renderShowdownCard(container, options) {
     if (!container) return false
     const accordionState = snapshotShowdownAccordionState(container)
+    const openProficiencyPopoverId = container.querySelector?.('[data-showdown-proficiency-popover]:popover-open')?.id || ''
     container.innerHTML = buildShowdownCardMarkup(options)
     restoreShowdownAccordionState(container, accordionState)
+    if (openProficiencyPopoverId) {
+      const popover = container.querySelector?.(`#${openProficiencyPopoverId}`)
+      if (typeof popover?.showPopover === 'function') popover.showPopover()
+    }
     return true
   }
 

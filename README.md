@@ -3,7 +3,7 @@
 Desktop companion app for Kingdom Death survivor management.
 
 > [!CAUTION]
-> **Version 3.5.1 retains the schema-v6 campaign reset introduced in 3.0.1.** It will not load survivor files created before that reset. Back up any older data you need, use a schema-v6 survivor folder, and reselect every Data Source in Settings after upgrading from an older release.
+> **Version 3.5.2 retains the schema-v6 campaign reset introduced in 3.0.1.** It will not load survivor files created before that reset. Back up any older data you need, use a schema-v6 survivor folder, and reselect every Data Source in Settings after upgrading from an older release.
 
 ## What This Is
 KDM Survivors Console helps you manage survivor records across the full play loop:
@@ -18,6 +18,19 @@ KDM Survivors Console helps you manage survivor records across the full play loo
 - Stores survivor records as local JSON files (you choose the folders)
 - Supports markdown-backed content references (fighting arts, disorders, etc.)
 - Provides dedicated views for technical editing, settlement management, create/edit survivor, and showdown
+
+## Compatibility
+
+LAN Host and Client apps must be in the same compatible row:
+
+| App versions | LAN generation | Can play together |
+| --- | --- | --- |
+| 1.x–2.x | No LAN | No LAN multiplayer |
+| 3.0.0–3.3.3 | Legacy, unversioned | Use matching app versions |
+| 3.4.0–3.5.0 | Protocol 1 | Yes, within this row |
+| 3.5.1+ | Protocol 2 | Yes, while both report Protocol 2 |
+
+Survivor-file compatibility is separate: versions through 3.0.0 use the legacy format, while 3.0.1 and later use survivor schema version 6.
 
 ## Download The Latest Release
 - Latest release page (automated Windows, macOS, and Linux artifacts):
@@ -96,7 +109,7 @@ The smoke test uses a temporary user-data directory, verifies that the real pack
 ### Automated Publishing
 Push a version tag matching `package.json` to trigger full release publishing:
 ```bash
-git tag v3.5.1
-git push origin v3.5.1
+git tag v3.5.2
+git push origin v3.5.2
 ```
 This triggers the `Release Publish` GitHub Actions workflow.

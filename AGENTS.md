@@ -58,6 +58,7 @@ Before making significant changes, check:
 - LAN Host uses the selected Survivors folder as authoritative local storage; LAN Client routes survivor CRUD to the configured host and should not require or show the local Survivors folder picker.
 - In LAN Client mode, the Host is also authoritative for Fighting Arts, Secret Fighting Arts, Knowledges/Tenet Knowledges, Neuroses, and Disorders. Hide those local source pickers from Clients and route their list/load/template operations through the provider. Fetch collection/template listings when a picker opens so Host files added mid-session are available without reconnecting.
 - LAN Client disconnect should preserve the configured host address via `lanClientConnected`; do not treat disconnect as clearing settings unless explicitly requested.
+- Keep the compact Settings/README compatibility table aligned with actual protocol boundaries: 3.0.0–3.3.3 is legacy unversioned LAN, 3.4.0–3.5.0 is protocol 1, and 3.5.1+ is protocol 2 until the next explicit protocol bump. Keep survivor-file schema compatibility listed separately.
 
 ## Data and Domain Guardrails
 - Survivor records use stable `id`, `createdAt`, and `schemaVersion` and are normalized on load/save.
@@ -89,3 +90,5 @@ For docs-only updates, note that verification was not required.
 - Keep this file opinionated and practical: it should tell future agents how to work in this repo, not just describe the repo abstractly.
 
 Client survivor saves still register unlocked knowledge in the host settlement record through the existing journal/recovery flow. Host-only editing applies to direct Settlement tab edits, not automatic knowledge registration from saved survivors.
+
+Survivor tags are stored directly on each survivor while `settlement.json` owns the shared option catalog. New tags used by Host or Client survivor saves register through the same journal/recovery boundary; direct catalog curation remains Host-only.

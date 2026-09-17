@@ -19,6 +19,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 
 3. Survivors View
 - Sortable/filterable survivor table
+- Survivors store their assigned `tags` directly. The settlement record keeps the shared tag catalog, survivor saves register newly used tags through the existing journal/recovery path, and the roster can filter by one settlement tag.
 - Slot assignment controls for showdown (`1` and `2`)
 
 4. Settlement
@@ -38,6 +39,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - Severe table rows show `Apply` only for fully deterministic app-owned effects. Permanent rows with additional unsafe/manual effects expose `Record` for the deterministic permanent portion and retain a separate bleeding-symbol action where appropriate; dice, random choices, Fighting Arts handling, other survivors, and unresolved board state remain manual. Create/View Survivor provides `Heal` per recorded injury occurrence. Healing decrements/removes the record and reverses that occurrence's deterministic permanent stat and restriction effects, but never removes bleeding tokens or other temporary/manual consequences.
 
 ## UI Direction
+- The document shell is viewport-locked: the header/navbar never scrolls, while view content scrolls inside the main app shell below it.
 - Header branding uses the small app icon; Settings uses a gear button. Settings selects the Classic or Zen theme family, and a header sun/moon button switches its light/dark variant while retaining the family and persisted preference. The icon depicts the current mode (sun for light, moon for dark). Navbar hover styling must keep controls stationary to avoid scroll-container clipping.
 - Prefer simple, efficient layouts over decorative nesting.
 - Keep the rough position of existing tools/workflows, but reduce wrapper layers and visual ceremony.
@@ -85,6 +87,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - In LAN Client mode, survivor write controls are disabled when the latest status is `Offline` or `Error`, survivor operations refresh the navbar status, and writes perform a fresh pre-save status check.
 - LAN Client recovery messaging distinguishes unreachable host, validation failure, stale revision conflict, and generic server error; Auto Reconnect surfaces `Reconnecting` status while checking host health or restoring the live update stream. Stream registration has an eight-second acknowledgement timeout, automatic retries use jittered exponential backoff capped at 30 seconds and reset after registration/manual connection actions, and a deliberate Host stop sends a best-effort shutdown event so Clients transition offline promptly. After a known disconnect, system resume, app activation, or window focus retries immediately without duplicating healthy/currently connecting streams.
 - In LAN Client mode, shared reference content is Host-authoritative alongside survivor data: Fighting Arts, Secret Fighting Arts, Knowledges/Tenet Knowledges, Neuroses, and Disorders list/load/save through the Host API. Client Settings hide the corresponding local folder selectors. Pickers fetch current Host listings whenever they open, so files added to Host collections mid-session become available without reconnecting; markdown bodies load on demand. Built-in severe-injury tables remain app-owned and do not use these folders.
+- Settings and README expose two distinct compatibility boundaries. LAN: 1.x–2.x has no LAN; 3.0.0–3.3.3 is legacy unversioned and should use matching app versions; 3.4.0–3.5.0 uses protocol 1; 3.5.1+ uses protocol 2 until the next explicit bump. Survivor files: through 3.0.0 is legacy, while 3.0.1+ uses schema version 6.
 
 ## Knowledge / Tenet Knowledge Rules
 

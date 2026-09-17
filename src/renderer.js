@@ -171,15 +171,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const restoreVignetteTemplateButton = document.getElementById('restoreVignetteTemplate')
   const settlementTemplateStatus = document.getElementById('settlementTemplateStatus')
   const settlementRecordStatus = document.getElementById('settlementRecordStatus')
+  const settlementNewTag = document.getElementById('settlementNewTag')
+  const settlementAddTag = document.getElementById('settlementAddTag')
+  const settlementTagList = document.getElementById('settlementTagList')
   const settlementReturnsSection = document.getElementById('settlementReturnsSection')
   const settlementReturnList = document.getElementById('settlementReturnList')
   const settlementKnowledgeList = document.getElementById('settlementKnowledgeList')
   let settlementRecord = null
+  let settlementTagDraft = []
   const settlementRecordDirty = () =>
     settlementRecord &&
     (settlementName.value !== (settlementRecord.name || '') ||
       settlementType.value !== (settlementRecord.settlementType || 'campaign') ||
-      (settlementType.value === 'campaign' && Number(settlementLanternYear.value) !== Number(settlementRecord.lanternYear || 0)))
+      (settlementType.value === 'campaign' && Number(settlementLanternYear.value) !== Number(settlementRecord.lanternYear || 0)) ||
+      JSON.stringify(settlementTagDraft) !== JSON.stringify(normalizeTags(settlementRecord.tags)))
   const settlementNameDirty = settlementRecordDirty
   const settlementRecordEditable = () => appSettings.survivorDataMode === 'lan-host'
   const settlementTypeEditable = () => settlementRecordEditable() && !settlementRecord?.settlementTypeLocked
@@ -190,6 +195,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadSettlementRecordView() {
     settlementRecord = null
+    settlementTagDraft = []
+    renderSettlementTagList()
     settlementName.value = ''
     settlementType.value = 'campaign'
     settlementLanternYear.value = '0'
@@ -203,20 +210,24 @@ document.addEventListener('DOMContentLoaded', () => {
       settlementName.value = settlementRecord.name || ''
       settlementType.value = settlementRecord.settlementType === 'vignette' ? 'vignette' : 'campaign'
       settlementLanternYear.value = String(Math.max(0, Number(settlementRecord.lanternYear) || 0))
+      settlementTagDraft = normalizeTags(settlementRecord.tags)
+      renderSettlementTagList()
       settlementTypeStatus.textContent = settlementRecord.settlementTypeLocked
         ? 'Settlement type is permanent and can no longer be changed.'
         : 'Settlement type becomes permanent when the Host saves the settlement.'
       const entries = [...settlementRecord.knowledges].sort((a, b) =>
         a.definition.name.localeCompare(b.definition.name) || a.definition.knowledgeLevel - b.definition.knowledgeLevel)
-      settlementKnowledgeList.innerHTML = entries.length ? entries.map(({ definition }) =>
-        `<details class="settlement-knowledge"><summary>${escapeHtml(definition.name)} · Level ${escapeHtml(String(definition.knowledgeLevel))}</summary><p>${escapeHtml(definition.rules || 'No rules recorded.')}</p></details>`
-      ).join('') : '<p class="muted">No knowledge unlocked yet. Knowledge is registered when survivors are saved.</p>'
+      settlementKnowledgeList.innerHTML = entries.length
+        ? `<div class="settlement-data-table-wrap"><table class="settlement-data-table"><thead><tr><th scope="col">Knowledge</th><th scope="col">Level</th><th scope="col">Rules</th></tr></thead><tbody>${entries.map(({ definition }) =>
+            `<tr><th scope="row">${escapeHtml(definition.name)}</th><td>${escapeHtml(String(definition.knowledgeLevel))}</td><td class="settlement-knowledge-rules">${escapeHtml(definition.rules || 'No rules recorded.')}</td></tr>`
+          ).join('')}</tbody></table></div>`
+        : '<p class="muted">No knowledge unlocked yet. Knowledge is registered when survivors are saved.</p>'
       const returns = Array.isArray(settlementRecord.returns) ? [...settlementRecord.returns] : []
       returns.sort((a, b) => String(b.returnedAt || '').localeCompare(String(a.returnedAt || '')))
       settlementReturnList.innerHTML = returns.length
-        ? `<ul class="settlement-return-list">${returns.map(entry =>
-            `<li><strong>${escapeHtml(entry.survivorName)}</strong><span>Lantern Year ${escapeHtml(String(entry.lanternYear))}</span><span>${entry.isAlive ? 'Alive' : 'Dead'}</span><time datetime="${escapeHtml(entry.returnedAt)}">${escapeHtml(new Date(entry.returnedAt).toLocaleString())}</time></li>`
-          ).join('')}</ul>`
+        ? `<div class="settlement-data-table-wrap"><table class="settlement-data-table"><thead><tr><th scope="col">Survivor</th><th scope="col">Lantern Year</th><th scope="col">Status</th><th scope="col">Returned</th></tr></thead><tbody>${returns.map(entry =>
+            `<tr><th scope="row">${escapeHtml(entry.survivorName)}</th><td>${escapeHtml(String(entry.lanternYear))}</td><td>${entry.isAlive ? 'Alive' : 'Dead'}</td><td><time datetime="${escapeHtml(entry.returnedAt)}">${escapeHtml(new Date(entry.returnedAt).toLocaleString())}</time></td></tr>`
+          ).join('')}</tbody></table></div>`
         : '<p class="muted">No survivor returns recorded yet.</p>'
       if (settlementType.value === 'vignette') {
         const template = settlementRecord.vignetteTemplate
@@ -245,8 +256,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const navThemeToggle = document.getElementById('navThemeToggle')
   const settlementNameSearch = document.getElementById('settlementNameSearch')
   const settlementTraitSearch = document.getElementById('settlementTraitSearch')
+  const settlementTagFilter = document.getElementById('settlementTagFilter')
   const settlementToggleExtraFiltersButton = document.getElementById('settlementToggleExtraFilters')
   const settlementExtraFilters = document.getElementById('settlementExtraFilters')
+  const settlementToggleTags = document.getElementById('settlementToggleTags')
   const settlementToggleMovement = document.getElementById('settlementToggleMovement')
   const settlementToggleWeaponProficiency = document.getElementById('settlementToggleWeaponProficiency')
   const settlementToggleLastUpdated = document.getElementById('settlementToggleLastUpdated')
@@ -275,6 +288,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const createNeurosisSaveTemplate = document.getElementById('createNeurosisSaveTemplate')
   const createSurvivorAlive = document.getElementById('createSurvivorAlive')
   const createSurvivorLifetimeReroll = document.getElementById('createSurvivorLifetimeReroll')
+  const createExistingTag = document.getElementById('createExistingTag')
+  const createAddExistingTag = document.getElementById('createAddExistingTag')
+  const createShowNewTag = document.getElementById('createShowNewTag')
+  const createNewTag = document.getElementById('createNewTag')
+  const createCommitNewTag = document.getElementById('createCommitNewTag')
+  const createTagList = document.getElementById('createTagList')
   const createSurvivorMatchmaker = document.getElementById('createSurvivorMatchmaker')
   const createSurvivorTinker = document.getElementById('createSurvivorTinker')
   const createPonderIndicator = document.getElementById('createPonderIndicator')
@@ -451,6 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
     settlementTraitSearch,
     settlementToggleExtraFiltersButton,
     settlementExtraFilters,
+    settlementToggleTags,
     settlementToggleMovement,
     settlementToggleWeaponProficiency,
     settlementToggleLastUpdated,
@@ -694,6 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let createEditingFileName = null
   let createDirty = false
   let createDirtyBaseline = ''
+  let createTags = []
   let createArrayState = {
     abilities: [],
     impairments: [],
@@ -845,6 +866,7 @@ document.addEventListener('DOMContentLoaded', () => {
       lifetimeReroll: Boolean(createSurvivorLifetimeReroll.checked),
       matchmaker: String(createSurvivorMatchmaker.value || 'none'),
       tinker: String(createSurvivorTinker.value || 'none'),
+      tags: normalizeTags(createTags),
       abilities: getCreateTextArraySnapshot('abilities'),
       impairments: getCreateTextArraySnapshot('impairments'),
       notes: getCreateTextArraySnapshot('notes'),
@@ -901,6 +923,8 @@ document.addEventListener('DOMContentLoaded', () => {
       settlementName.value = settlementRecord.name || ''
       settlementType.value = settlementRecord.settlementType || 'campaign'
       settlementLanternYear.value = String(Math.max(0, Number(settlementRecord.lanternYear) || 0))
+      settlementTagDraft = normalizeTags(settlementRecord.tags)
+      renderSettlementTagList()
     }
     if (!hasUnsavedCreateChanges()) return true
     const subject =
@@ -1822,6 +1846,8 @@ document.addEventListener('DOMContentLoaded', () => {
     navSettlementRecord.disabled = busy || appSettings.survivorDataMode === 'local'
     navSettlementRecord.title = appSettings.survivorDataMode === 'local' ? 'Settlement requires LAN Host or LAN Client mode.' : ''
     settlementName.disabled = busy || !settlementRecord || !settlementRecordEditable()
+    settlementNewTag.disabled = busy || !settlementRecord || !settlementRecordEditable()
+    settlementAddTag.disabled = settlementNewTag.disabled
     settlementType.disabled = busy || !settlementRecord || !settlementTypeEditable()
     settlementType.title = settlementRecord?.settlementTypeLocked
       ? 'Settlement type is permanent once set.'
@@ -1845,6 +1871,8 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshSettlementRecordButton.disabled = busy || !hasDataFolder
     settlementNameSearch.disabled = !hasDataFolder || busy
     settlementTraitSearch.disabled = !hasDataFolder || busy
+    settlementTagFilter.disabled = !hasDataFolder || busy
+    settlementToggleTags.disabled = !hasDataFolder || busy
     settlementToggleExtraFiltersButton.disabled = !hasDataFolder || busy
     settlementToggleMovement.disabled = !hasDataFolder || busy
     settlementToggleWeaponProficiency.disabled = !hasDataFolder || busy
@@ -1898,6 +1926,11 @@ document.addEventListener('DOMContentLoaded', () => {
     createNeurosisSaveTemplate.disabled = busy
     createSurvivorAlive.disabled = busy
     createSurvivorLifetimeReroll.disabled = busy
+    createExistingTag.disabled = busy
+    createAddExistingTag.disabled = busy
+    createShowNewTag.disabled = busy
+    createNewTag.disabled = busy
+    createCommitNewTag.disabled = busy
     createSurvivorMatchmaker.disabled = busy
     createSurvivorTinker.disabled = busy
     createWeaponProficiencyType.disabled = busy
@@ -2055,14 +2088,15 @@ document.addEventListener('DOMContentLoaded', () => {
     insertMarkdownButton.classList.remove('hidden')
   }
 
-  function openSevereInjuryTable(location, slot) {
+  function openSevereInjuryTable(location, slot, options = {}) {
     const table = getSevereInjuryTable(location)
     if (!table) return
     const normalizedSlot = slot === 'A' || slot === 'B' ? slot : ''
     markdownModalTitle.textContent = table.title
     markdownModalBody.innerHTML = renderSevereInjuryTable(location, {
       slot: normalizedSlot,
-      person: normalizedSlot ? showdownPeople[normalizedSlot]?.person : null
+      person: normalizedSlot ? showdownPeople[normalizedSlot]?.person : null,
+      appliedTitle: options.appliedTitle
     })
     insertMarkdownButton.classList.add('hidden')
     markdownModal.classList.remove('hidden')
@@ -2093,7 +2127,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
     renderShowdownSlot(slot)
-    openSevereInjuryTable(location, slot)
+    openSevereInjuryTable(location, slot, { appliedTitle: mode === 'apply' ? title : '' })
     setStatus(`${title}: ${result.changes.join('; ')}`, 'success')
   }
 
@@ -2213,6 +2247,8 @@ document.addEventListener('DOMContentLoaded', () => {
     createNeurosisTemplateName.value = source.philosophyNeurosisName || ''
     createSurvivorAlive.checked = Boolean(source.isAlive)
     createSurvivorLifetimeReroll.checked = Boolean(source.lifetimeReroll)
+    createTags = normalizeTags(source.tags)
+    renderCreateTags()
     createSurvivorMatchmaker.value = getSelectedMatchmakerGroup(source)
     createSurvivorTinker.value = getSelectedTinkerGroup(source)
     createWeaponProficiencyType.value = proficiency.type
@@ -2229,6 +2265,69 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPonderIndicator(createPonderIndicator, createViewBase)
     renderCreateArrayRows(source)
     snapshotCreateFormAsClean()
+  }
+
+  function normalizeTags(value) {
+    const result = []
+    const seen = new Set()
+    for (const item of Array.isArray(value) ? value : []) {
+      const tag = String(item || '').trim()
+      const key = tag.toLocaleLowerCase()
+      if (!tag || tag.length > 50 || seen.has(key)) continue
+      seen.add(key)
+      result.push(tag)
+      if (result.length === 50) break
+    }
+    return result.sort((a, b) => a.localeCompare(b))
+  }
+
+  function getSettlementTagOptions() {
+    return normalizeTags([
+      ...(settlementRecord?.tags || []),
+      ...settlementRecords.flatMap(record => record?.person?.tags || [])
+    ])
+  }
+
+  function appendTagChip(container, tag, action) {
+    const chip = document.createElement('span')
+    chip.className = 'tag-chip'
+    chip.append(document.createTextNode(tag))
+    const remove = document.createElement('button')
+    remove.type = 'button'
+    remove.textContent = '×'
+    remove.setAttribute('aria-label', `Remove ${tag}`)
+    remove.dataset[action] = tag
+    chip.appendChild(remove)
+    container.appendChild(chip)
+  }
+
+  function renderSettlementTagList() {
+    settlementTagList.innerHTML = ''
+    for (const tag of settlementTagDraft) appendTagChip(settlementTagList, tag, 'removeSettlementTag')
+  }
+
+  function renderCreateTags() {
+    createTagList.innerHTML = ''
+    for (const tag of createTags) appendTagChip(createTagList, tag, 'removeSurvivorTag')
+    const selected = createExistingTag.value
+    createExistingTag.innerHTML = '<option value="">Choose an existing tag…</option>'
+    for (const tag of getSettlementTagOptions()) {
+      if (createTags.some(existing => existing.toLocaleLowerCase() === tag.toLocaleLowerCase())) continue
+      const option = document.createElement('option')
+      option.value = tag
+      option.textContent = tag
+      createExistingTag.appendChild(option)
+    }
+    if ([...createExistingTag.options].some(option => option.value === selected)) createExistingTag.value = selected
+  }
+
+  function addCreateTag(value) {
+    const next = normalizeTags([...createTags, value])
+    if (next.length === createTags.length) return false
+    createTags = next
+    renderCreateTags()
+    syncCreateDirtyState()
+    return true
   }
 
   function renderCreateArrayRows(source) {
@@ -3060,6 +3159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     next.philosophyNeurosisName = createNeurosisTemplateName.value.trim()
     next.isAlive = createSurvivorAlive.checked
     next.lifetimeReroll = createSurvivorLifetimeReroll.checked
+    next.tags = normalizeTags(createTags)
     applyMatchmakerGroup(next, createSurvivorMatchmaker.value)
     applyTinkerGroup(next, createSurvivorTinker.value)
     if (!next.name && createViewMode !== 'defaultTemplate') return null
@@ -3200,6 +3300,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     settlementRecords = records.filter(Boolean)
+    const selectedTag = settlementTagFilter.value
+    settlementTagFilter.innerHTML = '<option value="">All tags</option>'
+    for (const tag of getSettlementTagOptions()) {
+      const option = document.createElement('option')
+      option.value = tag
+      option.textContent = tag
+      settlementTagFilter.appendChild(option)
+    }
+    if ([...settlementTagFilter.options].some(option => option.value === selectedTag)) settlementTagFilter.value = selectedTag
     showdownSession.populateShowdownSelectors(getAliveShowdownFiles())
     showdownSession.applyShowdownLockSelections()
     renderSettlementTable()
@@ -4462,6 +4571,8 @@ document.addEventListener('DOMContentLoaded', () => {
     elements: {
       settlementNameSearch,
       settlementTraitSearch,
+      settlementTagFilter,
+      settlementToggleTags,
       settlementToggleMovement,
       settlementToggleWeaponProficiency,
       settlementToggleLastUpdated,
@@ -4743,6 +4854,29 @@ document.addEventListener('DOMContentLoaded', () => {
     syncControlState()
     if (settlementRecordDirty()) settlementRecordStatus.textContent = 'Unsaved settlement changes'
   })
+  settlementAddTag.addEventListener('click', () => {
+    const next = normalizeTags([...settlementTagDraft, settlementNewTag.value])
+    if (next.length === settlementTagDraft.length) return
+    settlementTagDraft = next
+    settlementNewTag.value = ''
+    renderSettlementTagList()
+    settlementRecordStatus.textContent = 'Unsaved settlement changes'
+    syncControlState()
+  })
+  settlementNewTag.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    settlementAddTag.click()
+  })
+  settlementTagList.addEventListener('click', event => {
+    const button = event.target.closest('button[data-remove-settlement-tag]')
+    if (!button || !settlementRecordEditable()) return
+    const key = String(button.dataset.removeSettlementTag || '').toLocaleLowerCase()
+    settlementTagDraft = settlementTagDraft.filter(tag => tag.toLocaleLowerCase() !== key)
+    renderSettlementTagList()
+    settlementRecordStatus.textContent = 'Unsaved settlement changes'
+    syncControlState()
+  })
   incrementSettlementLanternYearButton.addEventListener('click', () => {
     if (settlementLanternYear.disabled) return
     settlementLanternYear.value = String(Math.max(0, Number(settlementLanternYear.value) || 0) + 1)
@@ -4761,13 +4895,16 @@ document.addEventListener('DOMContentLoaded', () => {
         revision: settlementRecord.revision,
         name: settlementName.value,
         settlementType: settlementType.value,
-        lanternYear: Number(settlementLanternYear.value)
+        lanternYear: Number(settlementLanternYear.value),
+        tags: settlementTagDraft
       })
       if (!result.ok) throw new Error(result.message || 'Unable to save settlement.')
       settlementRecord = result.record
       settlementName.value = settlementRecord.name || ''
       settlementType.value = settlementRecord.settlementType || 'campaign'
       settlementLanternYear.value = String(Math.max(0, Number(settlementRecord.lanternYear) || 0))
+      settlementTagDraft = normalizeTags(settlementRecord.tags)
+      renderSettlementTagList()
       await loadSettlementRecordView()
       settlementRecordStatus.textContent = 'Settlement saved.'
     }).catch(err => { settlementRecordStatus.textContent = err.message })
@@ -5078,6 +5215,14 @@ document.addEventListener('DOMContentLoaded', () => {
   createSurvivorView.addEventListener('click', event => {
     const target = event.target
     if (!(target instanceof HTMLElement)) return
+    const removeTagButton = target.closest('button[data-remove-survivor-tag]')
+    if (removeTagButton instanceof HTMLButtonElement) {
+      const key = String(removeTagButton.dataset.removeSurvivorTag || '').toLocaleLowerCase()
+      createTags = createTags.filter(tag => tag.toLocaleLowerCase() !== key)
+      renderCreateTags()
+      syncCreateDirtyState()
+      return
+    }
     const healButton = target.closest('button[data-action="healSevereInjury"]')
     if (healButton instanceof HTMLButtonElement) {
       healCreateSevereInjury(healButton)
@@ -5228,6 +5373,27 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   })
   createAddAbilityButton.addEventListener('click', () => addCreateArrayEntry('abilities'))
+  createAddExistingTag.addEventListener('click', () => {
+    if (addCreateTag(createExistingTag.value)) createExistingTag.value = ''
+  })
+  createShowNewTag.addEventListener('click', () => {
+    createNewTag.classList.remove('hidden')
+    createCommitNewTag.classList.remove('hidden')
+    createShowNewTag.classList.add('hidden')
+    createNewTag.focus()
+  })
+  createCommitNewTag.addEventListener('click', () => {
+    if (!addCreateTag(createNewTag.value)) return
+    createNewTag.value = ''
+    createNewTag.classList.add('hidden')
+    createCommitNewTag.classList.add('hidden')
+    createShowNewTag.classList.remove('hidden')
+  })
+  createNewTag.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    createCommitNewTag.click()
+  })
   createAddImpairmentButton.addEventListener('click', () => addCreateArrayEntry('impairments'))
   createAddNoteButton.addEventListener('click', () => addCreateArrayEntry('notes'))
   createAddTenetKnowledgeButton.addEventListener('click', () => {

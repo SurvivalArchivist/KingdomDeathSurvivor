@@ -156,6 +156,9 @@ function preparePersonForValidation(person, options = {}) {
   if (typeof next.severeInjuries === 'undefined') {
     next.severeInjuries = []
   }
+  if (typeof next.tags === 'undefined') {
+    next.tags = []
+  }
   if (typeof next.lastUpdated !== 'string') {
     next.lastUpdated = typeof next.updatedAt === 'string' ? next.updatedAt : ''
   }
@@ -641,6 +644,7 @@ function createPersonSettlementSummary(fileName, person) {
       evasion: Number(person?.evasion) || 0,
       courage: Number(person?.courage) || 0,
       understanding: Number(person?.understanding) || 0,
+      tags: Array.isArray(person?.tags) ? person.tags.map(tag => String(tag || '').trim()).filter(Boolean) : [],
       lastUpdated: typeof person?.lastUpdated === 'string' ? person.lastUpdated : '',
       lastReturned: typeof person?.lastReturned === 'string' || person?.lastReturned === null ? person.lastReturned : '',
       isAlive: Boolean(person?.isAlive),
@@ -706,7 +710,8 @@ function saveSettlementSettings(basePath, input) {
   return settlementService.saveSettings(basePath, current, {
     name: input.name.trim(),
     settlementType,
-    lanternYear
+    lanternYear,
+    tags: typeof input.tags === 'undefined' ? current.tags : input.tags
   })
 }
 
@@ -862,6 +867,7 @@ function createPersonTemplate(name = 'New Survivor') {
     },
     courage: 0,
     understanding: 0,
+    tags: [],
     lifetimeReroll: false,
     matchmaker: false,
     tinker: false,
