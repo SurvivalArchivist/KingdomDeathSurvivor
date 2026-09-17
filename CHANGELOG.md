@@ -7,6 +7,24 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.5.2] - 2026-09-17
+
+### Added
+
+- Added settlement-scoped survivor tags, including direct survivor persistence, shared tag management, survivor editing, roster filtering, and an optional compact Tags column.
+- Added a LAN and survivor-file compatibility table to Settings and the maintained README.
+- Added immediate visual feedback after applying severe injuries in Showdown.
+
+### Changed
+
+- Moved Returning Survivors and unlocked Knowledges into collapsible Settlement tables.
+- Tightened the Survivors toolbar, moved tag and column controls under Extra Filters, and kept refresh information on the primary filter row.
+- Reworked the Showdown layout with fixed navigation, full-height internally scrolling survivor cards, compact centred vital controls, a popover-based Weapon Proficiency shield, and clearer Survival, Insanity, and Bleeding treatments.
+
+### Fixed
+
+- Prevented Survivor column checkboxes and labels from clipping at the top of the Extra Filters panel.
+
 ## [3.5.1] - 2026-09-15
 
 ### Added

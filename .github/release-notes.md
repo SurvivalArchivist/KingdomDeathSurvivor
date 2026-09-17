@@ -1,27 +1,31 @@
-# KDM Survivors Console 3.5.1
+# KDM Survivors Console 3.5.2
 
-Version 3.5.1 improves permanent-injury management and makes the LAN Host authoritative for shared reference libraries.
+Version 3.5.2 adds settlement-scoped survivor tags and delivers a focused usability pass across Survivors, Settlement, and Showdown.
 
-### Permanent Injury Tracking And Healing
+### Survivor Tags
 
-- Every severe injury described as permanent is now recorded with its exact occurrence count.
-- Injuries limited to one or two occurrences retain their filled/empty pip display. Unlimited injuries display `×N`.
-- Create/View Survivor records provide a `Heal` action for each permanent injury. Healing removes one occurrence and reverses its deterministic permanent stat or restriction effect.
-- Healing does not remove bleeding tokens, temporary combat effects, random outcomes, or other consequences unrelated to the permanent wound.
-- Permanent results with manual or random consequences use a separate `Record` action for the deterministic permanent portion; their remaining instructions stay manual.
-- Existing legacy capped injury entries are migrated when they are applied or healed.
+- Add tags directly to survivor records using existing settlement options or the inline Add New Tag flow.
+- Manage the shared tag catalog from Settlement without making survivor display depend on a join.
+- Filter the Survivors roster by settlement tags and optionally display a compact Tags column from Extra Filters.
+- New tags discovered through Host or Client survivor saves are registered through the existing durable settlement journal.
 
-### Host-Authoritative Reference Libraries
+### Showdown Usability
 
-- LAN Clients now use the Host's Fighting Arts, Secret Fighting Arts, Disorders, Knowledges, Tenet Knowledges, and Neuroses.
-- Client reference-folder controls are hidden because the Host is the sole authority during LAN play.
-- Reference pickers fetch current Host listings whenever opened, so newly added Host files appear without reconnecting.
-- Markdown bodies load from the Host on demand, and Host filesystem paths are never exposed to Clients.
+- Showdown survivor cards now fill the available window height while the navigation bar remains fixed.
+- Vital controls are compact, centred, and grouped into clearer rows; Survival and Insanity receive restrained theme-aware emphasis.
+- Weapon Proficiency is available from a shield popover instead of occupying permanent card space.
+- Bleeding uses a compact theme-aware red pill, and severe-injury Apply actions visibly change to Applied after succeeding.
+
+### Settlement And Survivors Polish
+
+- Returning Survivors and unlocked Knowledges now live in collapsible tables.
+- Survivor search and filter controls use less horizontal space, with refresh status kept on the same row.
+- Tag filtering and optional column controls live under Extra Filters, with checkbox clipping corrected.
 
 ### Compatibility
 
-- Version 3.5.1 keeps survivor schema version `6` and settlement metadata schema version `1`.
-- The LAN protocol is now version `2`. Upgrade the Host and every Client together; 3.5.1 intentionally rejects older protocol-1 peers.
+- Version 3.5.2 keeps survivor schema version `6` and settlement metadata schema version `1`.
+- The LAN protocol remains version `2`. Upgrade the Host and every Client together; protocol-2 builds intentionally reject older protocol-1 peers.
 - Existing schema-1 settlement records remain supported; new fields are optional and normalized when loaded.
 - Upgrade the LAN host and clients together. Back up the entire Survivors folder, including `settlement.json`, `settlement-journal.json`, and any `settlement-backups/`, before changing versions.
 - Survivor files from before the 3.0.1 campaign reset remain unsupported.
@@ -41,13 +45,13 @@ Version 3.5.1 improves permanent-injury management and makes the LAN Host author
 Fedora/RPM-based systems:
 
 ```bash
-sudo dnf install ./kingdom-death-survivors-3.5.1-linux-arm64.rpm
+sudo dnf install ./kingdom-death-survivors-3.5.2-linux-arm64.rpm
 ```
 
 Ubuntu/Debian-based systems:
 
 ```bash
-sudo apt install ./kingdom-death-survivors-3.5.1-linux-x64.deb
+sudo apt install ./kingdom-death-survivors-3.5.2-linux-x64.deb
 ```
 
 Replace the architecture suffix with the one appropriate for the device.

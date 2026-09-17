@@ -82,6 +82,7 @@
       const person = record.person || {}
       if (nameQuery && !String(person.name || '').toLowerCase().includes(nameQuery)) return false
       if (traitQuery && !getSettlementTraitSearchText(record).includes(traitQuery)) return false
+      if (options.tagQuery && !(Array.isArray(person.tags) && person.tags.some(tag => String(tag).toLocaleLowerCase() === options.tagQuery))) return false
 
       for (const filter of boolFilters) {
         const expected = filter.value
@@ -142,6 +143,7 @@
 
     function getHiddenSettlementColumns() {
       const hidden = new Set()
+      if (!elements.settlementToggleTags.checked) hidden.add('tags')
       if (!elements.settlementToggleMovement.checked) hidden.add('movement')
       if (!elements.settlementToggleWeaponProficiency.checked) {
         hidden.add('weaponProficiency')
@@ -188,6 +190,7 @@
         records: state.settlementRecords,
         nameQuery: elements.settlementNameSearch.value.trim().toLowerCase(),
         traitQuery: elements.settlementTraitSearch.value.trim().toLowerCase(),
+        tagQuery: elements.settlementTagFilter.value.trim().toLocaleLowerCase(),
         boolFilters: elements.settlementBoolFilters.map(filter => ({
           key: filter.dataset.boolFilter,
           value: filter.value
@@ -222,6 +225,7 @@
             : { type: '', level: 0 }
         const values = [
           { value: person.name || '-', column: '' },
+          { value: Array.isArray(person.tags) && person.tags.length ? person.tags.join(', ') : '-', column: 'tags' },
           { value: String(helpers.coerceNumber(person.age, 0)), column: '' },
           { value: String(helpers.coerceNumber(person.lumi, 0)), column: '' },
           { value: String(helpers.coerceNumber(person.survivalPts, 0)), column: '' },
@@ -296,6 +300,8 @@
     function bindEvents() {
       elements.settlementNameSearch.addEventListener('input', scheduleSettlementSearchRender)
       elements.settlementTraitSearch.addEventListener('input', scheduleSettlementSearchRender)
+      elements.settlementTagFilter.addEventListener('change', renderSettlementTable)
+      elements.settlementToggleTags.addEventListener('change', renderSettlementTable)
       elements.settlementToggleMovement.addEventListener('change', renderSettlementTable)
       elements.settlementToggleWeaponProficiency.addEventListener('change', renderSettlementTable)
       elements.settlementToggleLastUpdated.addEventListener('change', renderSettlementTable)
@@ -324,6 +330,7 @@
       elements.settlementClearFiltersButton.addEventListener('click', () => {
         elements.settlementNameSearch.value = ''
         elements.settlementTraitSearch.value = ''
+        elements.settlementTagFilter.value = ''
         for (const filter of elements.settlementBoolFilters) {
           filter.value = filter.dataset.boolFilter === 'isAlive' ? 'yes' : 'all'
         }

@@ -14,6 +14,27 @@ function setup(t) {
 const read = (folder, name) => JSON.parse(fs.readFileSync(path.join(folder, name), 'utf8'))
 const knowledge = (name = 'Lantern', knowledgeLevel = 1) => ({ name, knowledgeLevel, currentObservations: 2, rules: 'Retained rules' })
 
+test('survivor tags persist directly and register as settlement options', t => {
+  const folder = setup(t)
+  const person = data.createPersonTemplate('Tagged Alice')
+  person.tags = ['Hunter', 'Returning']
+  const file = data.savePerson(folder, person)
+
+  assert.deepEqual(data.loadPerson(folder, file).tags, ['Hunter', 'Returning'])
+  let record = data.getSettlementRecord(folder)
+  assert.deepEqual(record.tags, ['Hunter', 'Returning'])
+
+  record = data.saveSettlementSettings(folder, {
+    id: record.id,
+    revision: record.revision,
+    name: 'Tag Home',
+    settlementType: 'campaign',
+    lanternYear: 0,
+    tags: [...record.tags, 'Favorite']
+  })
+  assert.deepEqual(record.tags, ['Favorite', 'Hunter', 'Returning'])
+})
+
 test('saved Knowledge and Tenet Knowledge share permanent, level-specific settlement identities', t => {
   const folder = setup(t)
   const person = data.createPersonTemplate('Alice')

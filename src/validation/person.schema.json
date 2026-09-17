@@ -33,6 +33,7 @@
     "weaponProficiency",
     "courage",
     "understanding",
+    "tags",
     "abilities",
     "impairments",
     "severeInjuries",
@@ -217,6 +218,16 @@
       "minimum": 0,
       "maximum": 9,
       "default": 0
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 50,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50
+      }
     },
     "lifetimeReroll": {
       "type": "boolean",

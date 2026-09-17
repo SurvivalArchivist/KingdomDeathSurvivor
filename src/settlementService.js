@@ -11,6 +11,19 @@ const digest = value => crypto.createHash('sha256').update(JSON.stringify(value)
 const isDefinition = value => value && typeof value.name === 'string' && value.name.trim() && Number.isInteger(value.knowledgeLevel) && value.knowledgeLevel >= 1
 const normalizeSettlementType = value => String(value || '').trim() === 'vignette' ? 'vignette' : 'campaign'
 const normalizeLanternYear = value => Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? Number(value) : 0
+const normalizeTags = value => {
+  const tags = []
+  const seen = new Set()
+  for (const item of Array.isArray(value) ? value : []) {
+    const tag = String(item || '').trim()
+    const key = tag.toLocaleLowerCase()
+    if (!tag || tag.length > 50 || seen.has(key)) continue
+    seen.add(key)
+    tags.push(tag)
+    if (tags.length === 50) break
+  }
+  return tags.sort((a, b) => a.localeCompare(b))
+}
 const isReturnEntry = value => value && typeof value.id === 'string' && value.id &&
   typeof value.survivorId === 'string' && value.survivorId &&
   typeof value.survivorName === 'string' && value.survivorName.trim() &&
@@ -25,7 +38,8 @@ function isOperation(operation) {
     operation.fileName.endsWith('.json') && path.basename(operation.fileName) === operation.fileName &&
     !reserved(operation.fileName) && ['prepared', 'committed', 'complete', 'cancelled'].includes(operation.state) &&
     Array.isArray(operation.knowledges) && operation.knowledges.every(isDefinition) &&
-    (typeof operation.returnEntry === 'undefined' || isReturnEntry(operation.returnEntry))
+    (typeof operation.returnEntry === 'undefined' || isReturnEntry(operation.returnEntry)) &&
+    (typeof operation.tags === 'undefined' || (Array.isArray(operation.tags) && operation.tags.every(tag => typeof tag === 'string')))
 }
 
 function read(basePath, name) {
@@ -85,6 +99,7 @@ function record(basePath) {
       : value.settlementType === 'vignette' || Boolean(value.vignetteTemplate)
     value.lanternYear = normalizeLanternYear(value.lanternYear)
     value.returns = Array.isArray(value.returns) ? value.returns : []
+    value.tags = normalizeTags(value.tags)
     return value
   }
   const now = stamp()
@@ -98,11 +113,12 @@ function record(basePath) {
     settlementTypeLocked: false,
     lanternYear: 0,
     knowledges: [],
-    returns: []
+    returns: [],
+    tags: []
   }
 }
 
-function register(basePath, entries, survivorId, returnEntry) {
+function register(basePath, entries, survivorId, returnEntry, incomingTags = []) {
   const value = record(basePath)
   const keys = new Set(value.knowledges.map(entry => keyFor(entry.definition)))
   let added = 0
@@ -115,12 +131,15 @@ function register(basePath, entries, survivorId, returnEntry) {
   }
   const returnAdded = isReturnEntry(returnEntry) && !value.returns.some(entry => entry.id === returnEntry.id)
   if (returnAdded) value.returns.push(returnEntry)
-  if (added || returnAdded || !fs.existsSync(path.join(basePath, RECORD))) {
+  const mergedTags = normalizeTags([...value.tags, ...incomingTags])
+  const tagsAdded = mergedTags.length - value.tags.length
+  value.tags = mergedTags
+  if (added || returnAdded || tagsAdded || !fs.existsSync(path.join(basePath, RECORD))) {
     value.revision++
     value.updatedAt = stamp()
     write(basePath, RECORD, value)
   }
-  return { knowledgeAdded: added, returnAdded }
+  return { knowledgeAdded: added, returnAdded, tagsAdded }
 }
 
 // Only replay settlement metadata registration. Never replay a survivor write or bypass its revision check.
@@ -136,7 +155,7 @@ function recover(basePath) {
     }
     if (operation.state !== 'committed') continue
     try {
-      const result = register(basePath, operation.knowledges, operation.survivorId, operation.returnEntry)
+      const result = register(basePath, operation.knowledges, operation.survivorId, operation.returnEntry, operation.tags)
       operation.state = 'complete'
       operation.error = null
       event(log, operation, 'register-settlement', 'complete', `${result.knowledgeAdded} knowledge added; return ${result.returnAdded ? 'added' : 'not added'}`)
@@ -172,6 +191,7 @@ function prepare(basePath, fileName, person, options = {}) {
     fileName,
     savedDigest: digest(person),
     knowledges: definitions(person),
+    tags: normalizeTags(person.tags),
     ...(returnEntry ? { returnEntry } : {}),
     state: 'prepared',
     attempts: 0
@@ -203,17 +223,22 @@ function failed(basePath, id, error) {
 function getRecord(basePath, survivors) {
   if (!fs.existsSync(basePath) || !fs.statSync(basePath).isDirectory()) throw new Error('Select an existing Survivors folder first.')
   const log = recover(basePath)
-  const keys = new Set(record(basePath).knowledges.map(entry => keyFor(entry.definition)))
+  const currentRecord = record(basePath)
+  const keys = new Set(currentRecord.knowledges.map(entry => keyFor(entry.definition)))
+  const tagKeys = new Set(currentRecord.tags.map(tag => tag.toLocaleLowerCase()))
   for (const operation of log.operations.filter(entry => entry.state === 'committed')) {
     for (const definition of operation.knowledges) keys.add(keyFor(definition))
+    for (const tag of normalizeTags(operation.tags)) tagKeys.add(tag.toLocaleLowerCase())
   }
   // Bootstrap/repair from persisted survivors only; never from an editor draft.
   let queued = false
   for (const { fileName, person } of survivors()) {
     const missing = definitions(person).filter(definition => !keys.has(keyFor(definition)))
-    if (!missing.length) continue
+    const missingTags = normalizeTags(person.tags).filter(tag => !tagKeys.has(tag.toLocaleLowerCase()))
+    if (!missing.length && !missingTags.length) continue
     for (const definition of missing) keys.add(keyFor(definition))
-    const operation = { id: crypto.randomUUID(), survivorId: person.id, fileName, savedDigest: digest(person), knowledges: missing, state: 'committed', attempts: 0 }
+    for (const tag of missingTags) tagKeys.add(tag.toLocaleLowerCase())
+    const operation = { id: crypto.randomUUID(), survivorId: person.id, fileName, savedDigest: digest(person), knowledges: missing, tags: missingTags, state: 'committed', attempts: 0 }
     log.operations.push(operation)
     event(log, operation, 'index-saved-survivor', 'committed', 'Discovered in existing saved data')
     queued = true
@@ -245,6 +270,7 @@ function saveSettings(basePath, current, settings) {
     settlementType,
     settlementTypeLocked: true,
     lanternYear: normalizeLanternYear(settings.lanternYear),
+    tags: normalizeTags(settings.tags),
     revision: current.revision + 1,
     updatedAt: stamp()
   }

@@ -28,16 +28,23 @@
 
 body.showdown-mode .app-shell {
   padding-top: 0.7rem;
-  padding-bottom: 0.85rem;
+  padding-bottom: 20px;
+  overflow-y: hidden;
 }
 
 body.showdown-mode .showdown-view {
-  min-height: calc(100vh - 64px);
+  height: 100%;
+  min-height: 0;
+}
+
+body.showdown-mode .showdown-grid {
+  height: 100%;
+  align-items: stretch;
 }
 
 body.showdown-mode .showdown-card {
-  height: min(calc(100vh - 100px), 1012px);
-  max-height: min(calc(100vh - 100px), 1012px);
+  height: 100%;
+  max-height: 100%;
   overflow: auto;
 }
 
@@ -180,15 +187,11 @@ body.showdown-mode .showdown-card {
 }
 
 .showdown-group-vitals .showdown-stats-vitals-bleeding {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .showdown-group-vitals .showdown-stats-vitals-bleeding .showdown-stepper-bleeding {
-  grid-column: 2 / span 2;
-}
-
-.showdown-group-vitals .showdown-stats-vitals-bleeding .showdown-stepper-proficiency-level {
-  grid-column: 3;
+  grid-column: auto;
 }
 
 .showdown-group-vitals .showdown-stepper-simple {
@@ -234,6 +237,27 @@ body.showdown-mode .showdown-card {
   margin: 0;
 }
 
+body.showdown-mode .showdown-group-vitals .showdown-stepper-key-stat {
+  border-color: color-mix(in srgb, var(--accent-strong) 72%, var(--outline));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-soft));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+body.showdown-mode .showdown-group-vitals .showdown-stepper-insanity {
+  border-color: color-mix(in srgb, var(--danger) 76%, var(--outline));
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface-soft));
+}
+
+body.showdown-mode .showdown-group-vitals .showdown-stepper-key-stat .showdown-stepper-label {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+body.showdown-mode .showdown-group-vitals .showdown-stepper-key-stat .showdown-static-value {
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
 .showdown-group-vitals .showdown-stepper-proficiency-type-card input,
 .showdown-group-vitals .showdown-stepper-proficiency-combined .showdown-proficiency-type-input {
   width: 100%;
@@ -251,6 +275,55 @@ body.showdown-mode .showdown-card {
   grid-template-columns: 1fr;
   align-items: start;
   gap: 0.22rem;
+}
+
+.showdown-proficiency-trigger {
+  display: grid;
+  place-items: center;
+}
+
+.showdown-proficiency-trigger-button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.showdown-proficiency-trigger-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.showdown-proficiency-trigger-button svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.showdown-proficiency-popover {
+  width: min(280px, calc(100vw - 2rem));
+  padding: 0.45rem;
+  border: 1px solid var(--outline);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+}
+
+.showdown-proficiency-popover::backdrop {
+  background: transparent;
+}
+
+.showdown-proficiency-popover .showdown-stepper-proficiency-combined {
+  width: 100%;
 }
 
 .showdown-group-vitals .showdown-proficiency-header {
@@ -298,11 +371,15 @@ body.showdown-mode .showdown-card {
   margin: 0;
 }
 
-.showdown-group-vitals .showdown-stepper-bleeding {
-  grid-template-columns: minmax(140px, 1fr) max-content;
+body.showdown-mode .showdown-group-vitals .showdown-stepper-bleeding {
+  grid-template-columns: 24px max-content;
   align-items: center;
-  gap: 0.26rem;
-  padding: 0.42rem 0.56rem;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.24rem 0.4rem;
+  border-color: var(--danger);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 38%, var(--surface));
   min-width: 0;
   max-width: none;
   width: 100%;
@@ -315,15 +392,31 @@ body.showdown-mode .showdown-card {
   padding-left: 0.08rem;
 }
 
+.showdown-group-vitals .showdown-bleeding-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  color: var(--danger);
+}
+
+.showdown-group-vitals .showdown-bleeding-icon svg {
+  width: 1.4rem;
+  height: 1.4rem;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+
 .showdown-group-vitals .showdown-stepper-bleeding .showdown-stepper-controls {
-  grid-template-columns: 26px minmax(52px, 64px) 26px;
-  gap: 0.2rem;
+  grid-template-columns: 20px 42px 20px;
+  gap: 0.14rem;
 }
 
 .showdown-group-vitals .showdown-stepper-bleeding .showdown-static-value {
-  min-width: 2.8rem;
-  height: 1.75rem;
-  padding: 0 0.52rem;
+  min-width: 42px;
+  height: 1.55rem;
+  padding: 0 0.3rem;
 }
 
 .showdown-stats.showdown-stats-mind.showdown-stats-header-mind {
@@ -801,6 +894,15 @@ body.showdown-mode .showdown-card {
   flex: 1 1 auto;
 }
 
+.showdown-group-vitals .showdown-stepper-insanity .showdown-reference-heading {
+  justify-content: center;
+  gap: 0.04rem;
+}
+
+.showdown-group-vitals .showdown-stepper-insanity .showdown-reference-heading .showdown-stepper-label {
+  flex: 0 0 auto;
+}
+
 .showdown-card .showdown-armor-heading button.showdown-danger-button,
 .showdown-card .showdown-reference-heading button.showdown-danger-button {
   position: static;
@@ -941,6 +1043,15 @@ body.showdown-mode .showdown-card {
   min-width: 4.6rem;
   padding: 0.28rem 0.48rem;
   font-size: 0.78rem;
+}
+
+.severe-injury-applied,
+.severe-injury-applied:disabled {
+  border-color: #4f9f68;
+  background: #34784b;
+  color: #fff;
+  opacity: 1;
+  cursor: default;
 }
 
 .severe-injury-bleeding-only {
@@ -1430,6 +1541,57 @@ body.showdown-mode .showdown-card {
   border-top: 1px solid rgba(124, 100, 79, 0.42);
   margin-top: 0.55rem;
   padding-top: 0.55rem;
+}
+
+@media (min-width: 981px) {
+  .showdown-view .showdown-group-vitals .showdown-stats-vitals {
+    grid-template-columns: repeat(4, 125px);
+    justify-content: center;
+  }
+
+  .showdown-view .showdown-group-vitals .showdown-stats-vitals-bleeding {
+    grid-template-columns: 50px 150px 150px 150px;
+  }
+
+  .showdown-view .showdown-group-vitals .showdown-stats-vitals-bleeding .showdown-stepper-bleeding {
+    grid-column: auto;
+  }
+
+  .showdown-view .showdown-group-vitals .showdown-stepper-simple .showdown-stepper-label {
+    text-align: center;
+  }
+
+  .showdown-view .showdown-group-vitals .showdown-stepper-simple .showdown-stepper-controls,
+  .showdown-view .showdown-group-vitals .showdown-stepper-controls-insanity,
+  .showdown-view .showdown-group-vitals .showdown-stepper-controls-proficiency-rank {
+    justify-self: center;
+  }
+
+  .showdown-view .showdown-group-vitals .showdown-proficiency-header,
+  .showdown-view .showdown-group-vitals .showdown-proficiency-inline {
+    max-width: 174px;
+    justify-self: center;
+  }
+
+  .showdown-view .showdown-group-vitals .showdown-stepper-bleeding {
+    width: 150px;
+    justify-self: center;
+  }
+
+  .showdown-view .showdown-stats.showdown-stats-mind.showdown-stats-header-mind {
+    grid-template-columns: repeat(2, minmax(250px, 320px));
+    justify-content: center;
+  }
+
+  .showdown-view .showdown-armor-grid {
+    grid-template-columns: repeat(5, minmax(110px, 145px));
+    justify-content: center;
+  }
+
+  .showdown-view .showdown-stats-combat {
+    grid-template-columns: repeat(3, minmax(150px, 200px));
+    justify-content: center;
+  }
 }
 
 @media (max-width: 980px) {

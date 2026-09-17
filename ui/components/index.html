@@ -167,6 +167,24 @@
           <button id="settingsExportBackup" class="btn btn-secondary" type="button">Export Backup</button>
         </div>
         <p id="settingsLanHint" class="muted settings-hint">Local Files reads and writes survivor JSON in the selected Survivors folder.</p>
+        <details class="lan-compatibility">
+          <summary>Version compatibility</summary>
+          <p class="muted">Host and Clients must be in the same LAN compatibility row.</p>
+          <div class="lan-compatibility-table-wrap">
+            <table class="lan-compatibility-table">
+              <thead>
+                <tr><th scope="col">App versions</th><th scope="col">LAN generation</th><th scope="col">Can play together</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>1.x–2.x</td><td>No LAN</td><td>No LAN multiplayer</td></tr>
+                <tr><td>3.0.0–3.3.3</td><td>Legacy, unversioned</td><td>Use matching app versions</td></tr>
+                <tr><td>3.4.0–3.5.0</td><td>Protocol 1</td><td>Yes, within this row</td></tr>
+                <tr><td>3.5.1+</td><td>Protocol 2</td><td>Yes, while both report Protocol 2</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="lan-file-compatibility"><strong>Survivor files:</strong> up to 3.0.0 uses the legacy format; 3.0.1+ uses schema version 6.</p>
+        </details>
       </section>
       <div class="data-sources-grid">
         <div id="survivorSourceRow" class="data-source-row">
@@ -445,14 +463,25 @@
         </div>
         <p id="settlementTemplateStatus" class="muted"></p>
         <p id="settlementRecordStatus" class="muted" role="status" aria-live="polite"></p>
-        <section id="settlementReturnsSection">
-          <h3>Survivor returns</h3>
+        <section class="settlement-tags-section">
+          <h3>Survivor tags</h3>
+          <p class="muted">Shared options used to organize survivors. Tags also remain stored on each survivor.</p>
+          <div class="tag-editor-controls">
+            <input id="settlementNewTag" type="text" maxlength="50" placeholder="New tag" />
+            <button id="settlementAddTag" type="button" class="btn btn-secondary">Add Tag</button>
+          </div>
+          <div id="settlementTagList" class="tag-list"></div>
+        </section>
+        <details id="settlementReturnsSection" class="settlement-data-section">
+          <summary>Returning Survivors</summary>
           <p class="muted">Campaign returns saved through LAN play, recorded at the current Lantern Year.</p>
           <div id="settlementReturnList"></div>
-        </section>
-        <h3>Unlocked knowledge</h3>
-        <p class="muted">Permanent discoveries shared by Knowledge and Tenet Knowledge.</p>
-        <div id="settlementKnowledgeList"></div>
+        </details>
+        <details id="settlementKnowledgeSection" class="settlement-data-section">
+          <summary>Unlocked knowledge</summary>
+          <p class="muted">Permanent discoveries shared by Knowledge and Tenet Knowledge.</p>
+          <div id="settlementKnowledgeList"></div>
+        </details>
       </article>
     </section>
 
@@ -461,11 +490,11 @@
         <h2>Survivors <span id="settlementAliveCount" class="muted">(Alive: 0)</span></h2>
         <div class="settlement-filters">
           <div class="settlement-filters-primary">
-            <label>
+            <label class="settlement-filter-name">
               Name
               <input id="settlementNameSearch" type="search" placeholder="Search by name..." />
             </label>
-            <label>
+            <label class="settlement-filter-traits">
               Traits
               <input
                 id="settlementTraitSearch"
@@ -473,7 +502,7 @@
                 placeholder="Search abilities, impairments, notes, arts, disorders, knowledge..."
               />
             </label>
-            <label>
+            <label class="settlement-filter-alive">
               Alive
               <select data-bool-filter="isAlive">
                 <option value="all">All</option>
@@ -493,8 +522,16 @@
               </button>
               <button id="settlementClearFilters" type="button" class="btn btn-secondary">Clear Filters</button>
             </div>
+            <div class="settlement-refresh-controls">
+              <p id="settlementLastRefreshed" class="muted">Last refreshed: --</p>
+              <button id="settlementRefreshNow" type="button" class="btn btn-secondary">Refresh Now</button>
+            </div>
           </div>
           <div id="settlementExtraFilters" class="settlement-filters-extra" hidden>
+            <label>
+              Tag
+              <select id="settlementTagFilter"><option value="">All tags</option></select>
+            </label>
             <label>
               Lifetime Reroll
               <select data-bool-filter="lifetimeReroll">
@@ -531,19 +568,16 @@
                 <option value="no">No</option>
               </select>
             </label>
-            <fieldset class="settlement-column-toggles">
-              <legend>Columns</legend>
+            <div class="settlement-column-toggles" role="group" aria-labelledby="settlementColumnsLabel">
+              <span id="settlementColumnsLabel" class="settlement-column-toggles-title">Columns</span>
+              <label><input id="settlementToggleTags" type="checkbox" /> Tags</label>
               <label><input id="settlementToggleMovement" type="checkbox" /> Movement</label>
               <label><input id="settlementToggleWeaponProficiency" type="checkbox" /> Weapon Proficiency + Prof Rank</label>
               <label><input id="settlementToggleLastUpdated" type="checkbox" /> Last Updated</label>
               <label><input id="settlementToggleLastReturned" type="checkbox" /> Last Returned</label>
               <label><input id="settlementToggleStatsTotal" type="checkbox" /> Stats Total</label>
-            </fieldset>
+            </div>
           </div>
-        </div>
-        <div class="settlement-refresh-controls">
-          <button id="settlementRefreshNow" type="button" class="btn btn-secondary">Refresh Now</button>
-          <p id="settlementLastRefreshed" class="muted">Last refreshed: --</p>
         </div>
         <p id="settlementCount" class="muted">0 survivors shown</p>
 
@@ -552,6 +586,7 @@
             <thead>
               <tr>
                 <th><button type="button" class="settlement-sort" data-sort-key="name">Name</button></th>
+                <th data-settlement-col="tags">Tags</th>
                 <th><button type="button" class="settlement-sort" data-sort-key="age">Age</button></th>
                 <th><button type="button" class="settlement-sort" data-sort-key="lumi">Lumi</button></th>
                 <th><button type="button" class="settlement-sort" data-sort-key="survivalPts">Surv</button></th>
@@ -752,6 +787,24 @@
           </div>
           <div id="createNotes"></div>
         </div>
+
+        <section class="ve-list survivor-tags-section">
+          <div class="panel-header panel-header-tight">
+            <div>
+              <h4>Tags</h4>
+              <p class="survivor-tags-hint">Use settlement tags to group and filter this survivor.</p>
+            </div>
+          </div>
+          <div id="createTagList" class="tag-list survivor-tag-list"></div>
+          <div class="tag-editor-controls survivor-tag-controls">
+            <select id="createExistingTag" aria-label="Existing settlement tag"><option value="">Choose an existing tag…</option></select>
+            <button id="createAddExistingTag" type="button" class="btn btn-secondary">Add Tag</button>
+            <span class="survivor-tag-divider" aria-hidden="true">or</span>
+            <button id="createShowNewTag" type="button" class="btn btn-secondary">+ New Tag</button>
+            <input id="createNewTag" class="hidden" type="text" maxlength="50" placeholder="Name the new tag" aria-label="New tag name" />
+            <button id="createCommitNewTag" class="btn btn-secondary hidden" type="button">Create &amp; Add</button>
+          </div>
+        </section>
 
         <div class="button-row">
           <button id="resetCreateSurvivor" type="button" class="btn btn-secondary">Reset to Template</button>

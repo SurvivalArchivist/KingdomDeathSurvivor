@@ -69,6 +69,7 @@ Completed so far:
 - The default new-survivor template lives under the Host's authoritative Survivors folder and is loaded/saved remotely by Clients.
 - Direct Settlement edits and Vignette template operations are Host-only; Client survivor saves still register settlement discoveries through the Host journal/recovery flow.
 - Shared reference collections are Host-authoritative for LAN Clients. Fighting Arts, Secret Fighting Arts, Disorders, Knowledge/Tenet Knowledge templates, and Neurosis templates use Host API routes; the relevant Client-side source pickers are hidden. Picker listings refresh on every open so Host collection changes appear without reconnecting, while markdown bodies load on demand.
+- Settings includes a compact compatibility table separating LAN generations from survivor-file schemas. LAN rows are 3.0.0–3.3.3 legacy/unversioned, 3.4.0–3.5.0 protocol 1, and 3.5.1+ protocol 2 until the next protocol bump; pre-v3 releases have no LAN multiplayer.
 
 Operational boundary:
 - Discovery is best-effort on local networks; manual host URL entry remains the supported fallback when routers/firewalls block UDP broadcast.

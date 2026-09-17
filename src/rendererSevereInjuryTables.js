@@ -666,18 +666,21 @@
     if (!table) return ''
     const slot = options.slot === 'A' || options.slot === 'B' ? options.slot : ''
     const person = options.person && typeof options.person === 'object' ? options.person : null
+    const appliedTitle = String(options.appliedTitle || '')
     const rows = table.rows
       .map(([roll, title, description]) => {
         const availability = slot && person ? getSevereInjuryActionAvailability(location, title, person) : { kind: 'none' }
         let actionMarkup =
-          availability.kind === 'apply'
+          appliedTitle === title
+            ? `<button type="button" class="btn severe-injury-apply severe-injury-applied" disabled aria-label="${escapeHtml(title)} applied">Applied</button>`
+          : availability.kind === 'apply'
             ? `<button type="button" class="btn btn-secondary severe-injury-apply" data-severe-action="apply" data-severe-location="${escapeHtml(location)}" data-severe-title="${escapeHtml(title)}" data-severe-slot="${slot}">Apply</button>`
             : availability.kind === 'record'
               ? `<button type="button" class="btn btn-secondary severe-injury-apply" data-severe-action="record" data-severe-location="${escapeHtml(location)}" data-severe-title="${escapeHtml(title)}" data-severe-slot="${slot}">Record</button>`
             : availability.kind === 'bleeding'
               ? `<button type="button" class="severe-injury-bleeding-only" data-severe-action="bleeding" data-severe-location="${escapeHtml(location)}" data-severe-title="${escapeHtml(title)}" data-severe-slot="${slot}" aria-label="Add ${availability.bleedingTokens} bleeding token for ${escapeHtml(title)}; resolve other effects manually" title="Add bleeding token only; resolve other effects manually"><svg aria-hidden="true"><use href="#icon-bleeding"></use></svg><span>+${availability.bleedingTokens}</span></button>`
               : ''
-        if (availability.kind === 'record' && availability.bleedingTokens > 0) {
+        if (appliedTitle !== title && availability.kind === 'record' && availability.bleedingTokens > 0) {
           actionMarkup += `<button type="button" class="severe-injury-bleeding-only" data-severe-action="bleeding" data-severe-location="${escapeHtml(location)}" data-severe-title="${escapeHtml(title)}" data-severe-slot="${slot}" aria-label="Add ${availability.bleedingTokens} bleeding token for ${escapeHtml(title)}; resolve other effects manually" title="Add bleeding token only; resolve other effects manually"><svg aria-hidden="true"><use href="#icon-bleeding"></use></svg><span>+${availability.bleedingTokens}</span></button>`
         }
         const recordIndicator = person ? renderSevereInjuryCount(location, title, person) : ''
