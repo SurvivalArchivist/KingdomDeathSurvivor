@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   selectDataSourceFolder: sourceKey => ipcRenderer.invoke('select-data-source-folder', sourceKey),
   getSavedDataSources: () => ipcRenderer.invoke('get-saved-data-sources'),
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
+  getConfigStatus: () => ipcRenderer.invoke('get-config-status'),
   getRuntimeInfo: () => ipcRenderer.invoke('get-runtime-info'),
   saveAppSettings: settings => ipcRenderer.invoke('save-app-settings', settings),
   getShowdownReadiness: () => ipcRenderer.invoke('get-showdown-readiness'),

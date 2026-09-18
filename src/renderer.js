@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('Weapon proficiency module not available')
     return
   }
-  const { WEAPON_PROFICIENCIES } = weaponProficiencyModule
+  const { WEAPON_PROFICIENCIES, isWeaponSpecialist } = weaponProficiencyModule
   const {
     buildBlankKnowledgeEntry,
     buildUpgradedScratchKnowledge,
@@ -1220,7 +1220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const proficiency = person.weaponProficiency
     proficiency.type = String(proficiency.type || '')
     proficiency.level = normalizeProficiencyLevel(proficiency.level, 0)
-    proficiency.isSpecialist = proficiency.level >= 3
+    proficiency.isSpecialist = isWeaponSpecialist(proficiency.type, proficiency.level)
     proficiency.isMaster = proficiency.level >= 8
     return proficiency
   }
@@ -1386,6 +1386,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (errorType === 'host-unavailable' || errorType === 'disconnected') {
       return { tone: 'error', message: `Cannot reach LAN host: ${message}. Open Settings or reconnect.`, errors: [] }
     }
+    if (errorType === 'write-outcome-unknown') {
+      return {
+        tone: 'error',
+        message: `The LAN host did not confirm this change. It may have completed; refresh authoritative data before trying again. ${message}`,
+        errors: []
+      }
+    }
     if (errorType === 'server-error') {
       return { tone: 'error', message: `LAN host server error: ${message}`, errors: [] }
     }
@@ -1404,13 +1411,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function isLanSurvivorReadUnavailable(err) {
     if (!isLanClientMode()) return false
     const errorType = String(err?.errorType || '').trim()
-    if (errorType === 'host-unavailable' || errorType === 'disconnected') return true
+    if (errorType === 'host-unavailable' || errorType === 'disconnected' || errorType === 'request-timeout') return true
     if (lanConnectionState === 'offline' || lanConnectionState === 'error') {
       return true
     }
     const message = String(err?.message || '').toLowerCase()
     return (
       message.includes('cannot reach lan host') ||
+      message.includes('lan host request timed out') ||
       message.includes('lan host is unavailable') ||
       message.includes('failed to fetch') ||
       message.includes('econnrefused') ||
@@ -1419,6 +1427,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showSurvivorReadFailure(err, action, fallbackMessage, preservedStateMessage = '') {
+    const errorType = String(err?.errorType || '').trim()
+    const message = String(err?.message || '').toLowerCase()
+    if (errorType === 'request-timeout' || message.includes('lan host request timed out')) {
+      const preserved = String(preservedStateMessage || '').trim()
+      setStatus(
+        `The LAN host timed out while ${action}. ${preserved ? `${preserved} ` : ''}Retry when the host is responsive.`,
+        'error'
+      )
+      return
+    }
     if (isLanSurvivorReadUnavailable(err)) {
       const preserved = String(preservedStateMessage || '').trim()
       setStatus(
@@ -4589,6 +4607,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function init() {
     await runBusy(async () => {
       let initialSurvivorReadError = null
+      let initialConfigStatus = null
       if (typeof window.api.getRuntimeInfo === 'function') {
         const runtimeInfo = await window.api.getRuntimeInfo()
         developmentMode = Boolean(runtimeInfo?.isDevelopmentMode)
@@ -4610,6 +4629,9 @@ document.addEventListener('DOMContentLoaded', () => {
       settlementAutoRefreshInterval.value = String(settlementAutoRefreshIntervalSeconds)
       updateSettlementLastRefreshed(null)
       dataSources = { ...dataSources, ...(await window.api.getSavedDataSources()) }
+      if (typeof window.api.getConfigStatus === 'function') {
+        initialConfigStatus = await window.api.getConfigStatus()
+      }
       renderDataSources()
       if (startupRoleGateActive && !developmentMode) {
         peopleCount.textContent = '0 people loaded'
@@ -4617,6 +4639,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSettlementTable()
         updateSettlementLastRefreshed(null)
         setPage('dataSources')
+        if (initialConfigStatus?.message) setStatus(initialConfigStatus.message, 'error')
         return
       }
       await refreshLanHostInfo()
@@ -4658,6 +4681,8 @@ document.addEventListener('DOMContentLoaded', () => {
           'Failed to load survivor data',
           'The app is ready, but no remote survivors were loaded.'
         )
+      } else if (initialConfigStatus?.message) {
+        setStatus(initialConfigStatus.message, 'error')
       }
     }).catch(err => {
       console.error('Failed to initialize app state:', err)

@@ -157,6 +157,9 @@ function makeHarness(overrides = {}) {
     getSavedAppSettings() {
       return { userName: '' }
     },
+    getConfigStatus() {
+      return { state: 'ok', message: '' }
+    },
     saveAppSettings(_app, settings) {
       return settings
     },
@@ -740,6 +743,21 @@ test('get-app-settings handler returns settings', async t => {
   const handler = harness.handlers.get('get-app-settings')
   const result = await handler()
   assert.deepEqual(result, settings)
+})
+
+test('get-config-status handler exposes configuration recovery warnings', async t => {
+  const status = { state: 'recovered', message: 'Configuration restored from backup.' }
+  const harness = makeHarness({
+    dataService: {
+      getConfigStatus() {
+        return status
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  const handler = harness.handlers.get('get-config-status')
+  assert.deepEqual(await handler(), status)
 })
 
 test('save-app-settings handler saves and returns settings', async t => {

@@ -42,6 +42,49 @@ test('getSavedDataSources returns empty normalized sources for invalid config JS
   fs.writeFileSync(path.join(userData, 'config.json'), '{ invalid-json }', 'utf8')
 
   assert.deepEqual(dataService.getSavedDataSources(app), blankSources())
+  assert.equal(dataService.getConfigStatus(app).state, 'corrupt')
+  assert.match(dataService.getConfigStatus(app).message, /no valid backup/i)
+  assert.equal(fs.readdirSync(userData).some(fileName => fileName.startsWith('config.json.corrupt-')), true)
+})
+
+test('saveConfig keeps an atomic last-known-good backup and recovers a corrupt primary', () => {
+  const userData = makeTempDir()
+  const app = makeApp(userData)
+  const survivorsPath = path.join(userData, 'survivors')
+  const configPath = path.join(userData, 'config.json')
+  const backupPath = `${configPath}.bak`
+
+  dataService.saveConfig(app, { survivors: survivorsPath }, { survivorDataMode: 'lan-host', lanHostEnabled: true })
+  assert.deepEqual(JSON.parse(fs.readFileSync(backupPath, 'utf8')), JSON.parse(fs.readFileSync(configPath, 'utf8')))
+
+  fs.writeFileSync(configPath, '{ interrupted write', 'utf8')
+  assert.equal(dataService.getSavedDataSources(app).survivors, survivorsPath)
+  assert.equal(dataService.getSavedAppSettings(app).survivorDataMode, 'lan-host')
+  assert.equal(dataService.getConfigStatus(app).state, 'recovered')
+  assert.match(dataService.getConfigStatus(app).message, /restored from the last-known-good backup/i)
+  assert.equal(JSON.parse(fs.readFileSync(configPath, 'utf8')).dataSources.survivors, survivorsPath)
+  assert.equal(fs.readdirSync(userData).some(fileName => fileName.startsWith('config.json.corrupt-')), true)
+})
+
+test('saveConfig leaves the previous primary intact when atomic replacement fails', t => {
+  const userData = makeTempDir()
+  const app = makeApp(userData)
+  const configPath = path.join(userData, 'config.json')
+  dataService.saveConfig(app, { survivors: '/first' }, { survivorDataMode: 'lan-host' })
+  const before = fs.readFileSync(configPath, 'utf8')
+  const originalRenameSync = fs.renameSync
+  t.after(() => { fs.renameSync = originalRenameSync })
+  fs.renameSync = (source, target) => {
+    if (target === configPath) throw new Error('simulated config replacement failure')
+    return originalRenameSync(source, target)
+  }
+
+  assert.throws(
+    () => dataService.saveConfig(app, { survivors: '/second' }, { survivorDataMode: 'lan-client' }),
+    /simulated config replacement failure/
+  )
+  assert.equal(fs.readFileSync(configPath, 'utf8'), before)
+  assert.equal(fs.readdirSync(userData).some(fileName => fileName.includes('.tmp-')), false)
 })
 
 test('setDataSource validates inputs and persists trimmed path', () => {

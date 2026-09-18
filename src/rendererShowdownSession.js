@@ -214,6 +214,9 @@
           if (result.errorType === 'host-unavailable' || result.errorType === 'disconnected') {
             return `${result.label} could not reach the LAN host: ${result.message}`
           }
+          if (result.errorType === 'write-outcome-unknown') {
+            return `${result.label}'s save was not confirmed by the LAN host and may have completed: ${result.message}`
+          }
           if (result.errorType === 'server-error') return `${result.label} failed with a LAN host server error: ${result.message}`
           return `${result.label} failed: ${result.message}`
         })
