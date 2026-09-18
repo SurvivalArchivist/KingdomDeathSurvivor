@@ -1,33 +1,33 @@
-# KDM Survivors Console 3.5.2
+# KDM Survivors Console 3.6.0
 
-Version 3.5.2 adds settlement-scoped survivor tags and delivers a focused usability pass across Survivors, Settlement, and Showdown.
+Version 3.6.0 expands Showdown parties, adds live shared combat visibility, and introduces independently selectable layout and colour systems.
 
-### Survivor Tags
+### Expanded Showdown Parties
 
-- Add tags directly to survivor records using existing settlement options or the inline Add New Tag flow.
-- Manage the shared tag catalog from Settlement without making survivor display depend on a join.
-- Filter the Survivors roster by settlement tags and optionally display a compact Tags column from Extra Filters.
-- New tags discovered through Host or Client survivor saves are registered through the existing durable settlement journal.
+- Take one to six survivors into a Showdown instead of requiring exactly two.
+- Positions appear progressively as the party grows and collapse cleanly when later positions are removed.
+- Reassign an occupied position to swap its survivor with the previous occupant.
+- Parties display across two-card pages, with a centred final card for odd-sized groups.
 
-### Showdown Usability
+### Live Shared Combat Roster
 
-- Showdown survivor cards now fill the available window height while the navigation bar remains fixed.
-- Vital controls are compact, centred, and grouped into clearer rows; Survival and Insanity receive restrained theme-aware emphasis.
-- Weapon Proficiency is available from a shield popover instead of occupying permanent card space.
-- Bleeding uses a compact theme-aware red pill, and severe-injury Apply actions visibly change to Applied after succeeding.
+- Open the armour button beside Depart to see every departed survivor across the LAN session.
+- View live Survival, Insanity, armour values, and Light/Heavy injury state for each survivor.
+- Pop the roster into its own auto-updating window for persistent visibility during play.
 
-### Settlement And Survivors Polish
+### Themes And Layout
 
-- Returning Survivors and unlocked Knowledges now live in collapsible tables.
-- Survivor search and filter controls use less horizontal space, with refresh status kept on the same row.
-- Tag filtering and optional column controls live under Extra Filters, with checkbox clipping corrected.
+- Choose colour and layout independently in Settings.
+- The new Modern layout provides compact, full-height Showdown cards, cleaned raster icons, a scrolling lower content region, and denser survivor controls.
+- The new Despair colour family offers light and dark variants built from monochromatic clamshell, ash, and slate surfaces, with restrained warning and danger accents.
+- Existing Standard layouts and Classic/Zen colour families remain available.
 
 ### Compatibility
 
-- Version 3.5.2 keeps survivor schema version `6` and settlement metadata schema version `1`.
+- Version 3.6.0 keeps survivor schema version `6` and settlement metadata schema version `1`.
 - The LAN protocol remains version `2`. Upgrade the Host and every Client together; protocol-2 builds intentionally reject older protocol-1 peers.
 - Existing schema-1 settlement records remain supported; new fields are optional and normalized when loaded.
-- Upgrade the LAN host and clients together. Back up the entire Survivors folder, including `settlement.json`, `settlement-journal.json`, and any `settlement-backups/`, before changing versions.
+- Back up the entire Survivors folder, including `settlement.json`, `settlement-journal.json`, and any `settlement-backups/`, before changing versions.
 - Survivor files from before the 3.0.1 campaign reset remain unsupported.
 - Linux RPM and DEB packages are currently unsigned. Download them from this repository's GitHub Release page and verify their checksums when possible.
 
@@ -45,18 +45,19 @@ Version 3.5.2 adds settlement-scoped survivor tags and delivers a focused usabil
 Fedora/RPM-based systems:
 
 ```bash
-sudo dnf install ./kingdom-death-survivors-3.5.2-linux-arm64.rpm
+sudo dnf install ./kingdom-death-survivors-3.6.0-linux-arm64.rpm
 ```
 
 Ubuntu/Debian-based systems:
 
 ```bash
-sudo apt install ./kingdom-death-survivors-3.5.2-linux-x64.deb
+sudo apt install ./kingdom-death-survivors-3.6.0-linux-x64.deb
 ```
 
 Replace the architecture suffix with the one appropriate for the device.
 
 ### macOS First-Launch Note
+
 Unsigned builds can be blocked by Gatekeeper even when the app is valid.
 
 If macOS reports the app is damaged or cannot be opened, run:

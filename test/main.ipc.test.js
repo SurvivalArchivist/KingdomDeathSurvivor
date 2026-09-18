@@ -445,7 +445,7 @@ test('packaged runtime rejects Local Files settings and reports production mode'
   const runtimeHandler = harness.handlers.get('get-runtime-info')
   const saveHandler = harness.handlers.get('save-app-settings')
 
-  assert.deepEqual(await runtimeHandler(), { isDevelopmentMode: false, appVersion: '3.5.2' })
+  assert.deepEqual(await runtimeHandler(), { isDevelopmentMode: false, appVersion: '3.6.0' })
   await assert.rejects(
     () => saveHandler(null, { survivorDataMode: 'local' }),
     /only available through npm run dev/

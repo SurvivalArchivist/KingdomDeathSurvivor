@@ -39,14 +39,14 @@
     const p = person || {}
     const slot = slotLabel === 'A' ? 'A' : 'B'
     const primaryVitalStats = [
-      ['age', 'Age', 0, 16, 'icon-vitals'],
-      ['lumi', 'Lumi', 0, null, 'icon-vitals'],
-      ['systemicPressurePts', 'S. Pressure', 0, null, 'icon-vitals'],
-      ['tormentPts', 'Torment', 0, null, 'icon-vitals']
+      ['age', 'Age', 0, 16, 'icon-vitals', 'icon-layout-age'],
+      ['lumi', 'Lumi', 0, null, 'icon-vitals', 'icon-layout-lumi'],
+      ['systemicPressurePts', 'S. Pressure', 0, null, null],
+      ['tormentPts', 'Torment', 0, null, null]
     ]
     const secondaryVitalStats = [
-      ['survivalPts', 'Survival', 0, null, null],
-      ['insanityPts', 'Insanity', 0, null, null]
+      ['survivalPts', 'Survival', 0, null, null, 'icon-layout-survival'],
+      ['insanityPts', 'Insanity', 0, null, null, 'icon-layout-insanity']
     ]
     const mindHeaderStats = [
       {
@@ -55,6 +55,7 @@
         min: 0,
         max: 9,
         icon: 'icon-mind',
+        layoutIcon: 'icon-layout-courage',
         group: 'courageGroup',
         options: [
           ['none', 'None'],
@@ -70,6 +71,7 @@
         min: 0,
         max: 9,
         icon: 'icon-mind',
+        layoutIcon: 'icon-layout-understanding',
         group: 'understandingGroup',
         options: [
           ['none', 'None'],
@@ -81,12 +83,12 @@
       }
     ]
     const combatStats = [
-      ['movement', 'Movement', 1, null, 'icon-stats'],
-      ['speed', 'Speed', null, null, 'icon-stats'],
-      ['accuracy', 'Accuracy', null, null, 'icon-stats'],
-      ['strength', 'Strength', null, null, 'icon-stats'],
-      ['luck', 'Luck', null, null, 'icon-stats'],
-      ['evasion', 'Evasion', null, null, 'icon-stats']
+      ['movement', 'Movement', 1, null, 'icon-stats', 'icon-layout-movement'],
+      ['speed', 'Speed', null, null, 'icon-stats', 'icon-layout-speed'],
+      ['accuracy', 'Accuracy', null, null, 'icon-stats', 'icon-layout-accuracy'],
+      ['strength', 'Strength', null, null, 'icon-stats', 'icon-layout-strength'],
+      ['luck', 'Luck', null, null, 'icon-stats', 'icon-layout-luck'],
+      ['evasion', 'Evasion', null, null, 'icon-stats', 'icon-layout-evasion']
     ]
 
     const pageDots = pageConfig.map(page => {
@@ -95,7 +97,7 @@
     }).join('')
     const proficiencyLevel = clamp(coerceInt(proficiency.level, 0), 0, 8)
 
-    const renderBaseStepper = ([field, label, min, max, icon]) => {
+    const renderBaseStepper = ([field, label, min, max, icon, layoutIcon]) => {
       const base = coerceNumber(p[field], 0)
       const extraClass =
         field === 'understanding'
@@ -113,8 +115,8 @@
           : ''
       const stepperLabel =
         field === 'insanityPts'
-          ? `<div class="showdown-reference-heading"><button type="button" class="showdown-danger-button" data-showdown-severe-table="brain" data-showdown-severe-slot="${slot}" aria-label="Open Brain Trauma table" title="Open Brain Trauma table">⚠</button><span class="showdown-stepper-label">${iconLabel(icon, label)}</span></div>`
-          : `<span class="showdown-stepper-label">${iconLabel(icon, label)}</span>`
+          ? `<div class="showdown-reference-heading"><button type="button" class="showdown-danger-button" data-showdown-severe-table="brain" data-showdown-severe-slot="${slot}" aria-label="Open Brain Trauma table" title="Open Brain Trauma table">⚠</button><span class="showdown-stepper-label">${iconLabel(icon, label, layoutIcon)}</span></div>`
+          : `<span class="showdown-stepper-label">${iconLabel(icon, label, layoutIcon)}</span>`
       const controlsClass =
         field === 'insanityPts'
           ? 'showdown-stepper-controls showdown-stepper-controls-insanity'
@@ -136,7 +138,9 @@
       </div>`
     }
 
-    const renderCombatStepper = ([field, label, min, max, icon]) => {
+    const renderBucketLabel = (label, icon) => `<span class="showdown-bucket-label">${icon ? `<img class="showdown-bucket-icon" src="../assets/zen-layout-icons/${icon.replace('icon-layout-', '')}.png" alt="" aria-hidden="true">` : ''}${label}</span>`
+
+    const renderCombatStepper = ([field, label, min, max, icon, layoutIcon]) => {
       const base = coerceNumber(p[field], 0)
       const modifier = getShowdownModifier(slot, field)
       const temporary = coerceNumber(modifier.temporary, 0)
@@ -147,12 +151,12 @@
       return `
       <div class="showdown-stat-card">
         <div class="showdown-stat-header">
-          <div class="showdown-stat-name">${iconLabel(icon, label)}</div>
+          <div class="showdown-stat-name">${iconLabel(icon, label, layoutIcon)}</div>
           <strong class="showdown-stat-total-value">${total}</strong>
         </div>
         <div class="showdown-stat-line showdown-stat-line-pairs">
           <div class="showdown-stat-pair">
-            <span class="showdown-bucket-label">Base</span>
+            ${renderBucketLabel('Base')}
             <div class="showdown-stepper-controls">
               <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="-1" data-showdown-min="${
                 min ?? ''
@@ -164,7 +168,7 @@
             </div>
           </div>
           <div class="showdown-stat-pair">
-            <span class="showdown-bucket-label">Tokens (+)</span>
+            ${renderBucketLabel('Tokens (+)')}
             <div class="showdown-stepper-controls">
               <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokensPositive" data-showdown-delta="-1">-</button>
               <strong class="showdown-static-value">${tokensPositive}</strong>
@@ -174,7 +178,7 @@
         </div>
         <div class="showdown-stat-line showdown-stat-line-pairs">
           <div class="showdown-stat-pair">
-            <span class="showdown-bucket-label">Temp</span>
+            ${renderBucketLabel('Temp')}
             <div class="showdown-stepper-controls">
               <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="temporary" data-showdown-delta="-1">-</button>
               <strong class="showdown-static-value">${temporary}</strong>
@@ -182,7 +186,7 @@
             </div>
           </div>
           <div class="showdown-stat-pair">
-            <span class="showdown-bucket-label">Tokens (-)</span>
+            ${renderBucketLabel('Tokens (-)')}
             <div class="showdown-stepper-controls">
               <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="tokensNegative" data-showdown-delta="-1">-</button>
               <strong class="showdown-static-value">${tokensNegative}</strong>
@@ -193,11 +197,11 @@
       </div>`
     }
 
-    const renderMindHeaderStepper = ({ field, label, min, max, icon, group, options, selected }) => {
+    const renderMindHeaderStepper = ({ field, label, min, max, icon, layoutIcon, group, options, selected }) => {
       const base = coerceNumber(p[field], 0)
       return `
       <div class="showdown-stepper showdown-stepper-simple showdown-stepper-header-mind-card">
-        <span class="showdown-stepper-label">${iconLabel(icon, label)}</span>
+        <span class="showdown-stepper-label">${iconLabel(icon, label, layoutIcon)}</span>
         <div class="showdown-stepper-controls">
           <button type="button" data-showdown-slot="${slot}" data-showdown-field="${field}" data-showdown-kind="base" data-showdown-delta="-1" data-showdown-min="${
             min ?? ''
@@ -371,7 +375,8 @@
             ${secondaryVitalStats.map(renderBaseStepper).join('')}
             <div class="showdown-stepper showdown-stepper-simple showdown-stepper-bleeding">
               <span class="showdown-stepper-label showdown-bleeding-icon" aria-label="Bleeding tokens" title="Bleeding tokens">
-                <svg aria-hidden="true"><use href="#icon-bleeding"></use></svg>
+                <svg class="icon-label-default" aria-hidden="true"><use href="#icon-bleeding"></use></svg>
+                <img class="icon-label-layout" src="../assets/zen-layout-icons/blood.png" alt="" aria-hidden="true">
               </span>
               <div class="showdown-stepper-controls">
                 <button type="button" data-showdown-slot="${slot}" data-showdown-part="bleedingTokens" data-showdown-delta="-1">-</button>
@@ -390,39 +395,39 @@
       <section class="showdown-page-panel" data-showdown-page-panel="armor"${activePage === 'armor' ? '' : ' hidden'}>
         <section class="showdown-group">
           <div class="showdown-armor-header">
-            <h4>${iconLabel('icon-shield', 'Armor')}</h4>
-            <div class="showdown-armor-bulk-stepper" aria-label="Adjust all armor">
-              <button type="button" data-showdown-slot="${slot}" data-showdown-bulk-armor-delta="-1" aria-label="Decrease all armor">-</button>
+            <h4>${iconLabel('icon-shield', 'Armour', 'icon-layout-armor')}</h4>
+            <div class="showdown-armor-bulk-stepper" aria-label="Adjust all armour">
+              <button type="button" data-showdown-slot="${slot}" data-showdown-bulk-armor-delta="-1" aria-label="Decrease all armour">-</button>
               <strong class="showdown-static-value">All</strong>
-              <button type="button" data-showdown-slot="${slot}" data-showdown-bulk-armor-delta="1" aria-label="Increase all armor">+</button>
+              <button type="button" data-showdown-slot="${slot}" data-showdown-bulk-armor-delta="1" aria-label="Increase all armour">+</button>
             </div>
           </div>
           <div class="showdown-armor-grid">
             ${[
-              ['head', 'Head', 'icon-head'],
-              ['arms', 'Arms', 'icon-arms'],
-              ['body', 'Body', 'icon-body'],
-              ['waist', 'Waist', 'icon-waist'],
-              ['legs', 'Legs', 'icon-legs']
+              ['head', 'Head', 'icon-head', 'icon-layout-head'],
+              ['arms', 'Arms', 'icon-arms', 'icon-layout-arms'],
+              ['body', 'Body', 'icon-body', 'icon-layout-body'],
+              ['waist', 'Waist', 'icon-waist', 'icon-layout-waist'],
+              ['legs', 'Legs', 'icon-legs', 'icon-layout-legs']
             ]
-              .map(([part, label, icon]) => {
+              .map(([part, label, icon, layoutIcon]) => {
                 const lightKey = `${part}Light`
                 const heavyKey = `${part}Heavy`
                 const checks =
                   part === 'head'
-                    ? `<label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${heavyKey}" ${
+                    ? `<label class="showdown-armor-check showdown-armor-check-heavy" title="Heavy armour"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${heavyKey}" aria-label="Heavy ${label.toLowerCase()} armour" ${
                         armor[heavyKey] ? 'checked' : ''
-                      } />Heavy</label>`
-                    : `<label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${lightKey}" ${
+                      } />H</label>`
+                    : `<label class="showdown-armor-check showdown-armor-check-light" title="Light armour"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${lightKey}" aria-label="Light ${label.toLowerCase()} armour" ${
                         armor[lightKey] ? 'checked' : ''
-                      } />Light</label><label class="showdown-armor-check"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${heavyKey}" ${
+                      } />L</label><label class="showdown-armor-check showdown-armor-check-heavy" title="Heavy armour"><input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="${heavyKey}" aria-label="Heavy ${label.toLowerCase()} armour" ${
                         armor[heavyKey] ? 'checked' : ''
-                      } />Heavy</label>`
+                      } />H</label>`
                 return `
               <div class="showdown-armor-stepper">
                 <div class="showdown-armor-heading">
                   <button type="button" class="showdown-danger-button" data-showdown-severe-table="${part}" data-showdown-severe-slot="${slot}" aria-label="Open ${label} severe injury table" title="Open ${label} severe injury table">⚠</button>
-                  ${iconLabel(icon, label)}
+                  ${iconLabel(icon, label, layoutIcon)}
                 </div>
                 <button type="button" data-showdown-slot="${slot}" data-showdown-part="${part}" data-showdown-delta="-1">-</button>
                 <strong class="showdown-static-value showdown-armor-value">${armor[part]}</strong>
@@ -434,7 +439,7 @@
           </div>
         </section>
         <section class="showdown-group">
-          <h4>${iconLabel('icon-stats', 'Stats')}</h4>
+          <h4>${iconLabel('icon-stats', 'Stats', 'icon-layout-stats')}</h4>
           <div class="showdown-stats showdown-stats-combat">${combatStats.map(renderCombatStepper).join('')}</div>
         </section>
       </section>

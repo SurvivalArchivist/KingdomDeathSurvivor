@@ -911,7 +911,7 @@ test('LAN client retries immediately on window focus and system resume after a k
 
 test('real HTTP reconnect catches up the Host revision and restores Showdown presence', async t => {
   const host = createLanSurvivorHost({
-    app: { getVersion: () => '3.5.2' },
+    app: { getVersion: () => '3.6.0' },
     host: '127.0.0.1',
     dataService: {
       ConflictError,

@@ -40,13 +40,14 @@ Electron desktop companion app for Kingdom Death survivor management with:
 
 ## UI Direction
 - The document shell is viewport-locked: the header/navbar never scrolls, while view content scrolls inside the main app shell below it.
-- Header branding uses the small app icon; Settings uses a gear button. Settings selects the Classic or Zen theme family, and a header sun/moon button switches its light/dark variant while retaining the family and persisted preference. The icon depicts the current mode (sun for light, moon for dark). Navbar hover styling must keep controls stationary to avoid scroll-container clipping.
+- Header branding uses the small app icon; Settings uses a gear button. Settings independently selects a Classic, Zen, or Despair colour theme and a Standard/Modern style, allowing any palette to use either geometry. A header sun/moon button switches only brightness while retaining both saved selections. Despair provides a clean parchment/sage light palette and gritty iron/moss dark palette. Modern isolates structural overrides behind `theme-zen-layout`; the icon depicts the current mode (sun for light, moon for dark). Navbar hover styling must keep controls stationary to avoid scroll-container clipping.
 - Prefer simple, efficient layouts over decorative nesting.
 - Keep the rough position of existing tools/workflows, but reduce wrapper layers and visual ceremony.
 - Do not default to rounded, pill-heavy, "safe" controls everywhere; squarer edges are acceptable and often preferred.
 - Settings and utility surfaces should read as infrastructure, not showcase cards.
 
 ## Showdown Session Rules
+- Showdown supports 1–6 selected survivors per player. Positions reveal progressively: Position 1 is required, Position 2 is initially available, and each filled position reveals the next; clearing Position 2 or later clears and hides all subsequent positions. Clicking another occupied position number for an already-selected survivor swaps the two position occupants. The active view paginates the party into pairs, with a single centred card on an odd final page. All selected slots remain live in memory and participate in Depart, save/reset, and LAN roster synchronization regardless of which party page is visible.
 - LAN Showdown is coordinated by the Host. The action buttons show ready/total player counts (Host plus connected clients). A player's Depart vote locks their cards/slots; the session departs only when every player votes. End Showdown and Vignette Reset Showdown likewise wait for unanimous confirmation.
 - The Host tracks connection identities, round IDs, votes, and completion acknowledgements in memory. Duplicate votes are idempotent; disconnected participants block an active vote until they reconnect. Clients joining after departure wait for the next session. Campaign completion retains existing per-survivor conflict/partial-save handling and only acknowledges successful saves; Vignette resets acknowledge in-memory restoration without writes.
 - Local Development retains the standalone Showdown lifecycle. LAN requires a running Host and matching updated Host/Client versions. Readiness and survivor departure snapshots do not survive app/Host restarts.
@@ -56,6 +57,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - In Vignette mode, `Reset Showdown` restores both survivors and all temporary combat state from a deep snapshot captured at Depart, keeps the session departed and slots locked, and writes no survivor records. Depart resolves the settlement type from the authoritative provider; Campaign retains End Showdown.
 - Showdown Lumi is a persistent survivor stat and saves through the same base-stat path as Survival.
 - Temporary combat modifiers, armor, `Tokens (+)`, `Tokens (-)`, bleeding tokens, and weapon proficiency reminder controls are non-persistent.
+- Each Depart vote registers a sanitized, display-only combat summary of that player's two survivors (name, Survival, Insanity, armour, and Light/Heavy states). During the departed Showdown, relevant local changes are sent back to the Host and rebroadcast so every LAN player can inspect the live roster from the Showdown navigation. The roster can remain open as a modal or a detached, automatically updating window. Private survivor fields and temporary state outside that summary are never shared in the roster.
 
 ## Multi-User Safety (Current)
 - Optimistic concurrency is implemented for survivor saves:

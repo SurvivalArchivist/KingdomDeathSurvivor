@@ -12,9 +12,11 @@
       runBusy,
       runWithButtonFeedback,
       setStatus,
-      syncShowdownTextDraftState
+      syncShowdownTextDraftState,
+      scheduleShowdownRosterSync
     } = actions
     const {
+      SHOWDOWN_SLOTS = ['A', 'B'],
       applyMatchmakerGroup,
       applyTinkerGroup,
       beginShowdownTextDraft,
@@ -179,7 +181,7 @@
         if (pageButton instanceof HTMLButtonElement) {
           const slot = pageButton.dataset.showdownPageSlot
           const page = pageButton.dataset.showdownPage
-          if ((slot === 'A' || slot === 'B') && page) {
+          if (SHOWDOWN_SLOTS.includes(slot) && page) {
             showdownPageBySlot[slot] = normalizeShowdownPageKey(page)
             renderShowdownSlot(slot)
           }
@@ -439,6 +441,7 @@
         const value = setShowdownArmorPartValue(showdownArmor, slot, part, target.value)
         if (value === null) return
         target.value = String(value)
+        scheduleShowdownRosterSync()
       })
 
       element.addEventListener('change', event => {
@@ -471,6 +474,7 @@
             )
             if (lightInput instanceof HTMLInputElement) lightInput.checked = true
           }
+          scheduleShowdownRosterSync()
           return
         }
         if (target.tagName !== 'SELECT') return

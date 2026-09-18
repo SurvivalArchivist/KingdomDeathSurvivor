@@ -4,6 +4,8 @@
     const {
       showdownSelectA,
       showdownSelectB,
+      showdownSelects = { A: showdownSelectA, B: showdownSelectB },
+      showdownSurvivorCount,
       openShowdownButton,
       refreshShowdownSurvivorsButton,
       departShowdownButton,
@@ -26,6 +28,7 @@
     } = actions
     const {
       deepClone,
+      SHOWDOWN_SLOTS = ['A', 'B'],
       SHOWDOWN_DEFAULT_PAGE,
       createShowdownArmorSlotState,
       createShowdownModifierSlotState,
@@ -43,6 +46,52 @@
     let appliedEndRound = null
     let departureRound = null
     let readinessRefresh = Promise.resolve()
+    let rosterSyncTimer = null
+    let rosterSyncPending = Promise.resolve()
+    let lastRosterSignature = ''
+
+    function getActiveSlots() {
+      const count = Math.max(1, Math.min(SHOWDOWN_SLOTS.length, Number(showdownSurvivorCount?.value) || 2))
+      return SHOWDOWN_SLOTS.slice(0, count)
+    }
+
+    function buildSharedSurvivors() {
+      return getActiveSlots().flatMap(slot => {
+        const selected = session.showdownPeople[slot]
+        if (!selected) return []
+        return [{
+          slot,
+          name: selected.person?.name || selected.fileName || `Survivor ${slot}`,
+          survival: selected.person?.survivalPts,
+          insanity: selected.person?.insanityPts,
+          armor: session.showdownArmor[slot]
+        }]
+      })
+    }
+
+    function scheduleLiveRosterSync() {
+      const readiness = session.showdownReadiness
+      if (!session.showdownDeparted || !readiness || readiness.phase !== 'departed' ||
+          !readiness.departed.includes(readiness.playerId) || readiness.ended.includes(readiness.playerId)) return
+      clearTimeout(rosterSyncTimer)
+      rosterSyncTimer = setTimeout(() => {
+        const survivors = buildSharedSurvivors()
+        const signature = JSON.stringify(survivors)
+        if (signature === lastRosterSignature) return
+        lastRosterSignature = signature
+        rosterSyncPending = rosterSyncPending.catch(() => {}).then(async () => {
+          const current = session.showdownReadiness
+          if (!current || current.phase !== 'departed') return
+          await applyReadiness(await services.voteShowdownReadiness({
+            round: current.round,
+            action: 'sync',
+            survivors
+          }))
+        }).catch(() => {
+          lastRosterSignature = ''
+        })
+      }, 120)
+    }
 
     async function applyReadiness(state) {
       const previous = session.showdownReadiness
@@ -173,11 +222,11 @@
     }
 
     async function saveShowdownSurvivors(options = {}) {
-      if (!session.showdownPeople.A || !session.showdownPeople.B) return
+      const slots = getActiveSlots()
+      if (!slots.every(slot => session.showdownPeople[slot])) return
       if (!(await ensureCanWriteSurvivorData('saving showdown survivors'))) {
         throw new Error(getLanClientBlockedMessage('saving showdown survivors'))
       }
-      const slots = ['A', 'B']
       const settledResults = await Promise.allSettled(
         slots.map(slot =>
           refreshLanStatusAfterSurvivorOperation(() =>
@@ -226,21 +275,18 @@
 
     function applyShowdownLockSelections() {
       if (!session.showdownDeparted && !session.showdownReadinessLocked) return
-      if (session.showdownLockedSlots.A) showdownSelectA.value = session.showdownLockedSlots.A
-      if (session.showdownLockedSlots.B) showdownSelectB.value = session.showdownLockedSlots.B
+      for (const slot of getActiveSlots()) {
+        if (session.showdownLockedSlots[slot]) showdownSelects[slot].value = session.showdownLockedSlots[slot]
+      }
     }
 
     function hasShowdownSelectionMismatch() {
-      const selectedA = String(showdownSelectA.value || '')
-      const selectedB = String(showdownSelectB.value || '')
-      return (
-        Boolean(session.showdownPeople.A && session.showdownPeople.A.fileName !== selectedA) ||
-        Boolean(session.showdownPeople.B && session.showdownPeople.B.fileName !== selectedB)
-      )
+      return getActiveSlots().some(slot => session.showdownPeople[slot] &&
+        session.showdownPeople[slot].fileName !== String(showdownSelects[slot].value || ''))
     }
 
     function resetShowdownSlotState(slot) {
-      if (slot !== 'A' && slot !== 'B') return
+      if (!SHOWDOWN_SLOTS.includes(slot)) return
       session.showdownPageBySlot[slot] = SHOWDOWN_DEFAULT_PAGE
       session.showdownArmor[slot] = createShowdownArmorSlotState()
       session.showdownModifiers[slot] = createShowdownModifierSlotState()
@@ -250,17 +296,14 @@
     function reconcileShowdownMemoryForSelectionChange() {
       if (session.showdownDeparted || session.showdownReadinessLocked) return false
       let changed = false
-      const selectedA = String(showdownSelectA.value || '')
-      const selectedB = String(showdownSelectB.value || '')
-      if (session.showdownPeople.A && session.showdownPeople.A.fileName !== selectedA) {
-        session.showdownPeople.A = null
-        resetShowdownSlotState('A')
-        changed = true
-      }
-      if (session.showdownPeople.B && session.showdownPeople.B.fileName !== selectedB) {
-        session.showdownPeople.B = null
-        resetShowdownSlotState('B')
-        changed = true
+      for (const slot of SHOWDOWN_SLOTS) {
+        const active = getActiveSlots().includes(slot)
+        const selected = active ? String(showdownSelects[slot].value || '') : ''
+        if (session.showdownPeople[slot] && (!active || session.showdownPeople[slot].fileName !== selected)) {
+          session.showdownPeople[slot] = null
+          resetShowdownSlotState(slot)
+          changed = true
+        }
       }
       if (changed) renderShowdown()
       return changed
@@ -269,27 +312,27 @@
     function resetShowdownSessionState(clearPeople = false, clearSelections = false) {
       session.showdownDepartureSnapshot = null
       session.showdownDeparted = false
-      session.showdownLockedSlots = { A: '', B: '' }
+      session.showdownLockedSlots = Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, '']))
       session.showdownPageBySlot = createShowdownPageState()
       resetShowdownModifiers()
       session.showdownArmor = createShowdownArmorState()
       if (clearPeople) {
-        session.showdownPeople = { A: null, B: null }
+        session.showdownPeople = Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, null]))
         session.showdownTextDraftState = createShowdownTextDraftState()
         renderShowdown()
       }
       if (clearSelections) {
         session.forceShowdownReselection = true
-        showdownSelectA.value = ''
-        showdownSelectB.value = ''
+        for (const selector of Object.values(showdownSelects)) selector.value = ''
       }
       syncControlState()
       if (getState().currentPage === 'settlement') renderSettlementTable()
     }
 
     async function departShowdownSession() {
-      if (!session.showdownPeople.A || !session.showdownPeople.B) {
-        setStatus('Open showdown with two survivors first', 'error')
+      const activeSlots = getActiveSlots()
+      if (!activeSlots.every(slot => session.showdownPeople[slot])) {
+        setStatus('Open showdown with all selected survivors first', 'error')
         return
       }
       if (session.showdownDeparted) {
@@ -309,16 +352,17 @@
         showdownModifiers: session.showdownModifiers,
         showdownTextDraftState: session.showdownTextDraftState
       })
-      session.showdownLockedSlots = {
-        A: session.showdownPeople.A.fileName || '',
-        B: session.showdownPeople.B.fileName || ''
-      }
+      session.showdownLockedSlots = Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [
+        slot, activeSlots.includes(slot) ? session.showdownPeople[slot]?.fileName || '' : ''
+      ]))
       if (readiness) {
         departureRound = readiness.round
         session.showdownReadinessLocked = true
         syncControlState()
         try {
-          await applyReadiness(await submitReadinessVote({ round: readiness.round, action: 'depart' }))
+          const survivors = buildSharedSurvivors()
+          lastRosterSignature = JSON.stringify(survivors)
+          await applyReadiness(await submitReadinessVote({ round: readiness.round, action: 'depart', survivors }))
         } catch (err) {
           refreshReadiness().catch(() => {})
           throw err
@@ -330,9 +374,7 @@
       syncControlState()
       if (getState().currentPage === 'settlement') renderSettlementTable()
       setStatus(
-        `Showdown departed. Locked ${session.showdownPeople.A.person?.name || session.showdownLockedSlots.A} and ${
-          session.showdownPeople.B.person?.name || session.showdownLockedSlots.B
-        }.`,
+        `Showdown departed. Locked ${activeSlots.map(slot => session.showdownPeople[slot].person?.name || session.showdownLockedSlots[slot]).join(', ')}.`,
         'success'
       )
     }
@@ -377,36 +419,34 @@
         return
       }
 
-      const fileA = String(showdownSelectA.value || '')
-      const fileB = String(showdownSelectB.value || '')
-      if (!fileA || !fileB) {
-        setStatus('Select two survivors for showdown', 'error')
+      const slots = getActiveSlots()
+      const files = slots.map(slot => String(showdownSelects[slot].value || ''))
+      if (files.some(file => !file)) {
+        setStatus('Select every survivor for showdown', 'error')
         return
       }
-      if (fileA === fileB) {
-        setStatus('Choose two different survivors for showdown', 'error')
+      if (new Set(files).size !== files.length) {
+        setStatus('Choose different survivors for every showdown slot', 'error')
         return
       }
 
-      const [personA, personB] = await Promise.all([
-        refreshLanStatusAfterSurvivorOperation(() => loadPerson(fileA)),
-        refreshLanStatusAfterSurvivorOperation(() => loadPerson(fileB))
-      ])
-      if (!personA?.isAlive || !personB?.isAlive) {
+      const people = await Promise.all(files.map(file => refreshLanStatusAfterSurvivorOperation(() => loadPerson(file))))
+      if (people.some(person => !person?.isAlive)) {
         throw new Error('Only alive survivors can enter showdown')
       }
 
-      session.showdownPeople.A = { fileName: fileA, person: deepClone(personA) }
-      session.showdownPeople.B = { fileName: fileB, person: deepClone(personB) }
-      resetShowdownSlotState('A')
-      resetShowdownSlotState('B')
+      slots.forEach((slot, index) => {
+        session.showdownPeople[slot] = { fileName: files[index], person: deepClone(people[index]) }
+        resetShowdownSlotState(slot)
+      })
       renderShowdown()
       setStatus('Showdown survivors refreshed from settlement data', 'success')
     }
 
     async function openShowdownView() {
       await refreshReadiness()
-      if (session.showdownDeparted && session.showdownPeople.A && session.showdownPeople.B) {
+      const slots = getActiveSlots()
+      if (session.showdownDeparted && slots.every(slot => session.showdownPeople[slot])) {
         applyShowdownLockSelections()
         renderShowdown()
         setPage('showdown')
@@ -414,96 +454,89 @@
         return
       }
 
-      const fileA = showdownSelectA.value
-      const fileB = showdownSelectB.value
-      if (!fileA || !fileB) {
-        setStatus('Select two survivors for showdown', 'error')
+      const files = slots.map(slot => String(showdownSelects[slot].value || ''))
+      if (files.some(file => !file)) {
+        setStatus('Select every survivor for showdown', 'error')
         return
       }
-      if (fileA === fileB) {
-        setStatus('Choose two different survivors for showdown', 'error')
+      if (new Set(files).size !== files.length) {
+        setStatus('Choose different survivors for every showdown slot', 'error')
         return
       }
 
       reconcileShowdownMemoryForSelectionChange()
       const loadTasks = []
-      if (!session.showdownPeople.A || session.showdownPeople.A.fileName !== fileA) {
-        loadTasks.push(
-          refreshLanStatusAfterSurvivorOperation(() => loadPerson(fileA)).then(person => {
+      slots.forEach((slot, index) => {
+        const file = files[index]
+        if (!session.showdownPeople[slot] || session.showdownPeople[slot].fileName !== file) {
+          loadTasks.push(refreshLanStatusAfterSurvivorOperation(() => loadPerson(file)).then(person => {
             if (!person?.isAlive) throw new Error('Only alive survivors can enter showdown')
-            session.showdownPeople.A = { fileName: fileA, person: deepClone(person) }
-            resetShowdownSlotState('A')
-          })
-        )
-      }
-      if (!session.showdownPeople.B || session.showdownPeople.B.fileName !== fileB) {
-        loadTasks.push(
-          refreshLanStatusAfterSurvivorOperation(() => loadPerson(fileB)).then(person => {
-            if (!person?.isAlive) throw new Error('Only alive survivors can enter showdown')
-            session.showdownPeople.B = { fileName: fileB, person: deepClone(person) }
-            resetShowdownSlotState('B')
-          })
-        )
-      }
+            session.showdownPeople[slot] = { fileName: file, person: deepClone(person) }
+            resetShowdownSlotState(slot)
+          }))
+        }
+      })
       if (loadTasks.length > 0) await Promise.all(loadTasks)
-      if (!session.showdownPeople.A || !session.showdownPeople.B) {
+      if (!slots.every(slot => session.showdownPeople[slot])) {
         throw new Error('Failed to load selected survivors for showdown')
       }
       renderShowdown()
       setPage('showdown')
       setStatus(
-        `Showdown ready: ${session.showdownPeople.A.person?.name || fileA} vs ${session.showdownPeople.B.person?.name || fileB}`,
+        `Showdown ready: ${slots.map((slot, index) => session.showdownPeople[slot].person?.name || files[index]).join(', ')}`,
         'success'
       )
     }
 
     function populateShowdownSelectors(files) {
-      const previousA = showdownSelectA.value
-      const previousB = showdownSelectB.value
-      showdownSelectA.innerHTML = ''
-      showdownSelectB.innerHTML = ''
-
-      for (const file of files) {
-        const optionA = documentRef.createElement('option')
-        optionA.value = file
-        optionA.textContent = file
-        showdownSelectA.appendChild(optionA)
-
-        const optionB = documentRef.createElement('option')
-        optionB.value = file
-        optionB.textContent = file
-        showdownSelectB.appendChild(optionB)
+      const previous = Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, showdownSelects[slot].value]))
+      for (const slot of SHOWDOWN_SLOTS) {
+        const selector = showdownSelects[slot]
+        selector.innerHTML = ''
+        if (slot !== 'A') {
+          const emptyOption = documentRef.createElement('option')
+          emptyOption.value = ''
+          emptyOption.textContent = 'Not selected'
+          selector.appendChild(emptyOption)
+        }
+        for (const file of files) {
+          const option = documentRef.createElement('option')
+          option.value = file
+          option.textContent = file
+          selector.appendChild(option)
+        }
       }
 
       if (files.length === 0) {
-        showdownSelectA.value = ''
-        showdownSelectB.value = ''
+        for (const selector of Object.values(showdownSelects)) selector.value = ''
         return
       }
 
       if (session.forceShowdownReselection) {
-        showdownSelectA.value = ''
-        showdownSelectB.value = ''
+        for (const selector of Object.values(showdownSelects)) selector.value = ''
         return
       }
 
-      showdownSelectA.value = files.includes(previousA) ? previousA : files[0]
-      showdownSelectB.value = files.includes(previousB) ? previousB : files[Math.min(1, files.length - 1)]
-      ensureDistinctShowdownSelection('A')
+      const activeCount = getActiveSlots().length
+      SHOWDOWN_SLOTS.forEach((slot, index) => {
+        showdownSelects[slot].value = files.includes(previous[slot])
+          ? previous[slot]
+          : index < activeCount ? files[Math.min(index, files.length - 1)] : ''
+      })
+      ensureDistinctShowdownSelection()
     }
 
-    function ensureDistinctShowdownSelection(changed) {
+    function ensureDistinctShowdownSelection(changed = '') {
       const options = [...showdownSelectA.options].map(option => option.value)
-      if (options.length < 2) return
-
-      if (showdownSelectA.value === showdownSelectB.value) {
-        if (changed === 'A') {
-          const alternative = options.find(value => value !== showdownSelectA.value)
-          if (alternative) showdownSelectB.value = alternative
-        } else {
-          const alternative = options.find(value => value !== showdownSelectB.value)
-          if (alternative) showdownSelectA.value = alternative
-        }
+      const used = new Set()
+      const ordered = changed ? [changed, ...getActiveSlots().filter(slot => slot !== changed)] : getActiveSlots()
+      for (const slot of ordered) {
+        const selector = showdownSelects[slot]
+        if (!selector.value) continue
+        if (!used.has(selector.value)) { used.add(selector.value); continue }
+        const alternative = options.find(value => !used.has(value))
+        if (alternative) selector.value = alternative
+        used.add(selector.value)
       }
     }
 
@@ -522,60 +555,64 @@
         return
       }
 
-      const currentA = showdownSelectA.value
-      const currentB = showdownSelectB.value
-
-      if (slot === 'A') {
-        const shouldSwap = fileName === currentB && currentA && currentA !== fileName
-        showdownSelectA.value = fileName
-        if (shouldSwap) {
-          showdownSelectB.value = currentA
-        } else {
-          ensureDistinctShowdownSelection('A')
-        }
-      } else {
-        const shouldSwap = fileName === currentA && currentB && currentB !== fileName
-        showdownSelectB.value = fileName
-        if (shouldSwap) {
-          showdownSelectA.value = currentB
-        } else {
-          ensureDistinctShowdownSelection('B')
-        }
+      if (!SHOWDOWN_SLOTS.includes(slot)) return
+      const slotIndex = SHOWDOWN_SLOTS.indexOf(slot)
+      if (showdownSelects[slot].value === fileName && slot !== 'A') {
+        for (const laterSlot of SHOWDOWN_SLOTS.slice(slotIndex)) showdownSelects[laterSlot].value = ''
+        showdownSurvivorCount.value = String(slotIndex)
+        reconcileShowdownMemoryForSelectionChange()
+        syncControlState()
+        renderSettlementTable()
+        setStatus(`Cleared Showdown Position ${slotIndex + 1}`, 'neutral')
+        return
       }
+
+      const targetFileName = showdownSelects[slot].value
+      const sourceSlot = SHOWDOWN_SLOTS.find(candidate => showdownSelects[candidate].value === fileName)
+      if (sourceSlot && sourceSlot !== slot && targetFileName) {
+        showdownSelects[slot].value = fileName
+        showdownSelects[sourceSlot].value = targetFileName
+      } else if (sourceSlot && sourceSlot !== slot) {
+        setStatus(`Position ${slotIndex + 1} is empty. Select another survivor there before swapping.`, 'neutral')
+        return
+      } else {
+        showdownSelects[slot].value = fileName
+      }
+      showdownSurvivorCount.value = String(Math.max(Number(showdownSurvivorCount.value) || 1, slotIndex + 1))
       if (session.forceShowdownReselection) session.forceShowdownReselection = false
       reconcileShowdownMemoryForSelectionChange()
       syncControlState()
       renderSettlementTable()
-      setStatus(`Assigned ${fileName} to Survivor ${slot}`, 'success')
+      setStatus(
+        sourceSlot && sourceSlot !== slot
+          ? `Swapped Positions ${SHOWDOWN_SLOTS.indexOf(sourceSlot) + 1} and ${slotIndex + 1}`
+          : `Assigned ${fileName} to Position ${slotIndex + 1}`,
+        'success'
+      )
     }
 
     function bindEvents() {
       services.onShowdownReadinessChanged?.(() => {
         refreshReadiness().catch(err => setStatus(err.message || 'Unable to refresh showdown readiness', 'error'))
       })
-      showdownSelectA.addEventListener('change', () => {
-        if (session.showdownDeparted || session.showdownReadinessLocked) {
-          applyShowdownLockSelections()
-          setStatus('Showdown slots are locked while departed', 'neutral')
-        }
-        if (session.forceShowdownReselection) session.forceShowdownReselection = false
-        ensureDistinctShowdownSelection('A')
-        reconcileShowdownMemoryForSelectionChange()
-        syncControlState()
-        if (getState().currentPage === 'settlement') renderSettlementTable()
-      })
-
-      showdownSelectB.addEventListener('change', () => {
-        if (session.showdownDeparted || session.showdownReadinessLocked) {
-          applyShowdownLockSelections()
-          setStatus('Showdown slots are locked while departed', 'neutral')
-        }
-        if (session.forceShowdownReselection) session.forceShowdownReselection = false
-        ensureDistinctShowdownSelection('B')
-        reconcileShowdownMemoryForSelectionChange()
-        syncControlState()
-        if (getState().currentPage === 'settlement') renderSettlementTable()
-      })
+      for (const slot of SHOWDOWN_SLOTS) showdownSelects[slot].addEventListener('change', () => {
+          if (session.showdownDeparted || session.showdownReadinessLocked) {
+            applyShowdownLockSelections()
+            setStatus('Showdown slots are locked while departed', 'neutral')
+          }
+          if (session.forceShowdownReselection) session.forceShowdownReselection = false
+          const slotIndex = SHOWDOWN_SLOTS.indexOf(slot)
+          if (!showdownSelects[slot].value && slot !== 'A') {
+            for (const laterSlot of SHOWDOWN_SLOTS.slice(slotIndex + 1)) showdownSelects[laterSlot].value = ''
+            showdownSurvivorCount.value = String(slotIndex)
+          } else if (showdownSelects[slot].value) {
+            showdownSurvivorCount.value = String(Math.max(Number(showdownSurvivorCount.value) || 1, slotIndex + 1))
+          }
+          ensureDistinctShowdownSelection(slot)
+          reconcileShowdownMemoryForSelectionChange()
+          syncControlState()
+          if (getState().currentPage === 'settlement') renderSettlementTable()
+        })
       openShowdownButton.addEventListener('click', () => {
         runBusy(openShowdownView).catch(err => {
           showSurvivorReadFailure(
@@ -619,7 +656,8 @@
       hasShowdownSelectionMismatch,
       reconcileShowdownMemoryForSelectionChange,
       openShowdownView,
-      populateShowdownSelectors
+      populateShowdownSelectors,
+      scheduleLiveRosterSync
     }
   }
 

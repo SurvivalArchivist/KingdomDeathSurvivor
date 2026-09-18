@@ -264,34 +264,22 @@
         }
 
         const actionsCell = documentRef.createElement('td')
-        const slotOneButton = documentRef.createElement('button')
-        slotOneButton.type = 'button'
-        slotOneButton.className = 'btn btn-secondary settlement-slot-btn'
-        slotOneButton.textContent = '1'
-        slotOneButton.dataset.setShowdownSlot = 'A'
-        slotOneButton.dataset.fileName = record.fileName
         const personAlive = Boolean(person.isAlive)
-        slotOneButton.disabled = state.showdownDeparted || !personAlive
-        if (state.showdownDeparted) slotOneButton.title = 'Locked while showdown is departed'
-        else if (!personAlive) slotOneButton.title = 'Dead survivors cannot enter showdown'
-        if (state.showdownSelectAValue === record.fileName) {
-          slotOneButton.classList.add('is-active')
+        const slots = ['A', 'B', 'C', 'D', 'E', 'F']
+        const visiblePositionCount = Math.min(6, Math.max(2, Number(state.showdownSurvivorCount) + 1 || 2))
+        for (const [index, slot] of slots.slice(0, visiblePositionCount).entries()) {
+          const button = documentRef.createElement('button')
+          button.type = 'button'
+          button.className = 'btn btn-secondary settlement-slot-btn'
+          button.textContent = String(index + 1)
+          button.dataset.setShowdownSlot = slot
+          button.dataset.fileName = record.fileName
+          button.disabled = state.showdownDeparted || !personAlive
+          if (state.showdownDeparted) button.title = 'Locked while showdown is departed'
+          else if (!personAlive) button.title = 'Dead survivors cannot enter showdown'
+          if (state.showdownSelections?.[slot] === record.fileName) button.classList.add('is-active')
+          actionsCell.appendChild(button)
         }
-
-        const slotTwoButton = documentRef.createElement('button')
-        slotTwoButton.type = 'button'
-        slotTwoButton.className = 'btn btn-secondary settlement-slot-btn'
-        slotTwoButton.textContent = '2'
-        slotTwoButton.dataset.setShowdownSlot = 'B'
-        slotTwoButton.dataset.fileName = record.fileName
-        slotTwoButton.disabled = state.showdownDeparted || !personAlive
-        if (state.showdownDeparted) slotTwoButton.title = 'Locked while showdown is departed'
-        else if (!personAlive) slotTwoButton.title = 'Dead survivors cannot enter showdown'
-        if (state.showdownSelectBValue === record.fileName) {
-          slotTwoButton.classList.add('is-active')
-        }
-
-        actionsCell.append(slotOneButton, slotTwoButton)
         row.appendChild(actionsCell)
         elements.settlementTableBody.appendChild(row)
       }

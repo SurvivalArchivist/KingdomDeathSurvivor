@@ -8,6 +8,14 @@ contextBridge.exposeInMainWorld('api', {
   saveAppSettings: settings => ipcRenderer.invoke('save-app-settings', settings),
   getShowdownReadiness: () => ipcRenderer.invoke('get-showdown-readiness'),
   voteShowdownReadiness: input => ipcRenderer.invoke('vote-showdown-readiness', input),
+  openShowdownRosterWindow: payload => ipcRenderer.invoke('open-showdown-roster-window', payload),
+  updateShowdownRosterWindow: payload => ipcRenderer.invoke('update-showdown-roster-window', payload),
+  onShowdownRosterUpdated: listener => {
+    if (typeof listener !== 'function') return () => {}
+    const wrapped = (_event, payload) => listener(payload)
+    ipcRenderer.on('showdown-roster-updated', wrapped)
+    return () => ipcRenderer.removeListener('showdown-roster-updated', wrapped)
+  },
   onShowdownReadinessChanged: listener => {
     if (typeof listener !== 'function') return () => {}
     const wrapped = (_event, payload) => listener(payload)
