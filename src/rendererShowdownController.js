@@ -104,6 +104,8 @@
       }
       if (field === 'level') {
         proficiency.level = clamp(coerceInt(nextValue, 0), 0, 8)
+        proficiency.isSpecialist = proficiency.level >= 3
+        proficiency.isMaster = proficiency.level >= 8
         renderShowdownSlot(slot)
       }
     }

@@ -272,6 +272,7 @@ body.showdown-mode .showdown-group-vitals .showdown-stepper-key-stat .showdown-s
 }
 
 .showdown-group-vitals .showdown-stepper-proficiency-type-card input,
+.showdown-group-vitals .showdown-stepper-proficiency-type-card select,
 .showdown-group-vitals .showdown-stepper-proficiency-combined .showdown-proficiency-type-input {
   width: 100%;
   min-width: 0;
@@ -322,7 +323,7 @@ body.showdown-mode .showdown-group-vitals .showdown-stepper-key-stat .showdown-s
 }
 
 .showdown-proficiency-popover {
-  width: min(280px, calc(100vw - 2rem));
+  width: min(520px, calc(100vw - 2rem));
   padding: 0.45rem;
   border: 1px solid var(--outline);
   border-radius: 10px;
@@ -382,6 +383,45 @@ body.showdown-mode .showdown-group-vitals .showdown-stepper-key-stat .showdown-s
   width: 12px;
   height: 12px;
   margin: 0;
+}
+
+.showdown-proficiency-rules {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+.showdown-proficiency-rule {
+  padding: 0.45rem;
+  border: 1px solid var(--outline);
+  border-radius: 6px;
+  background: var(--surface-soft);
+}
+
+.showdown-proficiency-rule.is-locked {
+  opacity: 0.62;
+}
+
+.showdown-proficiency-rule.is-unlocked {
+  border-color: var(--accent);
+}
+
+.showdown-proficiency-rule-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.76rem;
+}
+
+.showdown-proficiency-rule-heading span {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.showdown-proficiency-rule p {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 
 body.showdown-mode .showdown-group-vitals .showdown-stepper-bleeding {

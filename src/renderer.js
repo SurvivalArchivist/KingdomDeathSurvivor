@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const showdownViewModule = window.KDMShowdownView
   const showdownSessionModule = window.KDMShowdownSession
   const showdownControllerModule = window.KDMShowdownController
+  const weaponProficiencyModule = window.KDMWeaponProficiencies
   if (!knowledgeTemplateHelpers) {
     console.error('Knowledge template helpers not available')
     return
@@ -45,6 +46,11 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('Showdown controller module not available')
     return
   }
+  if (!weaponProficiencyModule) {
+    console.error('Weapon proficiency module not available')
+    return
+  }
+  const { WEAPON_PROFICIENCIES } = weaponProficiencyModule
   const {
     buildBlankKnowledgeEntry,
     buildUpgradedScratchKnowledge,
@@ -97,6 +103,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const { createShowdownController } = showdownControllerModule
   const TENET_KNOWLEDGE_LIMIT = 1
   const KNOWLEDGE_LIMIT = 5
+
+  function populateWeaponProficiencySelect(select) {
+    if (!(select instanceof HTMLSelectElement)) return
+    const currentValue = String(select.value || '').trim()
+    select.textContent = ''
+    const emptyOption = document.createElement('option')
+    emptyOption.value = ''
+    emptyOption.textContent = 'None'
+    select.appendChild(emptyOption)
+    for (const proficiency of WEAPON_PROFICIENCIES) {
+      const option = document.createElement('option')
+      option.value = proficiency.name
+      option.textContent = proficiency.name
+      select.appendChild(option)
+    }
+    select.value = WEAPON_PROFICIENCIES.some(item => item.name === currentValue) ? currentValue : ''
+  }
 
   const dataSourcesView = document.getElementById('dataSourcesView')
   const settingsAppVersion = document.getElementById('settingsAppVersion')
@@ -413,6 +436,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const armorLegs = document.getElementById('armorLegs')
   const createWeaponProficiencyType = document.getElementById('createWeaponProficiencyType')
   const createWeaponProficiencyLevel = document.getElementById('createWeaponProficiencyLevel')
+
+  populateWeaponProficiencySelect(veWeaponProficiencyType)
+  populateWeaponProficiencySelect(createWeaponProficiencyType)
 
   const required = [
     dataSourcesView,
@@ -1194,8 +1220,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const proficiency = person.weaponProficiency
     proficiency.type = String(proficiency.type || '')
     proficiency.level = normalizeProficiencyLevel(proficiency.level, 0)
-    proficiency.isSpecialist = Boolean(proficiency.isSpecialist)
-    proficiency.isMaster = Boolean(proficiency.isMaster)
+    proficiency.isSpecialist = proficiency.level >= 3
+    proficiency.isMaster = proficiency.level >= 8
     return proficiency
   }
 
@@ -3350,6 +3376,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setValueByPath(next, config.field, value)
       input.value = String(value)
     }
+    ensureWeaponProficiency(next)
     syncCreateArraysFromDom()
     next.abilities = deepClone(createArrayState.abilities)
     next.impairments = deepClone(createArrayState.impairments)
@@ -3913,6 +3940,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setValueByPath(next, config.field, value)
       input.value = String(value)
     }
+    ensureWeaponProficiency(next)
     renderAgeBoxes(veAge.value)
 
     next.fightingArts = collectVisualRows(veFightingArts, 'fightingArts')

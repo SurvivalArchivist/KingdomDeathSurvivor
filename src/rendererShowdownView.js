@@ -96,6 +96,25 @@
       return `<button type="button" class="showdown-page-dot${isActive ? ' is-active' : ''}" data-showdown-page-slot="${slot}" data-showdown-page="${page.key}" aria-label="${page.label}" title="${page.label}" aria-pressed="${isActive ? 'true' : 'false'}"><span>${page.symbol}</span></button>`
     }).join('')
     const proficiencyLevel = clamp(coerceInt(proficiency.level, 0), 0, 8)
+    const proficiencyCatalog = globalScope.KDMWeaponProficiencies
+    const proficiencyDefinition = proficiencyCatalog?.getWeaponProficiency(proficiency.type)
+    const proficiencyOptions = [
+      '<option value="">None</option>',
+      ...(proficiencyCatalog?.WEAPON_PROFICIENCIES || []).map(item =>
+        `<option value="${escapeHtml(item.name)}"${item.name === proficiency.type ? ' selected' : ''}>${escapeHtml(item.name)}</option>`
+      )
+    ].join('')
+    const renderProficiencyRule = (label, unlockLevel, text) => {
+      const unlocked = proficiencyLevel >= unlockLevel
+      return `
+        <section class="showdown-proficiency-rule${unlocked ? ' is-unlocked' : ' is-locked'}">
+          <div class="showdown-proficiency-rule-heading">
+            <strong>${label}</strong>
+            <span>${unlocked ? 'Active' : `Unlocks at level ${unlockLevel}`}</span>
+          </div>
+          <p>${escapeHtml(text || 'Choose a weapon proficiency to view its rules.').replace(/\n/g, '<br>')}</p>
+        </section>`
+    }
 
     const renderBaseStepper = ([field, label, min, max, icon, layoutIcon]) => {
       const base = coerceNumber(p[field], 0)
@@ -235,10 +254,14 @@
                 </div>
               </div>
               <div class="showdown-proficiency-inline">
-                <input type="text" class="showdown-proficiency-type-input" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="type" value="${String(proficiency.type || '')}" placeholder="Type" aria-label="Weapon proficiency type" />
+                <select class="showdown-proficiency-type-input" data-showdown-proficiency-slot="${slot}" data-showdown-proficiency-field="type" aria-label="Weapon proficiency type">${proficiencyOptions}</select>
                 <label class="showdown-proficiency-reminder" title="Temporary weapon proficiency reminder">
                   <input type="checkbox" data-showdown-slot="${slot}" data-showdown-armor-check="proficiencyReminder" aria-label="Weapon proficiency reminder" ${armor.proficiencyReminder ? 'checked' : ''} />
                 </label>
+              </div>
+              <div class="showdown-proficiency-rules">
+                ${renderProficiencyRule('Specialization', 3, proficiencyDefinition?.specialization)}
+                ${renderProficiencyRule('Mastery', 8, proficiencyDefinition?.mastery)}
               </div>
             </div>
           </div>
