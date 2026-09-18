@@ -371,7 +371,7 @@
             <section class="structured-group">
               <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-stats"></use></svg>Weapon Proficiency</span></h4>
               <div class="structured-grid structured-grid-mind">
-                <label>Type <input id="veWeaponProficiencyType" type="text" placeholder="e.g. Sword" /></label>
+                <label>Type <select id="veWeaponProficiencyType"></select></label>
                 <div class="stepper"><span>Level</span><button type="button" data-step-target="veWeaponProficiencyLevel" data-step-delta="-1">-</button><input id="veWeaponProficiencyLevel" type="number" /><button type="button" data-step-target="veWeaponProficiencyLevel" data-step-delta="1">+</button></div>
               </div>
             </section>
@@ -742,7 +742,7 @@
         <section class="showdown-group">
           <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-stats"></use></svg>Weapon Proficiency</span></h4>
           <div class="showdown-stats showdown-stats-mind">
-            <label class="showdown-proficiency-type">Type <input id="createWeaponProficiencyType" type="text" placeholder="e.g. Sword" /></label>
+            <label class="showdown-proficiency-type">Type <select id="createWeaponProficiencyType"></select></label>
             <div class="showdown-stepper showdown-stepper-simple"><span class="showdown-stepper-label">Level</span><div class="showdown-stepper-controls"><button type="button" data-create-step-target="createWeaponProficiencyLevel" data-create-step-delta="-1">-</button><input id="createWeaponProficiencyLevel" type="number" /><button type="button" data-create-step-target="createWeaponProficiencyLevel" data-create-step-delta="1">+</button></div></div>
           </div>
         </section>
@@ -969,6 +969,7 @@
   <script src="../../src/rendererSettlementHelpers.js"></script>
   <script src="../../src/rendererSevereInjuryTables.js"></script>
   <script src="../../src/rendererShowdownState.js"></script>
+  <script src="../../src/weaponProficiencies.js"></script>
   <script src="../../src/rendererShowdownView.js"></script>
   <script src="../../src/rendererShowdownController.js"></script>
   <script src="../../src/rendererShowdownSession.js"></script>
