@@ -1,5 +1,9 @@
 # Model Handoff Log
 
+## Weapon Proficiencies
+
+- 2026-09-18: Replaced free-text weapon proficiency entry in Technical, Create/View, and Showdown with one app-owned 17-option catalog derived from the private reference library. Rank 3 now derives `isSpecialist`, rank 8 derives `isMaster`, and the Showdown proficiency popover displays each selected weapon's built-in Specialization and Mastery rules with locked/active status. Runtime behavior no longer depends on gitignored reference files. Files: `src/weaponProficiencies.js`, `src/renderer.js`, `src/rendererShowdownView.js`, `src/rendererShowdownController.js`, `ui/components/index.html`, `ui/components/styles/showdown.css`, tests, and context docs; verification: `npm run verify`.
+
 ## Survivor Tags
 
 - 2026-09-17: Replaced the Extra Filters Columns `fieldset/legend` shell with a normal accessible group, then flattened it into one compact inline row. The Columns label now sits beside its checkboxes without a nested full-width box or empty title row. Checkbox sizing is isolated from generic filter-input rules, labels have an explicit uncropped line box, and the checkbox/checkmark are CSS-rendered within their bounds to avoid native macOS glyph cropping. Files: `ui/components/index.html` and `ui/components/styles/base.css`.

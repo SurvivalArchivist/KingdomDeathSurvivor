@@ -7,6 +7,21 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.6.2] - 2026-09-18
+
+### Added
+
+- Added built-in Specialization and Mastery rules for all 17 weapon proficiencies to the Showdown proficiency popup, including clear rank 3 and rank 8 unlock status.
+
+### Changed
+
+- Replaced free-text weapon proficiency entry with a consistent dropdown in Technical, Create/View Survivor, and Showdown.
+- Weapon Specialization and Mastery status now follows proficiency rank automatically.
+
+### Fixed
+
+- Removed the runtime dependency on gitignored weapon proficiency reference files by shipping the required rules with the app.
+
 ## [3.6.0] - 2026-09-18
 
 ### Added
