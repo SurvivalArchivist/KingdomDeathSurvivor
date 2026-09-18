@@ -115,6 +115,13 @@
           <p>${escapeHtml(text || 'Choose a weapon proficiency to view its rules.').replace(/\n/g, '<br>')}</p>
         </section>`
     }
+    const specializationRules = proficiencyDefinition?.progression
+      ? `
+        <div class="showdown-proficiency-progression-title">Twilight Sword Progression</div>
+        ${proficiencyDefinition.progression
+          .map(item => renderProficiencyRule(`Rank ${item.level}`, item.level, item.text))
+          .join('')}`
+      : renderProficiencyRule('Specialization', 3, proficiencyDefinition?.specialization)
 
     const renderBaseStepper = ([field, label, min, max, icon, layoutIcon]) => {
       const base = coerceNumber(p[field], 0)
@@ -260,7 +267,7 @@
                 </label>
               </div>
               <div class="showdown-proficiency-rules">
-                ${renderProficiencyRule('Specialization', 3, proficiencyDefinition?.specialization)}
+                ${specializationRules}
                 ${renderProficiencyRule('Mastery', 8, proficiencyDefinition?.mastery)}
               </div>
             </div>

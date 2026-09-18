@@ -43,6 +43,7 @@ const MARKDOWN_COLLECTION_CACHE_MAX = 10
 const MARKDOWN_COLLECTION_CACHE_TTL_MS = 5000 // 5 seconds
 const markdownPreviewCache = new Map()
 const markdownCollectionCache = new Map()
+const configStatusByPath = new Map()
 
 const schemaPath = path.join(__dirname, 'validation', 'person.schema.json')
 const personSchema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'))
@@ -193,15 +194,98 @@ function getConfigPath(app) {
   return path.join(app.getPath('userData'), 'config.json')
 }
 
+function getConfigBackupPath(configPath) {
+  return `${configPath}.bak`
+}
+
+function isConfigObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function readConfigFile(configPath) {
+  const value = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+  if (!isConfigObject(value)) throw new Error('Configuration root must be an object')
+  return value
+}
+
+function fsyncParentDirectory(filePath) {
+  let directoryFd = null
+  try {
+    directoryFd = fs.openSync(path.dirname(filePath), 'r')
+    fs.fsyncSync(directoryFd)
+  } catch {
+    // Some platforms and filesystems do not allow directory fsync.
+  } finally {
+    if (directoryFd !== null) fs.closeSync(directoryFd)
+  }
+}
+
+function atomicWriteConfigFile(filePath, content) {
+  const tempPath = `${filePath}.tmp-${process.pid}-${crypto.randomUUID()}`
+  let fileFd = null
+  try {
+    fileFd = fs.openSync(tempPath, 'wx')
+    fs.writeFileSync(fileFd, content, 'utf8')
+    fs.fsyncSync(fileFd)
+    fs.closeSync(fileFd)
+    fileFd = null
+    fs.renameSync(tempPath, filePath)
+    fsyncParentDirectory(filePath)
+  } finally {
+    if (fileFd !== null) fs.closeSync(fileFd)
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
+  }
+}
+
+function preserveCorruptConfig(configPath) {
+  if (!fs.existsSync(configPath)) return null
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const archivePath = `${configPath}.corrupt-${timestamp}-${crypto.randomUUID()}`
+  try {
+    fs.copyFileSync(configPath, archivePath, fs.constants.COPYFILE_EXCL)
+    return archivePath
+  } catch {
+    return null
+  }
+}
+
 function readConfigObject(app) {
   const configPath = getConfigPath(app)
   if (!fs.existsSync(configPath)) return {}
   try {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
-    return config && typeof config === 'object' ? config : {}
-  } catch {
+    return readConfigFile(configPath)
+  } catch (primaryError) {
+    const archivedPath = preserveCorruptConfig(configPath)
+    const backupPath = getConfigBackupPath(configPath)
+    try {
+      if (!fs.existsSync(backupPath)) throw new Error('No configuration backup is available')
+      const backup = readConfigFile(backupPath)
+      atomicWriteConfigFile(configPath, JSON.stringify(backup, null, 2))
+      configStatusByPath.set(configPath, {
+        state: 'recovered',
+        message: `Configuration was unreadable and has been restored from the last-known-good backup.${archivedPath ? ` The damaged file was preserved as ${path.basename(archivedPath)}.` : ''}`
+      })
+      return backup
+    } catch (backupError) {
+      configStatusByPath.set(configPath, {
+        state: 'corrupt',
+        message: `Configuration is unreadable and no valid backup could be restored. Defaults are being shown; reselect settings before continuing.${archivedPath ? ` The damaged file was preserved as ${path.basename(archivedPath)}.` : ''}`,
+        error: primaryError.message,
+        backupError: backupError.message
+      })
+      try {
+        fs.unlinkSync(configPath)
+      } catch {
+        // Preserve the original in place when it cannot be removed.
+      }
+    }
     return {}
   }
+}
+
+function getConfigStatus(app) {
+  const configPath = getConfigPath(app)
+  return configStatusByPath.get(configPath) || { state: 'ok', message: '' }
 }
 
 function normalizeDataSources(input) {
@@ -241,7 +325,31 @@ function saveConfig(app, dataSources, appSettings) {
   const normalized = normalizeDataSources(dataSources || {})
   const normalizedSettings =
     typeof appSettings === 'undefined' ? getSavedAppSettings(app) : normalizeAppSettings(appSettings || {})
-  fs.writeFileSync(configPath, JSON.stringify({ dataSources: normalized, settings: normalizedSettings }, null, 2), 'utf8')
+  const content = JSON.stringify({ dataSources: normalized, settings: normalizedSettings }, null, 2)
+  const backupPath = getConfigBackupPath(configPath)
+  let previousContent = null
+  try {
+    if (fs.existsSync(configPath)) previousContent = JSON.stringify(readConfigFile(configPath), null, 2)
+  } catch {
+    // A corrupt primary is preserved/reported by the read path; never promote it to backup.
+  }
+  if (previousContent !== null) {
+    atomicWriteConfigFile(backupPath, previousContent)
+  } else if (!fs.existsSync(backupPath)) {
+    // Seed recovery on the first save without replacing an existing valid backup.
+    atomicWriteConfigFile(backupPath, content)
+  }
+  atomicWriteConfigFile(configPath, content)
+  try {
+    if (previousContent !== null) atomicWriteConfigFile(backupPath, content)
+    configStatusByPath.delete(configPath)
+  } catch (backupError) {
+    configStatusByPath.set(configPath, {
+      state: 'backup-stale',
+      message: 'Settings were saved, but the last-known-good configuration backup could not be refreshed.',
+      backupError: backupError.message
+    })
+  }
 }
 
 function setDataSource(app, sourceKey, folderPath) {
@@ -1253,6 +1361,7 @@ module.exports = {
   setDataSource,
   getSavedDataSources,
   getSavedAppSettings,
+  getConfigStatus,
   getSavedDataFolder,
   ensureDataFolderConfigured,
   savePerson,

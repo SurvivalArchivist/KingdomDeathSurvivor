@@ -99,12 +99,19 @@
       const proficiency = ensureWeaponProficiency(person)
       if (field === 'type') {
         proficiency.type = String(nextValue || '').trim()
+        proficiency.isSpecialist = globalScope.KDMWeaponProficiencies.isWeaponSpecialist(
+          proficiency.type,
+          proficiency.level
+        )
         renderShowdownSlot(slot)
         return
       }
       if (field === 'level') {
         proficiency.level = clamp(coerceInt(nextValue, 0), 0, 8)
-        proficiency.isSpecialist = proficiency.level >= 3
+        proficiency.isSpecialist = globalScope.KDMWeaponProficiencies.isWeaponSpecialist(
+          proficiency.type,
+          proficiency.level
+        )
         proficiency.isMaster = proficiency.level >= 8
         renderShowdownSlot(slot)
       }

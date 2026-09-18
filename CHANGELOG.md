@@ -7,6 +7,18 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.6.3] - 2026-09-18
+
+### Changed
+
+- Expanded Twilight Sword progression in the Showdown proficiency popup with distinct rank 2, 4, and 6 abilities before its rank 8 Mastery; other weapon proficiencies retain their rank 3 Specialization progression.
+- Added bounded LAN Client request times: ordinary reads stop after 8 seconds and writes stop after 15 seconds with explicit uncertain-outcome guidance.
+
+### Fixed
+
+- Prevented unavailable LAN Hosts from leaving survivor and Showdown workflows indefinitely busy, while preserving the current UI and session state after a timeout.
+- Made configuration writes atomic and durable, retained a last-known-good backup, preserved corrupt files for diagnosis, and surfaced recovery or corruption warnings instead of silently resetting settings.
+
 ## [3.6.2] - 2026-09-18
 
 ### Added

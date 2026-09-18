@@ -290,6 +290,49 @@ test('LAN client survivor provider marks unavailable host errors', async () => {
   )
 })
 
+function createStalledFetch() {
+  return async (_url, options = {}) => new Promise((resolve, reject) => {
+    options.signal?.addEventListener('abort', () => reject(options.signal.reason || new Error('aborted')), { once: true })
+  })
+}
+
+test('LAN client survivor provider times out stalled reads', async () => {
+  const { dataService } = makeDataService()
+  const provider = createLanClientSurvivorProvider({
+    settings: { lanHostAddress: '192.168.1.44', lanPort: 4567 },
+    dataService,
+    fetchImpl: createStalledFetch(),
+    requestTimeouts: { read: 10 }
+  })
+
+  await assert.rejects(
+    () => provider.listPeople(),
+    err =>
+      err.name === 'LanClientError' &&
+      err.errorType === 'request-timeout' &&
+      /timed out after 10ms/.test(err.message)
+  )
+})
+
+test('LAN client survivor provider treats stalled writes as an unknown outcome', async () => {
+  const { dataService } = makeDataService()
+  const provider = createLanClientSurvivorProvider({
+    settings: { lanHostAddress: '192.168.1.44', lanPort: 4567 },
+    dataService,
+    fetchImpl: createStalledFetch(),
+    requestTimeouts: { write: 10 }
+  })
+
+  await assert.rejects(
+    () => provider.savePerson({ name: 'Alice' }),
+    err =>
+      err.name === 'LanClientError' &&
+      err.errorType === 'write-outcome-unknown' &&
+      /may have completed/i.test(err.message) &&
+      /refresh authoritative data/i.test(err.message)
+  )
+})
+
 test('createSurvivorProvider creates LAN client provider from settings', async () => {
   const { dataService } = makeDataService({
     getSavedAppSettings() {

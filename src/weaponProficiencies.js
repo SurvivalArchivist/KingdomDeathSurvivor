@@ -14,10 +14,19 @@
     ['Shield', 'While a shield is in your gear grid, you are no longer knocked down after Collision with a monster.\n\nWhile a shield is in your gear grid, add 1 Armor to all hit locations.', 'When a Shield Master is adjacent to a survivor that is targeted by a monster, they may swap spaces on the board with the survivor and become the target instead. The master must have a shield to perform this.\n\nAll survivors gain Shield Specialization in addition to their other weapon proficiencies.'],
     ['Spear', 'When attacking with a spear, if you draw a trap, roll 1d10. On a 7+, cancel the trap. Discard it, then reshuffle the hit location discard into the hit location deck and draw a new card.\n\nLimit, once per round.', 'Whenever a Spear Master hits a monster with a spear, they may spend 1 survival to gain the priority target token. If they made the hit from directly behind another survivor, that survivor gains the priority target token instead.\n\nAll survivors gain Spear Specialization in addition to their other weapon proficiencies.'],
     ['Sword', 'When attacking with a sword, after drawing hit locations, make a wound attempt and then select a hit location to resolve with that result.\n\nLimit, once per attack.', 'A Sword Master gains +1 accuracy, +1 strength, and +1 speed when attacking with a Sword.\n\nAll survivors gain Sword Specialization in addition to their other weapon proficiencies.'],
-    ['Twilight Sword', 'This sentient sword improves as it is used. Gain the following effects as its proficiency rank increases:\n\nRank 2: Ignore Cumbersome on Twilight Sword.\nRank 4: When attacking with the Twilight Sword, ignore slow and gain +2 speed.\nRank 6: Twilight Sword gains deadly.', "Any survivor who attains Twilight Sword Mastery leaves the settlement forever in pursuit of a higher purpose. Remove them from the settlement's population.\n\nYou may place the master's Twilight Sword in another survivor's gear grid or archive it."],
+    ['Twilight Sword', 'This sentient sword improves as it is used.', "Any survivor who attains Twilight Sword Mastery leaves the settlement forever in pursuit of a higher purpose. Remove them from the settlement's population.\n\nYou may place the master's Twilight Sword in another survivor's gear grid or archive it.", [
+      { level: 2, text: 'Ignore Cumbersome on Twilight Sword.' },
+      { level: 4, text: 'When attacking with the Twilight Sword, ignore slow and gain +2 speed.' },
+      { level: 6, text: 'Twilight Sword gains deadly.' }
+    ]],
     ['Whip', 'When you wound with a whip, instead of moving the top card of the AI deck into the wound stack, you may move the top card of the AI discard pile.\n\nLimit, once per attack.', 'Whip Masters gain +5 strength when attacking with a whip.\n\nAll survivors gain Whip Specialization in addition to their other weapon proficiencies.'],
     ['Willow', 'Swords in your gear grid gain Block 1 and the two-handed keyword.\n\nWhen you block or deflect a hit with a sword, gain +1 survival.\n\nLimit once per round.', "After resolving a monster's attack, if you ignored a hit with a block or deflect, you may spend 1 survival to activate a sword and attack.\n\nLimit once per round."]
-  ].map(([name, specialization, mastery]) => Object.freeze({ name, specialization, mastery }))
+  ].map(([name, specialization, mastery, progression = null]) => Object.freeze({
+    name,
+    specialization,
+    mastery,
+    progression: progression ? Object.freeze(progression.map(item => Object.freeze(item))) : null
+  }))
 
   const byName = new Map(WEAPON_PROFICIENCIES.map(item => [item.name.toLocaleLowerCase(), item]))
 
@@ -25,7 +34,18 @@
     return byName.get(String(name || '').trim().toLocaleLowerCase()) || null
   }
 
-  const api = Object.freeze({ WEAPON_PROFICIENCIES: Object.freeze(WEAPON_PROFICIENCIES), getWeaponProficiency })
+  function isWeaponSpecialist(name, level) {
+    const definition = getWeaponProficiency(name)
+    if (!definition) return false
+    const unlockLevel = definition?.progression?.[0]?.level || 3
+    return Number(level) >= unlockLevel
+  }
+
+  const api = Object.freeze({
+    WEAPON_PROFICIENCIES: Object.freeze(WEAPON_PROFICIENCIES),
+    getWeaponProficiency,
+    isWeaponSpecialist
+  })
   globalScope.KDMWeaponProficiencies = api
   if (typeof module !== 'undefined' && module.exports) module.exports = api
 })(typeof window !== 'undefined' ? window : globalThis)

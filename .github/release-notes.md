@@ -1,16 +1,22 @@
-# KDM Survivors Console 3.6.2
+# KDM Survivors Console 3.6.3
 
-Version 3.6.2 makes weapon proficiency selection and rules available consistently without relying on private reference files.
+Version 3.6.3 focuses on safer configuration storage, bounded LAN failures, and corrected Twilight Sword progression.
+
+### Reliability
+
+- Configuration saves now use durable atomic replacement and retain a last-known-good backup.
+- Corrupt configuration files are preserved for diagnosis, valid backups are restored automatically, and the app reports recovery instead of silently resetting settings.
+- LAN Client reads now time out after 8 seconds and writes after 15 seconds, preventing unavailable Hosts from leaving workflows indefinitely busy.
+- Timed-out writes are reported as uncertain outcomes so players can refresh before retrying and avoid accidental duplicate changes.
 
 ### Weapon Proficiencies
 
-- Choose from the 17 built-in weapon proficiency types in Technical, Create/View Survivor, and Showdown instead of entering free text.
-- Open the Showdown weapon proficiency popup to read the selected weapon's Specialization and Mastery rules.
-- Specialization becomes active at rank 3 and Mastery becomes active at rank 8, with locked and active states shown in the popup.
+- Twilight Sword now displays its distinct rank 2, 4, and 6 abilities before rank 8 Mastery.
+- Other weapon proficiencies continue to unlock Specialization at rank 3 and Mastery at rank 8.
 
 ### Compatibility
 
-- Version 3.6.2 keeps survivor schema version `6`, settlement metadata schema version `1`, and LAN protocol version `2`.
+- Version 3.6.3 keeps survivor schema version `6`, settlement metadata schema version `1`, and LAN protocol version `2`.
 - Upgrade the Host and every Client together. Back up the entire Survivors folder before changing versions.
 - Survivor files from before the 3.0.1 campaign reset remain unsupported.
 

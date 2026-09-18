@@ -634,6 +634,10 @@ function setupRendererHarness(options = {}) {
       calls.push({ name: 'getAppSettings', args: [] })
       return deepClone(appSettings)
     },
+    async getConfigStatus() {
+      calls.push({ name: 'getConfigStatus', args: [] })
+      return { state: 'ok', message: '' }
+    },
     async getRuntimeInfo() {
       calls.push({ name: 'getRuntimeInfo', args: [] })
       return { isDevelopmentMode: true, appVersion: '3.6.0' }
@@ -1158,6 +1162,23 @@ test('Settings displays the running application version', async t => {
   assert.equal(harness.document.getElementById('settingsAppVersion').textContent, 'v3.6.0')
 })
 
+test('renderer surfaces configuration recovery instead of silently resetting settings', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api) {
+      api.getConfigStatus = async () => ({
+        state: 'recovered',
+        message: 'Configuration was unreadable and has been restored from the last-known-good backup.'
+      })
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  await harness.flush(12)
+
+  assert.match(harness.document.getElementById('status').innerText, /restored from the last-known-good backup/i)
+  assert.ok(harness.document.getElementById('status').classList.contains('is-error'))
+})
+
 test('Settings documents LAN protocol and survivor-file compatibility separately', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'ui', 'components', 'index.html'), 'utf8')
   assert.match(html, /3\.0\.0–3\.3\.3[\s\S]*?Legacy, unversioned[\s\S]*?Use matching app versions/)
@@ -1484,6 +1505,37 @@ test('failed LAN settlement refresh preserves the current list and gives recover
   )
 })
 
+test('timed-out LAN settlement refresh preserves the current list and reports a retryable timeout', async t => {
+  let timeOutRefresh = false
+  const harness = setupRendererHarness({
+    customizeApi(api, { calls }) {
+      const listPeopleSummaries = api.listPeopleSummaries.bind(api)
+      api.listPeopleSummaries = async () => {
+        if (!timeOutRefresh) return listPeopleSummaries()
+        calls.push({ name: 'listPeopleSummaries', args: [] })
+        const error = new Error('LAN host request timed out after 8000ms at http://192.168.1.44:4567')
+        error.errorType = 'request-timeout'
+        throw error
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush(12)
+
+  const settlementCount = harness.document.getElementById('settlementCount')
+  assert.equal(settlementCount.textContent, '2 of 2 survivors shown')
+
+  timeOutRefresh = true
+  harness.click('settlementRefreshNow')
+  await harness.flush(12)
+
+  assert.equal(settlementCount.textContent, '2 of 2 survivors shown')
+  assert.match(
+    harness.document.getElementById('status').innerText,
+    /LAN host timed out while refreshing Settlement.*current settlement list was kept unchanged.*Retry when the host is responsive/i
+  )
+})
+
 test('failed LAN showdown reads keep the current view and give recovery guidance', async t => {
   let failLoads = false
   const harness = setupRendererHarness({
@@ -1688,6 +1740,36 @@ test('renderer surfaces LAN delete failure payloads without refreshing settlemen
   assert.equal(countCalls(harness.calls, 'deletePerson'), 1)
   assert.equal(countCalls(harness.calls, 'listPeopleSummaries'), refreshBefore)
   assert.match(harness.document.getElementById('status').innerText, /Cannot reach LAN host/)
+  assert.ok(harness.db['alice.json'])
+})
+
+test('renderer treats an unconfirmed LAN delete as an uncertain write and preserves the roster', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, { calls }) {
+      api.deletePerson = async fileName => {
+        calls.push({ name: 'deletePerson', args: [fileName] })
+        return {
+          deleted: false,
+          ok: false,
+          errorType: 'write-outcome-unknown',
+          message: 'LAN host did not confirm the DELETE request within 15000ms.'
+        }
+      }
+    }
+  })
+  t.after(() => harness.cleanup())
+
+  await harness.flush()
+  const peopleList = harness.document.getElementById('peopleList')
+  peopleList.value = 'alice.json'
+  const refreshBefore = countCalls(harness.calls, 'listPeopleSummaries')
+
+  harness.click('deletePerson')
+  await harness.flush()
+
+  assert.equal(countCalls(harness.calls, 'deletePerson'), 1)
+  assert.equal(countCalls(harness.calls, 'listPeopleSummaries'), refreshBefore)
+  assert.match(harness.document.getElementById('status').innerText, /may have completed.*refresh authoritative data/i)
   assert.ok(harness.db['alice.json'])
 })
 

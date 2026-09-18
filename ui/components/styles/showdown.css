@@ -391,6 +391,11 @@ body.showdown-mode .showdown-group-vitals .showdown-stepper-key-stat .showdown-s
   margin-top: 0.2rem;
 }
 
+.showdown-proficiency-progression-title {
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
 .showdown-proficiency-rule {
   padding: 0.45rem;
   border: 1px solid var(--outline);

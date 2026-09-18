@@ -4,6 +4,9 @@ const SURVIVOR_DATA_MODES = Object.freeze({
   LAN_CLIENT: 'lan-client'
 })
 
+const DEFAULT_LAN_READ_TIMEOUT_MS = 8000
+const DEFAULT_LAN_WRITE_TIMEOUT_MS = 15000
+
 function normalizeSurvivorDataMode(value) {
   const mode = String(value || '').trim()
   if (mode === SURVIVOR_DATA_MODES.LAN_HOST || mode === SURVIVOR_DATA_MODES.LAN_CLIENT) return mode
@@ -136,10 +139,11 @@ function createLanClientError(message, cause, errorType = 'host-unavailable') {
   return error
 }
 
-async function readLanResponseJson(response) {
+async function readLanResponseJson(response, signal) {
   try {
     return await response.json()
-  } catch {
+  } catch (err) {
+    if (signal?.aborted) throw err
     return null
   }
 }
@@ -155,37 +159,76 @@ function throwLanApiError(dataService, payload, fallbackMessage) {
   throw createLanClientError(message || 'LAN host request failed', null, payload?.errorType || 'server-error')
 }
 
-function createLanClientSurvivorProvider({ settings, dataService, fetchImpl = globalThis.fetch }) {
+function normalizeRequestTimeout(value, fallback) {
+  const timeout = Number(value)
+  return Number.isFinite(timeout) && timeout > 0 ? Math.floor(timeout) : fallback
+}
+
+function createLanClientSurvivorProvider({
+  settings,
+  dataService,
+  fetchImpl = globalThis.fetch,
+  requestTimeouts = {}
+}) {
   if (!dataService) throw new Error('Survivor provider requires dataService')
   if (typeof fetchImpl !== 'function') throw new Error('LAN client provider requires fetch support')
   if (settings?.lanClientConnected === false) throw createLanClientError('LAN client is disconnected', null, 'disconnected')
 
   const baseUrl = normalizeLanHostBaseUrl(settings)
+  const readTimeoutMs = normalizeRequestTimeout(requestTimeouts.read, DEFAULT_LAN_READ_TIMEOUT_MS)
+  const writeTimeoutMs = normalizeRequestTimeout(requestTimeouts.write, DEFAULT_LAN_WRITE_TIMEOUT_MS)
   let settlementWarning = null
 
   async function requestJson(path, options = {}) {
+    const method = String(options.method || 'GET').toUpperCase()
+    const isWrite = !['GET', 'HEAD', 'OPTIONS'].includes(method)
+    const timeoutMs = isWrite ? writeTimeoutMs : readTimeoutMs
+    const timeoutSignal = AbortSignal.timeout(timeoutMs)
+    const signal = options.signal && typeof AbortSignal.any === 'function'
+      ? AbortSignal.any([options.signal, timeoutSignal])
+      : timeoutSignal
     let response
     try {
       response = await fetchImpl(`${baseUrl}${path}`, {
         ...options,
+        signal,
         headers: {
           accept: 'application/json',
           ...(options.body ? { 'content-type': 'application/json' } : {}),
           ...(options.headers || {})
         }
       })
+
+      const payload = await readLanResponseJson(response, signal)
+      if (!response.ok) {
+        throwLanApiError(dataService, payload, `LAN host request failed (${response.status})`)
+      }
+      if (payload && typeof payload === 'object' && payload.ok === false) {
+        throwLanApiError(dataService, payload, 'LAN host request failed')
+      }
+      return payload
     } catch (err) {
+      if (timeoutSignal.aborted) {
+        if (isWrite) {
+          throw createLanClientError(
+            `LAN host did not confirm the ${method} request within ${timeoutMs}ms. It may have completed; refresh authoritative data before trying again.`,
+            err,
+            'write-outcome-unknown'
+          )
+        }
+        throw createLanClientError(
+          `LAN host request timed out after ${timeoutMs}ms at ${baseUrl}`,
+          err,
+          'request-timeout'
+        )
+      }
+      const isConflict = typeof dataService.ConflictError === 'function' && err instanceof dataService.ConflictError
+      const isValidation = typeof dataService.ValidationError === 'function' && err instanceof dataService.ValidationError
+      if (isConflict || isValidation || err?.name === 'LanClientError') {
+        throw err
+      }
       throw createLanClientError(`Cannot reach LAN host at ${baseUrl}`, err, 'host-unavailable')
     }
-
-    const payload = await readLanResponseJson(response)
-    if (!response.ok) {
-      throwLanApiError(dataService, payload, `LAN host request failed (${response.status})`)
-    }
-    if (payload && typeof payload === 'object' && payload.ok === false) {
-      throwLanApiError(dataService, payload, 'LAN host request failed')
-    }
-    return payload
   }
 
   function survivorPath(fileName) {

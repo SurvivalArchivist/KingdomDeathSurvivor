@@ -767,6 +767,10 @@ ipcMain.handle('get-app-settings', () => {
   return dataService.getSavedAppSettings(app)
 })
 
+ipcMain.handle('get-config-status', () => {
+  return dataService.getConfigStatus(app)
+})
+
 ipcMain.handle('get-runtime-info', () => ({
   isDevelopmentMode: isDevelopmentMode(),
   appVersion: typeof app.getVersion === 'function' ? app.getVersion() : require('../package.json').version

@@ -1,7 +1,16 @@
 # Model Handoff Log
 
+## Configuration Reliability
+
+- 2026-09-18: Made application configuration writes durable and recoverable. Every Settings save now writes flushed temporary files and atomically renames a last-known-good `config.json.bak` followed by `config.json`; failed primary replacement leaves the prior primary intact and cleans its temporary file. Invalid/non-object primary files are copied to timestamped `config.json.corrupt-*` diagnostics, restored automatically from a valid backup when available, or retained while explicit defaults-plus-warning behavior is shown when no backup can be used. Added config-status IPC/preload/UI reporting and focused filesystem/main/renderer regressions. Files: `src/dataService.js`, `src/main.js`, `src/preload.js`, `src/renderer.js`, tests, `AGENTS.md`, and context docs; verification: `npm run verify` passed all 344 tests, including real-loopback LAN coverage.
+
+## LAN Reliability
+
+- 2026-09-18: Added bounded timeouts to every ordinary LAN Client provider request: reads expire after eight seconds and writes after fifteen. Read timeouts preserve current UI state and offer a retry; write timeouts are classified as uncertain outcomes because the Host may have committed before its response was lost, so Create/Edit, delete, and Showdown messaging directs the user to refresh authoritative data rather than retry blindly. The long-lived SSE stream retains its separate registration/reconnect lifecycle. Files: `src/survivorProvider.js`, `src/renderer.js`, `src/rendererShowdownSession.js`, provider/renderer tests, and context docs; verification: `npm run verify` passed all 340 tests, including real-loopback LAN coverage.
+
 ## Weapon Proficiencies
 
+- 2026-09-18: Corrected Twilight Sword's exceptional progression: its Showdown popup now exposes separate rank 2, 4, and 6 abilities with independent locked/active states, followed by rank 8 Mastery; all other proficiencies retain rank 3 Specialization. Files: `src/weaponProficiencies.js`, `src/renderer.js`, `src/rendererShowdownView.js`, `src/rendererShowdownController.js`, `ui/components/styles/showdown.css`, tests, and context docs; verification: `npm run verify`.
 - 2026-09-18: Replaced free-text weapon proficiency entry in Technical, Create/View, and Showdown with one app-owned 17-option catalog derived from the private reference library. Rank 3 now derives `isSpecialist`, rank 8 derives `isMaster`, and the Showdown proficiency popover displays each selected weapon's built-in Specialization and Mastery rules with locked/active status. Runtime behavior no longer depends on gitignored reference files. Files: `src/weaponProficiencies.js`, `src/renderer.js`, `src/rendererShowdownView.js`, `src/rendererShowdownController.js`, `ui/components/index.html`, `ui/components/styles/showdown.css`, tests, and context docs; verification: `npm run verify`.
 
 ## Survivor Tags
