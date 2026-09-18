@@ -57,6 +57,7 @@ Electron desktop companion app for Kingdom Death survivor management with:
 - In Vignette mode, `Reset Showdown` restores both survivors and all temporary combat state from a deep snapshot captured at Depart, keeps the session departed and slots locked, and writes no survivor records. Depart resolves the settlement type from the authoritative provider; Campaign retains End Showdown.
 - Showdown Lumi is a persistent survivor stat and saves through the same base-stat path as Survival.
 - Temporary combat modifiers, armor, `Tokens (+)`, `Tokens (-)`, bleeding tokens, and weapon proficiency reminder controls are non-persistent.
+- Weapon proficiency type is selected from an app-owned catalog rather than free text or private reference files. Rank 3 grants Specialization and rank 8 grants Mastery; Showdown's proficiency popover displays both built-in rules and their active/locked state.
 - Each Depart vote registers a sanitized, display-only combat summary of that player's two survivors (name, Survival, Insanity, armour, and Light/Heavy states). During the departed Showdown, relevant local changes are sent back to the Host and rebroadcast so every LAN player can inspect the live roster from the Showdown navigation. The roster can remain open as a modal or a detached, automatically updating window. Private survivor fields and temporary state outside that summary are never shared in the roster.
 
 ## Multi-User Safety (Current)

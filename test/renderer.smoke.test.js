@@ -934,6 +934,7 @@ function setupRendererHarness(options = {}) {
   const settlementHelperPath = path.join(__dirname, '..', 'src', 'rendererSettlementHelpers.js')
   const severeInjuryTablesPath = path.join(__dirname, '..', 'src', 'rendererSevereInjuryTables.js')
   const showdownStatePath = path.join(__dirname, '..', 'src', 'rendererShowdownState.js')
+  const weaponProficienciesPath = path.join(__dirname, '..', 'src', 'weaponProficiencies.js')
   const showdownViewPath = path.join(__dirname, '..', 'src', 'rendererShowdownView.js')
   const showdownControllerPath = path.join(__dirname, '..', 'src', 'rendererShowdownController.js')
   const showdownSessionPath = path.join(__dirname, '..', 'src', 'rendererShowdownSession.js')
@@ -942,6 +943,7 @@ function setupRendererHarness(options = {}) {
   delete require.cache[settlementHelperPath]
   delete require.cache[severeInjuryTablesPath]
   delete require.cache[showdownStatePath]
+  delete require.cache[weaponProficienciesPath]
   delete require.cache[showdownViewPath]
   delete require.cache[showdownControllerPath]
   delete require.cache[showdownSessionPath]
@@ -950,6 +952,7 @@ function setupRendererHarness(options = {}) {
   require(settlementHelperPath)
   require(severeInjuryTablesPath)
   require(showdownStatePath)
+  require(weaponProficienciesPath)
   require(showdownViewPath)
   require(showdownControllerPath)
   require(showdownSessionPath)
