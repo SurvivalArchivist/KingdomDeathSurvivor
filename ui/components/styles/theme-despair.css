@@ -1,0 +1,792 @@
+/* Despair Theme Layer */
+
+body.theme-despair-light {
+  --accent: #334155;
+  --accent-strong: #53697a;
+  --despair-survival: #607c6b;
+  --bg: #f8f6f1;
+  --surface: rgba(244, 241, 234, 0.94);
+  --surface-strong: #efe9de;
+  --surface-soft: rgba(239, 233, 222, 0.86);
+  --ink: #243248;
+  --muted: #5f6a78;
+  --accent: #607c6b;
+  --accent-strong: #334155;
+  --danger: #b44b4b;
+  --outline: #d0c7bc;
+  --shadow: 0 16px 36px rgba(36, 50, 72, 0.09);
+  --hero-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 241, 234, 0.96));
+  --hero-border: #e2dbd1;
+  --hero-shadow: 0 18px 40px rgba(98, 88, 75, 0.1);
+  --hero-divider: rgba(184, 166, 145, 0.18);
+  --hero-title: #243248;
+  --hero-eyebrow: #d97746;
+  --hero-subtitle: #5f6a78;
+  --panel-bg: linear-gradient(180deg, rgba(244, 241, 234, 0.98), rgba(239, 233, 222, 0.96));
+  --panel-border: #d0c7bc;
+  --panel-shadow: 0 16px 32px rgba(92, 86, 73, 0.08);
+  --panel-divider: rgba(196, 186, 174, 0.34);
+  --card-bg: linear-gradient(180deg, #ffffff, #f8f6f1);
+  --card-border: #e2dbd1;
+  --field-bg: #fbfaf7;
+  --field-bg-muted: #efe9de;
+  --field-border: #d0c7bc;
+  --field-ink: #243248;
+  --field-placeholder: #7d847f;
+  --field-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  --focus-ring: rgba(83, 105, 122, 0.2);
+  --btn-primary-bg: linear-gradient(135deg, #53697a, #334155);
+  --btn-primary-border: #53697a;
+  --btn-primary-hover-bg: linear-gradient(135deg, #647d90, #43566d);
+  --nav-active-bg: linear-gradient(135deg, #53697a, #334155);
+  --nav-active-border: #53697a;
+  --btn-shadow: 0 8px 20px rgba(99, 122, 93, 0.14);
+  --btn-primary-bg: linear-gradient(135deg, #607c6b, #526d5e);
+  --btn-primary-border: #607c6b;
+  --btn-primary-ink: #ffffff;
+  --btn-primary-hover-bg: linear-gradient(135deg, #6f8d7a, #607c6b);
+  --btn-secondary-bg: linear-gradient(180deg, #ffffff, #f4f1ea);
+  --btn-secondary-border: #d0c7bc;
+  --btn-secondary-ink: #243248;
+  --btn-secondary-hover-bg: linear-gradient(180deg, rgba(238, 232, 223, 0.98), rgba(230, 222, 209, 0.96));
+  --btn-ghost-bg: rgba(242, 236, 227, 0.92);
+  --btn-ghost-border: rgba(196, 186, 174, 0.84);
+  --btn-ghost-ink: #243248;
+  --btn-ghost-hover-bg: rgba(235, 228, 216, 0.94);
+  --nav-active-bg: linear-gradient(135deg, #607c6b, #526d5e);
+  --nav-active-border: #607c6b;
+  --nav-active-ink: #ffffff;
+  --status-neutral-bg: rgba(237, 230, 219, 0.96);
+  --status-neutral-border: rgba(196, 186, 174, 0.88);
+  --status-neutral-ink: #5f6a78;
+  --status-error-bg: rgba(217, 119, 70, 0.16);
+  --status-error-border: rgba(217, 119, 70, 0.46);
+  --status-error-ink: #a84f27;
+  --status-success-bg: rgba(96, 124, 107, 0.16);
+  --status-success-border: rgba(99, 122, 93, 0.44);
+  --status-success-ink: #405c4c;
+  --despair-page-dot-border: rgba(184, 170, 151, 0.9);
+  --despair-page-dot-bg: rgba(248, 243, 236, 0.96);
+  --despair-page-dot-ink: #5f6a78;
+  --despair-page-dot-active-bg: linear-gradient(145deg, rgba(96, 124, 107, 0.9), rgba(99, 122, 93, 0.98));
+  --despair-page-dot-active-border: rgba(99, 122, 93, 0.78);
+  --despair-page-dot-active-ink: #ffffff;
+  --despair-page-dot-ring: rgba(99, 122, 93, 0.2);
+  --despair-session-bar-bg: rgba(248, 243, 236, 0.9);
+  --despair-session-bar-border: rgba(196, 186, 174, 0.84);
+  --despair-modal-backdrop: rgba(63, 57, 49, 0.24);
+  --despair-frozen-header-bg: linear-gradient(
+    to bottom,
+    rgba(248, 243, 236, 0.98) 0%,
+    rgba(248, 243, 236, 0.94) 72%,
+    rgba(248, 243, 236, 0) 100%
+  );
+  --despair-link: #607c6b;
+  --despair-link-hover: #496355;
+  --despair-total-bg: linear-gradient(145deg, rgba(96, 124, 107, 0.3), rgba(217, 119, 70, 0.16));
+  --despair-add-options-bg: rgba(246, 241, 233, 0.82);
+  --despair-settlement-hover: rgba(129, 145, 116, 0.14);
+  --showdown-knowledge-meta-label: #5f6a78;
+  --showdown-knowledge-meta-value: #243248;
+  --showdown-knowledge-meta-divider: rgba(217, 119, 70, 0.18);
+  --showdown-knowledge-meta-bg: rgba(255, 250, 244, 0.72);
+  --showdown-knowledge-observation-bg: rgba(217, 119, 70, 0.12);
+  --showdown-knowledge-observation-border: rgba(217, 119, 70, 0.22);
+  --showdown-knowledge-observation-outline: rgba(217, 119, 70, 0.14);
+  --showdown-knowledge-observation-label: #a84f27;
+  --showdown-knowledge-rules-bg: rgba(96, 124, 107, 0.12);
+  --showdown-knowledge-rules-border: rgba(99, 122, 93, 0.22);
+  --showdown-knowledge-rules-outline: rgba(99, 122, 93, 0.14);
+  --showdown-knowledge-rules-label: #334155;
+  color-scheme: light;
+  background:
+    repeating-linear-gradient(97deg, rgba(36, 50, 72, 0.012) 0 1px, transparent 1px 5px),
+    radial-gradient(circle at 12% 12%, rgba(216, 231, 219, 0.48) 0%, transparent 38%),
+    radial-gradient(circle at 88% 14%, rgba(217, 119, 70, 0.07) 0%, transparent 42%),
+    linear-gradient(168deg, #f8f6f1 0%, #f4f1ea 54%, #efe9de 100%);
+}
+
+html:has(body.theme-despair-light) {
+  color-scheme: light;
+}
+
+body.theme-despair-dark {
+  --bg: #171816;
+  --surface: rgba(34, 35, 31, 0.94);
+  --surface-strong: #2b2c27;
+  --surface-soft: rgba(43, 44, 39, 0.82);
+  --ink: #e3ded0;
+  --muted: #aaa697;
+  --accent: #637a5d;
+  --accent-strong: #819174;
+  --danger: #8e3431;
+  --outline: #42423a;
+  --shadow: 0 18px 42px rgba(7, 12, 10, 0.42);
+  --hero-bg: linear-gradient(180deg, rgba(43, 44, 39, 0.98), rgba(28, 29, 26, 0.96));
+  --hero-border: rgba(66, 66, 58, 0.3);
+  --hero-shadow: 0 22px 48px rgba(7, 12, 10, 0.34);
+  --hero-divider: rgba(66, 66, 58, 0.18);
+  --hero-title: #e3ded0;
+  --hero-eyebrow: #9b8559;
+  --hero-subtitle: #aaa697;
+  --panel-bg: linear-gradient(180deg, rgba(34, 35, 31, 0.97), rgba(28, 29, 26, 0.96));
+  --panel-border: #42423a;
+  --panel-shadow: 0 18px 40px rgba(7, 12, 10, 0.32);
+  --panel-divider: rgba(66, 66, 58, 0.22);
+  --card-bg: linear-gradient(180deg, #2b2c27, #252621);
+  --card-border: #42423a;
+  --field-bg: #1c1d1a;
+  --field-bg-muted: #2b2c27;
+  --field-border: #42423a;
+  --field-ink: #e3ded0;
+  --field-placeholder: #77766d;
+  --field-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --focus-ring: rgba(129, 145, 116, 0.18);
+  --btn-shadow: 0 12px 24px rgba(7, 12, 10, 0.24);
+  --btn-primary-bg: linear-gradient(135deg, #637a5d, #53697a);
+  --btn-primary-border: #819174;
+  --btn-primary-ink: #f4f1e8;
+  --btn-primary-hover-bg: linear-gradient(135deg, #819174, #637a5d);
+  --btn-secondary-bg: linear-gradient(180deg, #2b2c27, #22231f);
+  --btn-secondary-border: #42423a;
+  --btn-secondary-ink: #e3ded0;
+  --btn-secondary-hover-bg: linear-gradient(180deg, rgba(52, 53, 47, 0.96), rgba(51, 64, 55, 0.98));
+  --btn-ghost-bg: rgba(43, 44, 39, 0.72);
+  --btn-ghost-border: rgba(66, 66, 58, 0.44);
+  --btn-ghost-ink: #e3ded0;
+  --btn-ghost-hover-bg: rgba(43, 44, 39, 0.84);
+  --nav-active-bg: linear-gradient(135deg, #637a5d, #53697a);
+  --nav-active-border: #819174;
+  --nav-active-ink: #f4f1e8;
+  --status-neutral-bg: rgba(43, 44, 39, 0.68);
+  --status-neutral-border: rgba(66, 66, 58, 0.42);
+  --status-neutral-ink: #e3ded0;
+  --status-error-bg: rgba(142, 52, 49, 0.44);
+  --status-error-border: rgba(217, 119, 70, 0.38);
+  --status-error-ink: #e3b2ab;
+  --status-success-bg: rgba(99, 122, 93, 0.46);
+  --status-success-border: rgba(96, 124, 107, 0.4);
+  --status-success-ink: #d6decf;
+  --despair-page-dot-border: rgba(66, 66, 58, 0.58);
+  --despair-page-dot-bg: rgba(34, 35, 31, 0.92);
+  --despair-page-dot-ink: #aaa697;
+  --despair-page-dot-active-bg: linear-gradient(145deg, rgba(96, 124, 107, 0.92), rgba(99, 122, 93, 0.98));
+  --despair-page-dot-active-border: rgba(96, 124, 107, 0.64);
+  --despair-page-dot-active-ink: #171816;
+  --despair-page-dot-ring: rgba(129, 145, 116, 0.16);
+  --despair-session-bar-bg: rgba(34, 35, 31, 0.88);
+  --despair-session-bar-border: rgba(66, 66, 58, 0.38);
+  --despair-modal-backdrop: rgba(8, 9, 8, 0.42);
+  --despair-frozen-header-bg: linear-gradient(
+    to bottom,
+    rgba(34, 35, 31, 0.98) 0%,
+    rgba(34, 35, 31, 0.94) 72%,
+    rgba(34, 35, 31, 0) 100%
+  );
+  --despair-link: #819174;
+  --despair-link-hover: #9b8559;
+  --despair-total-bg: linear-gradient(145deg, rgba(96, 124, 107, 0.32), rgba(217, 119, 70, 0.18));
+  --despair-add-options-bg: rgba(28, 29, 26, 0.76);
+  --despair-settlement-hover: rgba(96, 124, 107, 0.12);
+  --showdown-knowledge-meta-label: #9b8559;
+  --showdown-knowledge-meta-value: #e3ded0;
+  --showdown-knowledge-meta-divider: rgba(129, 145, 116, 0.16);
+  --showdown-knowledge-meta-bg: rgba(43, 44, 39, 0.48);
+  --showdown-knowledge-observation-bg: rgba(217, 119, 70, 0.14);
+  --showdown-knowledge-observation-border: rgba(217, 119, 70, 0.2);
+  --showdown-knowledge-observation-outline: rgba(217, 119, 70, 0.12);
+  --showdown-knowledge-observation-label: #d28046;
+  --showdown-knowledge-rules-bg: rgba(96, 124, 107, 0.14);
+  --showdown-knowledge-rules-border: rgba(96, 124, 107, 0.2);
+  --showdown-knowledge-rules-outline: rgba(96, 124, 107, 0.12);
+  --showdown-knowledge-rules-label: #9ab0bf;
+  --font-body: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+  --font-head: "Palatino Linotype", "Book Antiqua", "Cormorant Garamond", serif;
+  color-scheme: dark;
+  background:
+    repeating-linear-gradient(103deg, rgba(227, 222, 208, 0.012) 0 1px, transparent 1px 6px),
+    radial-gradient(circle at 10% 14%, rgba(99, 122, 93, 0.16) 0%, transparent 38%),
+    radial-gradient(circle at 90% 12%, rgba(155, 133, 89, 0.1) 0%, transparent 40%),
+    linear-gradient(170deg, #22231f 0%, #1c1d1a 52%, #171816 100%);
+}
+
+html:has(body.theme-despair-dark) {
+  color-scheme: dark;
+}
+
+body.theme-despair-light {
+  --despair-warning: #d97746;
+  --despair-blood: #b44b4b;
+  --status-error-bg: rgba(180, 75, 75, 0.12);
+  --status-error-border: rgba(180, 75, 75, 0.46);
+  --status-error-ink: #8f3838;
+  --status-success-bg: #d8e7db;
+  --status-success-border: rgba(96, 124, 107, 0.46);
+  --status-success-ink: #405c4c;
+}
+
+body.theme-despair-dark {
+  --despair-warning: #b06c3e;
+  --despair-blood: #8e3431;
+  --status-error-bg: rgba(142, 52, 49, 0.28);
+  --status-error-border: rgba(180, 74, 66, 0.54);
+  --status-error-ink: #e3b2ab;
+  --status-success-bg: rgba(99, 122, 93, 0.28);
+  --status-success-border: rgba(129, 145, 116, 0.48);
+  --status-success-ink: #d6decf;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-stepper-insanity {
+  border-color: color-mix(in srgb, var(--despair-warning) 70%, var(--outline));
+  background: color-mix(in srgb, var(--despair-warning) 13%, var(--surface-soft));
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-card .showdown-reference-heading button.showdown-danger-button,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-card .showdown-armor-heading button.showdown-danger-button {
+  color: var(--despair-warning);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-stepper-bleeding {
+  border-color: var(--despair-blood);
+  background: color-mix(in srgb, var(--despair-blood) 22%, var(--surface));
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .bg-orb {
+  filter: blur(46px);
+  opacity: 0.42;
+}
+
+body.theme-despair-light .bg-orb-one {
+  background: rgba(96, 124, 107, 0.42);
+}
+
+body.theme-despair-light .bg-orb-two {
+  background: rgba(217, 119, 70, 0.28);
+}
+
+body.theme-despair-dark .bg-orb-one {
+  background: rgba(96, 124, 107, 0.5);
+}
+
+body.theme-despair-dark .bg-orb-two {
+  background: rgba(217, 119, 70, 0.24);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark),
+body:is(.theme-despair-light, .theme-despair-dark) .panel,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-group,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-session-bar,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-toggle,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-array-row,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-array-neurosis,
+body:is(.theme-despair-light, .theme-despair-dark) .visual-editor,
+body:is(.theme-despair-light, .theme-despair-dark) .modal-panel,
+body:is(.theme-despair-light, .theme-despair-dark) .create-survivor-float,
+body:is(.theme-despair-light, .theme-despair-dark) .btn,
+body:is(.theme-despair-light, .theme-despair-dark) input,
+body:is(.theme-despair-light, .theme-despair-dark) select,
+body:is(.theme-despair-light, .theme-despair-dark) textarea {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .panel,
+body:is(.theme-despair-light, .theme-despair-dark) .data-source-row,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-session-bar,
+body:is(.theme-despair-light, .theme-despair-dark) .visual-editor,
+body:is(.theme-despair-light, .theme-despair-dark) .modal-panel,
+body:is(.theme-despair-light, .theme-despair-dark) .validation-panel,
+body:is(.theme-despair-light, .theme-despair-dark) .md-row,
+body:is(.theme-despair-light, .theme-despair-dark) .hover-card,
+body:is(.theme-despair-light, .theme-despair-dark) .settlement-table-wrap {
+  border-color: var(--panel-border);
+  background: var(--panel-bg);
+  box-shadow: var(--panel-shadow);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-stat-card,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-stepper,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-armor-stepper {
+  border-color: var(--card-border);
+  background: var(--card-bg);
+  box-shadow: none;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) input:not([type='checkbox']),
+body:is(.theme-despair-light, .theme-despair-dark) select,
+body:is(.theme-despair-light, .theme-despair-dark) textarea,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-header-inline-select {
+  border-color: var(--field-border);
+  background: var(--field-bg);
+  color: var(--field-ink);
+  caret-color: var(--field-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-group-vitals .showdown-stepper-proficiency-combined .showdown-proficiency-type-input {
+  border-color: var(--field-border);
+  background: var(--field-bg);
+  color: var(--field-ink);
+  caret-color: var(--field-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownModal label,
+body:is(.theme-despair-light, .theme-despair-dark) #knowledgeTemplateModal label {
+  color: var(--muted);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownSearch::placeholder,
+body:is(.theme-despair-light, .theme-despair-dark) #knowledgeTemplateSearch::placeholder,
+body:is(.theme-despair-light, .theme-despair-dark) #knowledgeEntryName::placeholder,
+body:is(.theme-despair-light, .theme-despair-dark) #knowledgeEntryObservation::placeholder,
+body:is(.theme-despair-light, .theme-despair-dark) #knowledgeEntryRules::placeholder {
+  color: var(--field-placeholder);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) select,
+body:is(.theme-despair-light, .theme-despair-dark) select option {
+  background-color: var(--field-bg);
+  color: var(--field-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownCollection,
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownCollection option,
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownSearch,
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownOptions,
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownOptions .md-row,
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownOptions .md-open,
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownOptions .md-open strong,
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownOptions .md-open span,
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownOptions .md-empty {
+  color: var(--field-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownOptions {
+  background: var(--despair-add-options-bg);
+  border-radius: 12px;
+  padding: 0.2rem;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownOptions .md-open span,
+body:is(.theme-despair-light, .theme-despair-dark) #addMarkdownOptions .md-empty {
+  color: var(--muted);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) select:disabled,
+body:is(.theme-despair-light, .theme-despair-dark) select:disabled option {
+  background-color: var(--field-bg-muted);
+  color: var(--muted);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-static-value,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-total-value {
+  border-color: var(--field-border);
+  background: var(--field-bg);
+  color: var(--field-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-total-value {
+  background: var(--despair-total-bg);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-text-paragraph,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-inline-text,
+body:is(.theme-despair-light, .theme-despair-dark) .ve-text-paragraph {
+  border-color: var(--field-border);
+  background: var(--field-bg);
+  color: var(--field-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .btn.btn-feedback-pending {
+  background: var(--btn-secondary-bg);
+  border-color: var(--btn-secondary-border);
+  color: var(--btn-secondary-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .btn.btn-feedback-success {
+  background: var(--status-success-bg);
+  border-color: var(--status-success-border);
+  color: var(--status-success-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .btn.btn-feedback-error,
+body:is(.theme-despair-light, .theme-despair-dark) .btn-danger {
+  background: var(--status-error-bg);
+  border-color: var(--status-error-border);
+  color: var(--status-error-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-md-link {
+  color: var(--despair-link);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-md-link:hover {
+  color: var(--despair-link-hover);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-copy-level {
+  color: var(--muted);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .status-chip {
+  backdrop-filter: blur(6px);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .status-pill {
+  border-color: var(--status-neutral-border);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .status-pill-neutral {
+  border-color: var(--status-neutral-border);
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .status-chip.is-error {
+  color: var(--status-error-ink);
+  background: var(--status-error-bg);
+  border-color: var(--status-error-border);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .status-chip.is-success,
+body:is(.theme-despair-light, .theme-despair-dark) .status-pill-success {
+  color: var(--status-success-ink);
+  background: var(--status-success-bg);
+  border-color: var(--status-success-border);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .settlement-table {
+  background: var(--panel-bg);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .settlement-table th {
+  background: var(--card-bg);
+  color: var(--hero-eyebrow);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .settlement-table tbody tr[data-file-name]:hover {
+  background: var(--despair-settlement-hover);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .settlement-slot-btn {
+  background: var(--btn-secondary-bg);
+  border-color: var(--btn-secondary-border);
+  color: var(--btn-secondary-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .settlement-slot-btn:hover:not(:disabled) {
+  background: var(--btn-secondary-hover-bg);
+  border-color: var(--field-border);
+  color: var(--field-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .settlement-slot-btn.is-active,
+body:is(.theme-despair-light, .theme-despair-dark) .settlement-slot-btn.is-active:hover:not(:disabled) {
+  background: var(--btn-primary-bg);
+  border-color: var(--btn-primary-border);
+  color: var(--btn-primary-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .settlement-slot-btn:disabled {
+  background: var(--field-bg-muted);
+  border-color: var(--field-border);
+  color: var(--muted);
+  opacity: 0.78;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .create-survivor-view .ve-row.create-knowledge-row {
+  border-color: transparent;
+  background: transparent;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .create-survivor-view .ve-row-actions-knowledge {
+  border-top-color: var(--panel-divider);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .modal-backdrop {
+  background: var(--despair-modal-backdrop);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-stepper-controls button,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-stat-line .showdown-stepper-controls button,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-inline-stepper button,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-armor-stepper button,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-armor-bulk-stepper button {
+  border-color: var(--field-border);
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-stepper-controls button:hover,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-stat-line .showdown-stepper-controls button:hover,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-inline-stepper button:hover,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-armor-stepper button:hover,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-armor-bulk-stepper button:hover {
+  background: var(--btn-secondary-hover-bg);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-page-dot {
+  border-color: var(--despair-page-dot-border);
+  background: var(--despair-page-dot-bg);
+  color: var(--despair-page-dot-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-page-dot:hover {
+  border-color: var(--btn-primary-border);
+  color: var(--field-ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-page-dot.is-active {
+  border-color: var(--despair-page-dot-active-border);
+  background: var(--despair-page-dot-active-bg);
+  color: var(--despair-page-dot-active-ink);
+  box-shadow: 0 0 0 1px var(--despair-page-dot-ring) inset;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-frozen-header {
+  background: transparent;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-session-bar {
+  border-color: var(--despair-session-bar-border);
+  background: var(--despair-session-bar-bg);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-group {
+  border-color: transparent;
+  background: transparent;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-group .showdown-stats + .showdown-stats {
+  border-top: 1px solid var(--panel-divider);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-toggle {
+  border-color: transparent;
+  background: transparent;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-toggle summary::before {
+  color: var(--hero-eyebrow);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-toggle[open] summary::before {
+  color: var(--hero-eyebrow);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-array-row,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-array-neurosis {
+  border-color: transparent;
+  background: transparent;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-identity-bar {
+  border-color: transparent;
+  background: transparent;
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-identity-name,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-identity-item {
+  color: var(--ink);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-identity-item {
+  color: var(--muted);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-bool-toggle input,
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-insanity-check input {
+  accent-color: var(--accent-strong);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) #veNextPhilosophyAgeThreshold,
+body:is(.theme-despair-light, .theme-despair-dark) #createNextPhilosophyAgeThreshold {
+  border-color: var(--field-border);
+  background: var(--field-bg);
+  color: var(--field-ink);
+}
+
+/* Despair-specific slate and clamshell palette. Keep this layer independent from Zen. */
+body.theme-despair-light {
+  --bg: #d9d8d3;
+  --surface: rgba(221, 220, 214, 0.96);
+  --surface-strong: #cbc9c2;
+  --surface-soft: rgba(207, 205, 198, 0.9);
+  --ink: #292d30;
+  --muted: #62676a;
+  --accent: #59646b;
+  --accent-strong: #3f4a51;
+  --despair-survival: #59646b;
+  --outline: #aaa9a3;
+  --hero-bg: linear-gradient(180deg, rgba(230, 229, 224, 0.97), rgba(207, 205, 198, 0.97));
+  --hero-border: #aaa9a3;
+  --hero-shadow: 0 18px 40px rgba(32, 36, 39, 0.14);
+  --hero-divider: rgba(63, 74, 81, 0.16);
+  --hero-title: #292d30;
+  --hero-eyebrow: #59646b;
+  --hero-subtitle: #62676a;
+  --panel-bg: linear-gradient(180deg, rgba(218, 217, 211, 0.98), rgba(199, 197, 190, 0.97));
+  --panel-border: #aaa9a3;
+  --panel-shadow: 0 16px 32px rgba(32, 36, 39, 0.12);
+  --panel-divider: #b9b8b2;
+  --card-bg: linear-gradient(180deg, #e5e4df, #d1cfc8);
+  --card-border: #aaa9a3;
+  --field-bg: #e8e7e2;
+  --field-bg-muted: #cbc9c2;
+  --field-border: #9d9d98;
+  --field-ink: #292d30;
+  --field-placeholder: #74787a;
+  --field-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --focus-ring: rgba(63, 74, 81, 0.24);
+  --btn-shadow: 0 8px 20px rgba(36, 50, 72, 0.1);
+  --btn-primary-bg: linear-gradient(135deg, #59646b, #3f4a51);
+  --btn-primary-border: #59646b;
+  --btn-primary-hover-bg: linear-gradient(135deg, #68747b, #4c575e);
+  --nav-active-bg: linear-gradient(135deg, #59646b, #3f4a51);
+  --nav-active-border: #59646b;
+  --btn-secondary-bg: linear-gradient(180deg, #e5e4df, #cfcdc6);
+  --btn-secondary-border: #aaa9a3;
+  --btn-secondary-ink: #292d30;
+  --btn-secondary-hover-bg: linear-gradient(180deg, #d8d7d1, #c5c3bc);
+  --btn-ghost-bg: rgba(218, 217, 211, 0.7);
+  --btn-ghost-border: #aaa9a3;
+  --btn-ghost-hover-bg: #c7c5be;
+  --status-neutral-bg: rgba(51, 65, 85, 0.07);
+  --status-neutral-border: #d0c7bc;
+  --status-neutral-ink: #5f6a78;
+  --status-success-bg: rgba(89, 100, 107, 0.18);
+  --status-success-border: rgba(63, 74, 81, 0.42);
+  --status-success-ink: #3f4a51;
+  --despair-page-dot-border: #9d9d98;
+  --despair-page-dot-bg: #deddd8;
+  --despair-page-dot-ink: #5f6a78;
+  --despair-page-dot-active-bg: linear-gradient(145deg, #53697a, #334155);
+  --despair-page-dot-active-border: #53697a;
+  --despair-page-dot-active-ink: #ffffff;
+  --despair-page-dot-ring: rgba(83, 105, 122, 0.18);
+  --despair-session-bar-bg: rgba(207, 205, 198, 0.94);
+  --despair-session-bar-border: #aaa9a3;
+  --despair-modal-backdrop: rgba(36, 50, 72, 0.24);
+  --despair-frozen-header-bg: linear-gradient(to bottom, rgba(217, 216, 211, 0.98), rgba(217, 216, 211, 0.92) 72%, transparent);
+  --despair-link: #53697a;
+  --despair-link-hover: #334155;
+  --despair-total-bg: linear-gradient(145deg, rgba(83, 105, 122, 0.18), rgba(51, 65, 85, 0.1));
+  --despair-add-options-bg: rgba(199, 197, 190, 0.78);
+  --despair-settlement-hover: rgba(83, 105, 122, 0.1);
+  --showdown-knowledge-meta-label: #5f6a78;
+  --showdown-knowledge-meta-value: #292d30;
+  --showdown-knowledge-meta-divider: rgba(51, 65, 85, 0.12);
+  --showdown-knowledge-meta-bg: rgba(229, 228, 223, 0.8);
+  --showdown-knowledge-observation-bg: rgba(217, 119, 70, 0.09);
+  --showdown-knowledge-observation-border: rgba(217, 119, 70, 0.28);
+  --showdown-knowledge-observation-outline: rgba(217, 119, 70, 0.14);
+  --showdown-knowledge-observation-label: #a84f27;
+  --showdown-knowledge-rules-bg: rgba(83, 105, 122, 0.08);
+  --showdown-knowledge-rules-border: rgba(83, 105, 122, 0.24);
+  --showdown-knowledge-rules-outline: rgba(83, 105, 122, 0.12);
+  --showdown-knowledge-rules-label: #334155;
+  background:
+    repeating-linear-gradient(97deg, rgba(36, 50, 72, 0.012) 0 1px, transparent 1px 5px),
+    radial-gradient(circle at 12% 12%, rgba(77, 88, 95, 0.12) 0%, transparent 38%),
+    radial-gradient(circle at 88% 14%, rgba(61, 65, 67, 0.08) 0%, transparent 42%),
+    linear-gradient(168deg, #deddd8 0%, #cfcdc7 54%, #bbb9b2 100%);
+}
+
+body.theme-despair-dark {
+  --bg: #15191c;
+  --surface: rgba(30, 35, 39, 0.96);
+  --surface-strong: #292f33;
+  --surface-soft: rgba(39, 45, 49, 0.88);
+  --ink: #d7d6d1;
+  --muted: #94989a;
+  --accent: #66737b;
+  --accent-strong: #849098;
+  --despair-survival: #66737b;
+  --outline: #434b50;
+  --hero-bg: linear-gradient(180deg, rgba(43, 49, 53, 0.98), rgba(24, 29, 32, 0.98));
+  --hero-border: #434b50;
+  --hero-shadow: 0 22px 48px rgba(8, 9, 8, 0.4);
+  --hero-divider: #353d42;
+  --hero-title: #d7d6d1;
+  --hero-eyebrow: #94989a;
+  --hero-subtitle: #94989a;
+  --panel-bg: linear-gradient(180deg, rgba(31, 36, 40, 0.98), rgba(21, 25, 28, 0.98));
+  --panel-border: #434b50;
+  --panel-shadow: 0 18px 40px rgba(8, 9, 8, 0.36);
+  --panel-divider: #353d42;
+  --card-bg: linear-gradient(180deg, #292f33, #202529);
+  --card-border: #434b50;
+  --field-bg: #181c1f;
+  --field-bg-muted: #292f33;
+  --field-border: #434b50;
+  --field-ink: #d7d6d1;
+  --field-placeholder: #767c80;
+  --field-shadow: inset 0 1px 0 rgba(227, 222, 208, 0.025);
+  --focus-ring: rgba(83, 105, 122, 0.24);
+  --btn-primary-bg: linear-gradient(135deg, #66737b, #465159);
+  --btn-primary-border: #849098;
+  --btn-primary-hover-bg: linear-gradient(135deg, #78858d, #58646c);
+  --nav-active-bg: linear-gradient(135deg, #66737b, #465159);
+  --nav-active-border: #849098;
+  --btn-shadow: 0 12px 24px rgba(8, 9, 8, 0.28);
+  --btn-secondary-bg: linear-gradient(180deg, #292f33, #202529);
+  --btn-secondary-border: #434b50;
+  --btn-secondary-ink: #d7d6d1;
+  --btn-secondary-hover-bg: linear-gradient(180deg, #353d42, #292f33);
+  --btn-ghost-bg: rgba(41, 47, 51, 0.74);
+  --btn-ghost-border: #434b50;
+  --btn-ghost-hover-bg: #353d42;
+  --status-neutral-bg: rgba(83, 105, 122, 0.18);
+  --status-neutral-border: rgba(83, 105, 122, 0.48);
+  --status-neutral-ink: #b3b5b4;
+  --status-success-bg: rgba(102, 115, 123, 0.3);
+  --status-success-border: rgba(132, 144, 152, 0.48);
+  --status-success-ink: #d0d3d3;
+  --despair-page-dot-border: #42423a;
+  --despair-page-dot-bg: #202529;
+  --despair-page-dot-ink: #aaa697;
+  --despair-page-dot-active-bg: linear-gradient(145deg, #53697a, #3f5362);
+  --despair-page-dot-active-border: #738798;
+  --despair-page-dot-active-ink: #f4f1e8;
+  --despair-page-dot-ring: rgba(83, 105, 122, 0.22);
+  --despair-session-bar-bg: rgba(31, 36, 40, 0.94);
+  --despair-session-bar-border: #434b50;
+  --despair-modal-backdrop: rgba(8, 9, 8, 0.58);
+  --despair-frozen-header-bg: linear-gradient(to bottom, rgba(31, 36, 40, 0.98), rgba(31, 36, 40, 0.92) 72%, transparent);
+  --despair-link: #8299aa;
+  --despair-link-hover: #a9b2b7;
+  --despair-total-bg: linear-gradient(145deg, rgba(102, 115, 123, 0.28), rgba(57, 65, 70, 0.18));
+  --despair-add-options-bg: rgba(24, 28, 31, 0.84);
+  --despair-settlement-hover: rgba(83, 105, 122, 0.16);
+  --showdown-knowledge-meta-label: #9b8559;
+  --showdown-knowledge-meta-value: #e3ded0;
+  --showdown-knowledge-meta-divider: rgba(155, 133, 89, 0.2);
+  --showdown-knowledge-meta-bg: rgba(28, 29, 26, 0.52);
+  --showdown-knowledge-observation-bg: rgba(176, 108, 62, 0.13);
+  --showdown-knowledge-observation-border: rgba(210, 128, 70, 0.24);
+  --showdown-knowledge-observation-outline: rgba(176, 108, 62, 0.14);
+  --showdown-knowledge-observation-label: #d28046;
+  --showdown-knowledge-rules-bg: rgba(83, 105, 122, 0.14);
+  --showdown-knowledge-rules-border: rgba(83, 105, 122, 0.3);
+  --showdown-knowledge-rules-outline: rgba(83, 105, 122, 0.16);
+  --showdown-knowledge-rules-label: #9ab0bf;
+  background:
+    repeating-linear-gradient(103deg, rgba(227, 222, 208, 0.012) 0 1px, transparent 1px 6px),
+    radial-gradient(circle at 10% 14%, rgba(102, 115, 123, 0.16) 0%, transparent 38%),
+    radial-gradient(circle at 90% 12%, rgba(103, 108, 110, 0.1) 0%, transparent 40%),
+    linear-gradient(170deg, #252b2f 0%, #1b2023 52%, #121619 100%);
+}
+
+body:is(.theme-despair-light, .theme-despair-dark) .showdown-stepper-survival {
+  border-color: color-mix(in srgb, var(--despair-survival) 64%, var(--outline));
+  background: color-mix(in srgb, var(--despair-survival) 14%, var(--surface-soft));
+}
+
+body.theme-despair-light .bg-orb-one { background: rgba(77, 88, 95, 0.2); }
+body.theme-despair-light .bg-orb-two { background: rgba(100, 102, 101, 0.12); }
+body.theme-despair-dark .bg-orb-one { background: rgba(102, 115, 123, 0.22); }
+body.theme-despair-dark .bg-orb-two { background: rgba(91, 97, 100, 0.14); }

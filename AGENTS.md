@@ -29,7 +29,7 @@ Before making significant changes, check:
 - Keep the rough position of tools and workflows familiar, but strip out excessive layers and oversized containers.
 - Header/navigation should remain thin, single-row, full-width, and consistent across sections.
 - The header is for navigation and global controls only. It should stay clean, stable, and out of the way.
-- Theme family selection belongs in Settings. The header uses only a sun/moon button to toggle the selected family’s light/dark variant; preserve the saved preference. Use the small app icon for branding and a gear icon for Settings.
+- Colour theme (Classic, Zen, or Despair) and layout style selection belong in separate Settings dropdowns. The header uses only a sun/moon button to toggle the selected colour theme’s light/dark variant while retaining both selections; preserve the combined saved preference. Use the small app icon for branding and a gear icon for Settings.
 - Survivor data mode belongs in Settings under the compact `Survivor Data` section; keep connection setup/actions there rather than adding controls to the header.
 - The navbar survivor-data indicator is status-only and opens Settings; do not turn it into connection controls.
 - Do not let Showdown or any other view drift into a different navbar/header treatment without an explicit product decision.
@@ -45,6 +45,7 @@ Before making significant changes, check:
 - `Technical View` exists as functionality but should not drive the primary navigation layout unless explicitly requested.
 - The top navigation should not grow taller between sections or modes.
 - Showdown session behavior is important and should remain intact:
+  - A player may take 1–6 survivors. Party positions are progressive: Position 1 is required, Position 2 is initially available, and filling each position reveals the next. Clearing any active position from Position 2 onward clears/collapses all later positions. Assigning an already-selected survivor to another occupied numbered position swaps the two occupants. Showdown displays at most two survivor cards per party page; odd final pages show one centred card. Depart, End/Reset, persistence, temporary state, and the shared live roster cover every selected survivor, including cards on non-visible pages.
   - LAN Showdown uses a Host-owned readiness barrier: Host plus connected clients each vote Depart and End/Reset. Show counts on both actions, lock a player's cards/slots after their vote, and apply the action only after everyone votes. Duplicate votes must be idempotent; a disconnect never counts as approval.
   - `Depart` keeps showdown state active across navigation.
   - `End Showdown` confirms and writes persistent survivor updates.

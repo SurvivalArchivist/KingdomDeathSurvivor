@@ -1,5 +1,5 @@
 (function attachShowdownState(globalScope) {
-  const SHOWDOWN_SLOTS = Object.freeze(['A', 'B'])
+  const SHOWDOWN_SLOTS = Object.freeze(['A', 'B', 'C', 'D', 'E', 'F'])
   const SHOWDOWN_FIELDS = Object.freeze([
     'age',
     'lumi',
@@ -56,10 +56,7 @@
   }
 
   function createShowdownArmorState() {
-    return {
-      A: createShowdownArmorSlotState(),
-      B: createShowdownArmorSlotState()
-    }
+    return Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, createShowdownArmorSlotState()]))
   }
 
   function createShowdownModifier() {
@@ -73,14 +70,11 @@
   }
 
   function createShowdownModifierState() {
-    return {
-      A: createShowdownModifierSlotState(),
-      B: createShowdownModifierSlotState()
-    }
+    return Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, createShowdownModifierSlotState()]))
   }
 
   function createShowdownPageState() {
-    return { A: SHOWDOWN_DEFAULT_PAGE, B: SHOWDOWN_DEFAULT_PAGE }
+    return Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, SHOWDOWN_DEFAULT_PAGE]))
   }
 
   function createEmptyShowdownTextDraftState() {
@@ -92,10 +86,7 @@
   }
 
   function createShowdownTextDraftState() {
-    return {
-      A: createEmptyShowdownTextDraftState(),
-      B: createEmptyShowdownTextDraftState()
-    }
+    return Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, createEmptyShowdownTextDraftState()]))
   }
 
   function normalizeShowdownPageKey(pageKey) {
@@ -213,6 +204,7 @@
   }
 
   globalScope.KDMShowdownState = {
+    SHOWDOWN_SLOTS,
     SHOWDOWN_DEFAULT_PAGE,
     SHOWDOWN_FIELDS,
     SHOWDOWN_PAGE_CONFIG,

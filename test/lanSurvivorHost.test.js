@@ -537,6 +537,50 @@ test('showdown barrier counts connections once and requires every player for dep
   assert.throws(() => barrier.vote('host', { round: oldRound, action: 'depart' }, 'campaign'), /changed/)
 })
 
+test('showdown barrier shares only a sanitized departure roster', () => {
+  const { createShowdownReadiness } = require('../src/showdownReadiness')
+  const barrier = createShowdownReadiness()
+  const state = barrier.vote('host', {
+    round: barrier.state().round,
+    action: 'depart',
+    survivors: [{
+      slot: 'A', name: '  Lantern  ', survival: '7', insanity: -4,
+      armor: { head: 3, headHeavy: true, arms: 2, armsLight: true, notes: 'do not share' },
+      notes: 'private'
+    }]
+  }, 'campaign')
+  assert.deepEqual(state.departedSurvivors, [{
+    playerId: 'host', slot: 'A', name: 'Lantern', survival: 7, insanity: 0,
+    armor: {
+      head: 3, headLight: false, headHeavy: true,
+      arms: 2, armsLight: true, armsHeavy: false,
+      body: 0, bodyLight: false, bodyHeavy: false,
+      waist: 0, waistLight: false, waistHeavy: false,
+      legs: 0, legsLight: false, legsHeavy: false
+    }
+  }])
+  const live = barrier.vote('host', {
+    round: state.round,
+    action: 'sync',
+    survivors: [{ slot: 'A', name: 'Lantern', survival: 6, insanity: 2, armor: { head: 1, headLight: true } }]
+  }, 'campaign')
+  assert.equal(live.departedSurvivors[0].survival, 6)
+  assert.equal(live.departedSurvivors[0].insanity, 2)
+  assert.equal(live.departedSurvivors[0].armor.head, 1)
+  assert.equal(live.departedSurvivors[0].armor.headLight, true)
+})
+
+test('showdown barrier accepts up to six survivor combat summaries', () => {
+  const { createShowdownReadiness } = require('../src/showdownReadiness')
+  const barrier = createShowdownReadiness()
+  const survivors = ['A', 'B', 'C', 'D', 'E', 'F'].map((slot, index) => ({
+    slot, name: `Survivor ${slot}`, survival: index, insanity: index + 1, armor: { head: index }
+  }))
+  const state = barrier.vote('host', { round: barrier.state().round, action: 'depart', survivors }, 'campaign')
+  assert.equal(state.departedSurvivors.length, 6)
+  assert.deepEqual(state.departedSurvivors.map(survivor => survivor.slot), ['A', 'B', 'C', 'D', 'E', 'F'])
+})
+
 test('Vignette unanimous resets create another departed attempt with empty reset votes', () => {
   const { createShowdownReadiness } = require('../src/showdownReadiness')
   const barrier = createShowdownReadiness()

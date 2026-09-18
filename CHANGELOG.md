@@ -7,6 +7,26 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-09-18
+
+### Added
+
+- Added support for one to six Showdown survivors, arranged as two-card pages with progressive position selection and occupant swapping.
+- Added a live shared Showdown roster showing each departed survivor's Survival, Insanity, armour values, and Light/Heavy injuries, with an auto-updating detachable window.
+- Added the independently selectable Modern layout style and Despair colour family, each supporting light and dark variants.
+- Added cleaned raster survivor-domain icons derived from the supplied visual references.
+
+### Changed
+
+- Reworked Modern Showdown cards into a denser full-height layout with compact vitals, identity details, armour, scrolling lower pages, and popover-based Weapon Proficiency.
+- Reworked Despair as a monochromatic slate, ash, and clamshell theme while retaining restrained semantic warning and danger colours.
+- Extended LAN Showdown readiness and live combat summaries to support parties of up to six survivors.
+
+### Fixed
+
+- Restored scrolling for every overflowing lower Showdown page except the deliberately fixed Armour page.
+- Centred the Showdown roster armour icon independently of generic navbar button padding.
+
 ## [3.5.2] - 2026-09-17
 
 ### Added

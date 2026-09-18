@@ -14,6 +14,7 @@ const compileTargets = [
   path.join('src', 'rendererShowdownView.js'),
   path.join('src', 'rendererShowdownController.js'),
   path.join('src', 'rendererShowdownSession.js'),
+  path.join('src', 'showdownRosterWindow.js'),
   path.join('src', 'dataService.js'),
   path.join('src', 'settlementService.js'),
   path.join('src', 'lanSurvivorHost.js'),

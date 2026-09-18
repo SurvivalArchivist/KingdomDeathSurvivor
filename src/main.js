@@ -14,6 +14,7 @@ const { createLanReconnectBackoff } = require('./lanReconnectBackoff')
 const { createSurvivorProvider, normalizeLanHostBaseUrl } = require('./survivorProvider')
 
 let mainWindow
+let showdownRosterWindow
 let lanSurvivorHost
 let lanClientEventRequest = null
 let lanClientEventReconnectTimer = null
@@ -813,6 +814,41 @@ async function showdownRequest(input = null) {
 
 ipcMain.handle('get-showdown-readiness', () => showdownRequest())
 ipcMain.handle('vote-showdown-readiness', (_event, input) => showdownRequest(input))
+
+function sendShowdownRoster(payload) {
+  if (!showdownRosterWindow || showdownRosterWindow.isDestroyed()) return false
+  showdownRosterWindow.webContents.send('showdown-roster-updated', payload)
+  return true
+}
+
+ipcMain.handle('open-showdown-roster-window', (_event, payload) => {
+  if (showdownRosterWindow && !showdownRosterWindow.isDestroyed()) {
+    showdownRosterWindow.focus()
+    sendShowdownRoster(payload)
+    return { open: true }
+  }
+  showdownRosterWindow = new BrowserWindow({
+    width: 860,
+    height: 600,
+    minWidth: 560,
+    minHeight: 360,
+    title: 'Showdown Roster',
+    icon: getAppIconPath(),
+    autoHideMenuBar: true,
+    parent: mainWindow,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  })
+  showdownRosterWindow.on('closed', () => { showdownRosterWindow = null })
+  showdownRosterWindow.webContents.once('did-finish-load', () => sendShowdownRoster(payload))
+  showdownRosterWindow.loadFile(path.join(__dirname, '..', 'ui', 'components', 'showdown-roster.html'))
+  return { open: true }
+})
+
+ipcMain.handle('update-showdown-roster-window', (_event, payload) => ({ open: sendShowdownRoster(payload) }))
 
 ipcMain.handle('get-lan-connection-status', () => {
   return getLanConnectionStatus()

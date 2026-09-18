@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Showdown Roster</title>
+  <link rel="stylesheet" href="./styles/base.css" />
+  <link rel="stylesheet" href="./styles/theme-dark.css" />
+  <link rel="stylesheet" href="./styles/theme-light.css" />
+  <link rel="stylesheet" href="./styles/theme-zen.css" />
+  <link rel="stylesheet" href="./styles/theme-despair.css" />
+  <link rel="stylesheet" href="./styles/theme-zen-layout.css" />
+  <style>
+    html, body { min-height: 100%; }
+    body { margin: 0; padding: 1rem; background: var(--bg); color: var(--ink); overflow: auto; }
+    .showdown-roster-window-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem; }
+    .showdown-roster-window-header img { width: 1.35rem; height: 1.35rem; object-fit: contain; }
+    .showdown-roster-window-header h1 { margin: 0; font-size: 1.25rem; }
+  </style>
+</head>
+<body>
+  <header class="showdown-roster-window-header">
+    <img src="../assets/zen-layout-icons/armor.png" alt="" aria-hidden="true" />
+    <h1>Departed Survivors</h1>
+  </header>
+  <main id="showdownRosterBody" class="showdown-roster-body">
+    <p class="showdown-roster-empty">Waiting for Showdown data…</p>
+  </main>
+  <script src="../../src/showdownRosterWindow.js"></script>
+</body>
+</html>

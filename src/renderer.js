@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderSevereInjuryTable
   } = severeInjuryTables
   const {
+    SHOWDOWN_SLOTS,
     SHOWDOWN_DEFAULT_PAGE,
     SHOWDOWN_PAGE_CONFIG,
     adjustShowdownArmorAll,
@@ -146,16 +147,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const deletePersonButton = document.getElementById('deletePerson')
   const showdownSelectA = document.getElementById('showdownSelectA')
   const showdownSelectB = document.getElementById('showdownSelectB')
+  const showdownSurvivorCount = document.getElementById('showdownSurvivorCount')
+  const showdownSelects = Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, document.getElementById(`showdownSelect${slot}`)]))
   const openShowdownButton = document.getElementById('openShowdown')
   const showdownHint = document.getElementById('showdownHint')
   const showdownView = document.getElementById('showdownView')
   const showdownSessionState = document.getElementById('showdownSessionState')
   const departShowdownButton = document.getElementById('departShowdown')
+  const showdownRosterButton = document.getElementById('showdownRoster')
+  const showdownRosterModal = document.getElementById('showdownRosterModal')
+  const closeShowdownRosterModal = document.getElementById('closeShowdownRosterModal')
+  const dismissShowdownRosterModal = document.getElementById('dismissShowdownRosterModal')
+  const popoutShowdownRosterButton = document.getElementById('popoutShowdownRoster')
+  const showdownRosterBody = document.getElementById('showdownRosterBody')
   const refreshShowdownSurvivorsButton = document.getElementById('refreshShowdownSurvivors')
   const showdownOverButton = document.getElementById('showdownOver')
   const globalDepartedIndicator = document.getElementById('globalDepartedIndicator')
   const showdownCardA = document.getElementById('showdownCardA')
   const showdownCardB = document.getElementById('showdownCardB')
+  const showdownCards = Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, document.getElementById(`showdownCard${slot}`)]))
+  const showdownPartyPages = document.getElementById('showdownPartyPages')
   const workspace = document.querySelector('.workspace')
   const settlementRecordView = document.getElementById('settlementRecordView')
   const navSettlementRecord = document.getElementById('navSettlementRecord')
@@ -253,6 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const navLanStatus = document.getElementById('navLanStatus')
   const navFullscreenButton = document.getElementById('navFullscreen')
   const themeSelect = document.getElementById('themeSelect')
+  const themeStyleSelect = document.getElementById('themeStyleSelect')
   const navThemeToggle = document.getElementById('navThemeToggle')
   const settlementNameSearch = document.getElementById('settlementNameSearch')
   const settlementTraitSearch = document.getElementById('settlementTraitSearch')
@@ -451,6 +463,11 @@ document.addEventListener('DOMContentLoaded', () => {
     showdownView,
     showdownSessionState,
     departShowdownButton,
+    showdownRosterButton,
+    showdownRosterModal,
+    closeShowdownRosterModal,
+    dismissShowdownRosterModal,
+    showdownRosterBody,
     refreshShowdownSurvivorsButton,
     showdownOverButton,
     globalDepartedIndicator,
@@ -466,6 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navBulkUpdatesButton,
     navFullscreenButton,
     themeSelect,
+    themeStyleSelect,
     settlementNameSearch,
     settlementTraitSearch,
     settlementToggleExtraFiltersButton,
@@ -651,19 +669,75 @@ document.addEventListener('DOMContentLoaded', () => {
   const THEME_STORAGE_KEY = 'kdm-theme'
   const THEME_OPTIONS = Object.freeze({
     dark: {
-      bodyClass: 'theme-dark',
+      bodyClasses: ['theme-dark'],
+      family: 'classic',
+      style: 'standard',
       colorScheme: 'dark'
     },
     light: {
-      bodyClass: 'theme-light',
+      bodyClasses: ['theme-light'],
+      family: 'classic',
+      style: 'standard',
       colorScheme: 'light'
     },
     'zen-day': {
-      bodyClass: 'theme-zen-day',
+      bodyClasses: ['theme-zen-day'],
+      family: 'zen',
+      style: 'standard',
       colorScheme: 'light'
     },
     'zen-night': {
-      bodyClass: 'theme-zen-night',
+      bodyClasses: ['theme-zen-night'],
+      family: 'zen',
+      style: 'standard',
+      colorScheme: 'dark'
+    },
+    'despair-light': {
+      bodyClasses: ['theme-despair-light'],
+      family: 'despair',
+      style: 'standard',
+      colorScheme: 'light'
+    },
+    'despair-dark': {
+      bodyClasses: ['theme-despair-dark'],
+      family: 'despair',
+      style: 'standard',
+      colorScheme: 'dark'
+    },
+    'classic-layout-light': {
+      bodyClasses: ['theme-light', 'theme-zen-layout'],
+      family: 'classic',
+      style: 'zen-layout',
+      colorScheme: 'light'
+    },
+    'classic-layout-dark': {
+      bodyClasses: ['theme-dark', 'theme-zen-layout'],
+      family: 'classic',
+      style: 'zen-layout',
+      colorScheme: 'dark'
+    },
+    'despair-layout-light': {
+      bodyClasses: ['theme-despair-light', 'theme-zen-layout'],
+      family: 'despair',
+      style: 'zen-layout',
+      colorScheme: 'light'
+    },
+    'despair-layout-dark': {
+      bodyClasses: ['theme-despair-dark', 'theme-zen-layout'],
+      family: 'despair',
+      style: 'zen-layout',
+      colorScheme: 'dark'
+    },
+    'zen-layout-day': {
+      bodyClasses: ['theme-zen-day', 'theme-zen-layout'],
+      family: 'zen',
+      style: 'zen-layout',
+      colorScheme: 'light'
+    },
+    'zen-layout-night': {
+      bodyClasses: ['theme-zen-night', 'theme-zen-layout'],
+      family: 'zen',
+      style: 'zen-layout',
       colorScheme: 'dark'
     }
   })
@@ -748,19 +822,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const BULK_EDIT_DEFAULT_DELTA = 1
   let settlementBulkChanges = [createBulkEditChange()]
   const SETTLEMENT_STATS_TOTAL_FIELDS = ['movement', 'speed', 'accuracy', 'strength', 'luck', 'evasion']
-  let showdownPeople = {
-    A: null,
-    B: null
-  }
+  let showdownPeople = Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, null]))
+  let showdownPartyPage = 0
   let showdownPageBySlot = createShowdownPageState()
   const showdownMarkdownContentCache = new Map()
   const showdownMarkdownContentPending = new Set()
   let showdownTextDraftState = createShowdownTextDraftState()
   let showdownReadiness = null
+  let showdownSession = null
   let showdownReadinessLocked = false
   let showdownDepartureSnapshot = null
+  let showdownRosterPoppedOut = false
   let showdownDeparted = false
-  let showdownLockedSlots = { A: '', B: '' }
+  let showdownLockedSlots = Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, '']))
   let forceShowdownReselection = false
   let armorState = {
     armorHead: 0,
@@ -1081,7 +1155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   function stepShowdownPage(slot, direction) {
-    if (slot !== 'A' && slot !== 'B') return false
+    if (!SHOWDOWN_SLOTS.includes(slot)) return false
     const current = normalizeShowdownPageKey(showdownPageBySlot[slot])
     const next = getSteppedShowdownPageKey(current, direction)
     if (next === current) return false
@@ -1338,14 +1412,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextTheme = normalizeTheme(theme)
     currentTheme = nextTheme
     document.body.dataset.theme = nextTheme
-    for (const [themeKey, config] of Object.entries(THEME_OPTIONS)) {
-      document.body.classList.toggle(config.bodyClass, themeKey === nextTheme)
+    const activeBodyClasses = new Set(THEME_OPTIONS[nextTheme].bodyClasses)
+    const allBodyClasses = new Set(Object.values(THEME_OPTIONS).flatMap(config => config.bodyClasses))
+    for (const bodyClass of allBodyClasses) {
+      document.body.classList.toggle(bodyClass, activeBodyClasses.has(bodyClass))
     }
     if (document.documentElement?.style) {
       document.documentElement.style.colorScheme = THEME_OPTIONS[nextTheme].colorScheme
     }
     if (themeSelect instanceof HTMLSelectElement) {
-      themeSelect.value = nextTheme.startsWith('zen-') ? 'zen' : 'classic'
+      themeSelect.value = THEME_OPTIONS[nextTheme].family
+    }
+    if (themeStyleSelect instanceof HTMLSelectElement) {
+      themeStyleSelect.value = THEME_OPTIONS[nextTheme].style
     }
     const mode = THEME_OPTIONS[nextTheme].colorScheme
     navThemeToggle.dataset.mode = mode
@@ -1357,6 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch {
       // Ignore storage failures in restricted environments.
     }
+    if (showdownRosterPoppedOut) renderShowdownRoster()
   }
 
   function applyWindowFullScreenState(isFullScreen) {
@@ -1743,17 +1823,17 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncControlState() {
     const hasSelection = Boolean(peopleList.value)
     const hasMarkdownCollections = markdownCollection.options.length > 0 && markdownCollection.value !== ''
-    const hasTwoShowdownOptions = showdownSelectA.options.length >= 2
-    const hasShowdownPairLoaded = Boolean(showdownPeople.A && showdownPeople.B)
+    const showdownCount = Math.max(1, Math.min(6, Number(showdownSurvivorCount.value) || 2))
+    const activeShowdownSlots = SHOWDOWN_SLOTS.slice(0, showdownCount)
+    const hasEnoughShowdownOptions = showdownSelectA.options.length >= showdownCount
+    const hasShowdownPartyLoaded = activeShowdownSlots.every(slot => Boolean(showdownPeople[slot]))
     const survivorWriteBlocked = isLanClientWriteBlocked()
     const isHostMode = appSettings.survivorDataMode === 'lan-host'
     const isClientMode = appSettings.survivorDataMode === 'lan-client'
     const hasDiscoveredHost = discoveredLanHosts.length > 0 && Boolean(settingsLanDiscoveredHosts.value)
-    const canOpenShowdown =
-      hasTwoShowdownOptions &&
-      showdownSelectA.value &&
-      showdownSelectB.value &&
-      showdownSelectA.value !== showdownSelectB.value
+    const selectedShowdownFiles = activeShowdownSlots.map(slot => showdownSelects[slot].value).filter(Boolean)
+    const canOpenShowdown = hasEnoughShowdownOptions && selectedShowdownFiles.length === showdownCount &&
+      new Set(selectedShowdownFiles).size === showdownCount
 
     for (const button of Object.values(dataSourceButtons)) {
       if (button) button.disabled = busy
@@ -1769,15 +1849,21 @@ document.addEventListener('DOMContentLoaded', () => {
     peopleList.disabled = !hasDataFolder || busy
     loadPersonButton.disabled = !hasDataFolder || !hasSelection || busy
     deletePersonButton.disabled = !hasDataFolder || !hasSelection || busy || survivorWriteBlocked
-    showdownSelectA.disabled = !hasDataFolder || busy || showdownDeparted || showdownReadinessLocked
-    showdownSelectB.disabled = !hasDataFolder || busy || showdownDeparted || showdownReadinessLocked
+    showdownSurvivorCount.disabled = busy || showdownDeparted || showdownReadinessLocked
+    for (const [index, slot] of SHOWDOWN_SLOTS.entries()) {
+      const visible = index <= showdownCount
+      showdownSelects[slot].classList.toggle('hidden', !visible)
+      const label = document.querySelector(`label[for="showdownSelect${slot}"]`)
+      label?.classList.toggle('hidden', !visible)
+      showdownSelects[slot].disabled = !visible || !hasDataFolder || busy || showdownDeparted || showdownReadinessLocked
+    }
     openShowdownButton.disabled = !hasDataFolder || !canOpenShowdown || busy || showdownDeparted || showdownReadinessLocked
-    departShowdownButton.disabled = busy || !hasShowdownPairLoaded || showdownDeparted || showdownReadinessLocked
+    departShowdownButton.disabled = busy || !hasShowdownPartyLoaded || showdownDeparted || showdownReadinessLocked
     refreshShowdownSurvivorsButton.disabled = busy || showdownDeparted || showdownReadinessLocked || !canOpenShowdown
     const vignetteShowdown = showdownDepartureSnapshot?.settlementType === 'vignette' ||
       (!showdownDeparted && settlementRecord?.settlementType === 'vignette')
     showdownOverButton.textContent = vignetteShowdown ? 'Reset Showdown' : 'End Showdown'
-    showdownOverButton.disabled = busy || !hasShowdownPairLoaded || !showdownDeparted || (!vignetteShowdown && survivorWriteBlocked)
+    showdownOverButton.disabled = busy || !hasShowdownPartyLoaded || !showdownDeparted || (!vignetteShowdown && survivorWriteBlocked)
     departShowdownButton.classList.toggle('hidden', showdownDeparted)
     showdownOverButton.classList.toggle('hidden', !showdownDeparted)
     const readiness = showdownReadiness
@@ -1789,6 +1875,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (readiness.ended.includes(readiness.playerId) && readiness.phase !== 'finishing') showdownOverButton.disabled = true
       if (readiness.completed.includes(readiness.playerId)) showdownOverButton.disabled = true
     }
+    if (!showdownRosterModal.classList.contains('hidden')) renderShowdownRoster()
     showdownView.inert = showdownReadinessLocked
     document.body.classList.toggle('departed-active', showdownDeparted)
     if (showdownDeparted) {
@@ -1796,14 +1883,14 @@ document.addEventListener('DOMContentLoaded', () => {
         showdownLockedSlots.B || '-'
       }.`
       showdownSessionState.textContent = 'Session departed'
-    } else if (!hasTwoShowdownOptions) {
-      showdownHint.textContent = 'Save at least 2 alive survivors to use showdown.'
+    } else if (!hasEnoughShowdownOptions) {
+      showdownHint.textContent = `Save at least ${showdownCount} alive survivor${showdownCount === 1 ? '' : 's'} to use showdown.`
       showdownSessionState.textContent = 'Session not departed'
     } else if (canOpenShowdown) {
       showdownHint.textContent = 'Ready to open showdown.'
       showdownSessionState.textContent = 'Session not departed'
     } else {
-      showdownHint.textContent = 'Pick two different saved survivors.'
+      showdownHint.textContent = `Pick ${showdownCount} different saved survivor${showdownCount === 1 ? '' : 's'}.`
       showdownSessionState.textContent = 'Session not departed'
     }
 
@@ -2088,10 +2175,96 @@ document.addEventListener('DOMContentLoaded', () => {
     insertMarkdownButton.classList.remove('hidden')
   }
 
+  function getLocalDepartedSurvivors() {
+    if (!showdownDeparted && !showdownReadiness?.departed?.includes(showdownReadiness.playerId)) return []
+    const count = Math.max(1, Math.min(6, Number(showdownSurvivorCount.value) || 2))
+    return SHOWDOWN_SLOTS.slice(0, count).flatMap(slot => {
+      const selected = showdownPeople[slot]
+      if (!selected) return []
+      return [{
+        slot,
+        playerId: showdownReadiness?.playerId || 'local',
+        name: selected.person?.name || selected.fileName || `Survivor ${slot}`,
+        survival: Math.max(0, Number(selected.person?.survivalPts) || 0),
+        insanity: Math.max(0, Number(selected.person?.insanityPts) || 0),
+        armor: showdownArmor[slot] || {}
+      }]
+    })
+  }
+
+  function getDepartedSurvivors() {
+    const shared = showdownReadiness?.departedSurvivors
+    if (Array.isArray(shared) && shared.length) {
+      const mine = showdownReadiness?.playerId
+      if (!mine) return shared
+      const local = getLocalDepartedSurvivors()
+      return [...shared.filter(survivor => survivor.playerId !== mine), ...local]
+    }
+    return getLocalDepartedSurvivors()
+  }
+
+  function renderShowdownRoster() {
+    const survivors = getDepartedSurvivors()
+    if (!survivors.length) {
+      showdownRosterBody.innerHTML = '<p class="showdown-roster-empty">No survivors have departed yet.</p>'
+      updatePoppedOutShowdownRoster(showdownRosterBody.innerHTML)
+      return
+    }
+    const locations = [['head', 'Head', 'head'], ['arms', 'Arms', 'arms'], ['body', 'Body', 'body'], ['waist', 'Waist', 'waist'], ['legs', 'Legs', 'legs']]
+    showdownRosterBody.innerHTML = survivors.map(survivor => {
+      const armor = survivor.armor || {}
+      const locationsMarkup = locations.map(([key, label, icon]) => {
+        const severity = [armor[`${key}Light`] ? 'L' : '', armor[`${key}Heavy`] ? '<span class="heavy">H</span>' : '']
+          .filter(Boolean).join(' / ')
+        return `<div class="showdown-roster-location"><span class="showdown-roster-location-label"><img class="showdown-roster-icon" src="../assets/zen-layout-icons/${icon}.png" alt="" aria-hidden="true">${label}</span><strong>${Math.max(0, Number(armor[key]) || 0)}</strong><span class="showdown-roster-severity">${severity || '&nbsp;'}</span></div>`
+      }).join('')
+      return `<section class="showdown-roster-survivor">
+        <div class="showdown-roster-summary"><h3>${escapeHtml(survivor.name || 'Unnamed survivor')}</h3><span class="showdown-roster-stat showdown-roster-stat-survival"><img class="showdown-roster-icon" src="../assets/zen-layout-icons/survival.png" alt="" aria-hidden="true">Survival <strong>${Math.max(0, Number(survivor.survival) || 0)}</strong></span><span class="showdown-roster-stat showdown-roster-stat-insanity"><img class="showdown-roster-icon" src="../assets/zen-layout-icons/insanity.png" alt="" aria-hidden="true">Insanity <strong>${Math.max(0, Number(survivor.insanity) || 0)}</strong></span></div>
+        <div class="showdown-roster-armour">${locationsMarkup}</div>
+      </section>`
+    }).join('')
+    updatePoppedOutShowdownRoster(showdownRosterBody.innerHTML)
+  }
+
+  function getShowdownRosterPayload(markup = showdownRosterBody.innerHTML) {
+    return { markup, bodyClasses: THEME_OPTIONS[currentTheme]?.bodyClasses || [] }
+  }
+
+  function updatePoppedOutShowdownRoster(markup) {
+    if (!showdownRosterPoppedOut || typeof window.api.updateShowdownRosterWindow !== 'function') return
+    window.api.updateShowdownRosterWindow(getShowdownRosterPayload(markup)).then(result => {
+      showdownRosterPoppedOut = Boolean(result?.open)
+    }).catch(() => { showdownRosterPoppedOut = false })
+  }
+
+  function closeShowdownRoster() {
+    showdownRosterModal.classList.add('hidden')
+    showdownRosterModal.setAttribute('aria-hidden', 'true')
+  }
+
+  async function openShowdownRoster() {
+    if (typeof window.api.getShowdownReadiness === 'function') {
+      try {
+        const latest = await window.api.getShowdownReadiness()
+        if (latest) showdownReadiness = latest
+      } catch {}
+    }
+    renderShowdownRoster()
+    showdownRosterModal.classList.remove('hidden')
+    showdownRosterModal.setAttribute('aria-hidden', 'false')
+  }
+
+  async function popoutShowdownRoster() {
+    renderShowdownRoster()
+    if (typeof window.api.openShowdownRosterWindow !== 'function') return
+    const result = await window.api.openShowdownRosterWindow(getShowdownRosterPayload())
+    showdownRosterPoppedOut = Boolean(result?.open)
+  }
+
   function openSevereInjuryTable(location, slot, options = {}) {
     const table = getSevereInjuryTable(location)
     if (!table) return
-    const normalizedSlot = slot === 'A' || slot === 'B' ? slot : ''
+    const normalizedSlot = SHOWDOWN_SLOTS.includes(slot) ? slot : ''
     markdownModalTitle.textContent = table.title
     markdownModalBody.innerHTML = renderSevereInjuryTable(location, {
       slot: normalizedSlot,
@@ -2108,7 +2281,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const location = button.dataset.severeLocation
     const title = button.dataset.severeTitle
     const mode = button.dataset.severeAction
-    if ((slot !== 'A' && slot !== 'B') || !showdownPeople[slot]?.person) return
+    if (!SHOWDOWN_SLOTS.includes(slot) || !showdownPeople[slot]?.person) return
     if (showdownReadinessLocked) {
       setStatus('Showdown changes are locked while a shared action is waiting for players', 'error')
       return
@@ -3315,9 +3488,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  function iconLabel(iconId, label) {
-    if (!iconId) return label
-    return `<span class="icon-label"><svg aria-hidden="true"><use href="#${iconId}"></use></svg>${label}</span>`
+  function iconLabel(iconId, label, layoutIconId = '') {
+    if (!iconId && !layoutIconId) return label
+    const defaultIcon = iconId
+      ? `<svg class="icon-label-default" aria-hidden="true"><use href="#${iconId}"></use></svg>`
+      : ''
+    const layoutIcon = layoutIconId
+      ? `<img class="icon-label-layout" src="../assets/zen-layout-icons/${layoutIconId.replace('icon-layout-', '')}.png" alt="" aria-hidden="true">`
+      : ''
+    return `<span class="icon-label">${defaultIcon}${layoutIcon}${label}</span>`
   }
 
   function resetShowdownMarkdownContentCache() {
@@ -3366,7 +3545,7 @@ document.addEventListener('DOMContentLoaded', () => {
     })()
       .finally(() => {
         showdownMarkdownContentPending.delete(cacheKey)
-        if (showdownPeople.A || showdownPeople.B) renderShowdown()
+        if (SHOWDOWN_SLOTS.some(slot => showdownPeople[slot])) renderShowdown()
       })
   }
 
@@ -3383,14 +3562,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   function renderShowdown() {
-    renderShowdownSlot('A')
-    renderShowdownSlot('B')
+    const count = Math.max(1, Math.min(6, Number(showdownSurvivorCount.value) || 2))
+    const pageCount = Math.ceil(count / 2)
+    showdownPartyPage = Math.max(0, Math.min(showdownPartyPage, pageCount - 1))
+    for (const slot of SHOWDOWN_SLOTS.slice(0, count)) renderShowdownSlot(slot)
+    for (const [index, slot] of SHOWDOWN_SLOTS.entries()) {
+      const visible = index < count && Math.floor(index / 2) === showdownPartyPage
+      showdownCards[slot].classList.toggle('hidden', !visible)
+    }
+    showdownView.querySelector('.showdown-grid')?.classList.toggle('is-single-survivor', count % 2 === 1 && showdownPartyPage === pageCount - 1)
+    showdownPartyPages.classList.toggle('hidden', pageCount <= 1)
+    showdownPartyPages.innerHTML = Array.from({ length: pageCount }, (_, index) =>
+      `<button type="button" class="btn btn-secondary showdown-party-page" data-showdown-party-page="${index}" ${index === showdownPartyPage ? 'aria-current="page"' : ''}>${index + 1}</button>`
+    ).join('')
   }
 
   function renderShowdownSlot(slot) {
-    const normalizedSlot = slot === 'A' ? 'A' : slot === 'B' ? 'B' : null
+    const normalizedSlot = SHOWDOWN_SLOTS.includes(slot) ? slot : null
     if (!normalizedSlot) return
-    const container = normalizedSlot === 'A' ? showdownCardA : showdownCardB
+    const container = showdownCards[normalizedSlot]
     const person = showdownPeople[normalizedSlot]?.person || {}
     const proficiency = ensureWeaponProficiency(person)
     syncShowdownTextDraftState(normalizedSlot, person)
@@ -3417,6 +3607,8 @@ document.addEventListener('DOMContentLoaded', () => {
         getTextEntryPlaceholder
       }
     })
+    showdownSession?.scheduleLiveRosterSync()
+    if (!showdownRosterModal.classList.contains('hidden') || showdownRosterPoppedOut) renderShowdownRoster()
   }
 
   function escapeHtml(value) {
@@ -4295,7 +4487,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     await refreshMarkdownFiles()
-    if (showdownPeople.A || showdownPeople.B) renderShowdown()
+    if (SHOWDOWN_SLOTS.some(slot => showdownPeople[slot])) renderShowdown()
   }
 
   function insertCurrentMarkdownReference() {
@@ -4596,6 +4788,8 @@ document.addEventListener('DOMContentLoaded', () => {
       showdownDeparted,
       showdownSelectAValue: showdownSelectA.value,
       showdownSelectBValue: showdownSelectB.value,
+      showdownSurvivorCount: Math.max(1, Math.min(6, Number(showdownSurvivorCount.value) || 2)),
+      showdownSelections: Object.fromEntries(SHOWDOWN_SLOTS.map(slot => [slot, showdownSelects[slot].value])),
       statsFields: SETTLEMENT_STATS_TOTAL_FIELDS
     }),
     callbacks: {
@@ -4761,7 +4955,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentPage === 'showdown') return
     if (!confirmDiscardCreateChanges('open showdown')) return
     runBusy(async () => {
-      if (showdownPeople.A && showdownPeople.B && !showdownSession.hasShowdownSelectionMismatch()) {
+      const activeSlots = SHOWDOWN_SLOTS.slice(0, Math.max(1, Math.min(6, Number(showdownSurvivorCount.value) || 2)))
+      if (activeSlots.every(slot => showdownPeople[slot]) && !showdownSession.hasShowdownSelectionMismatch()) {
         setPage('showdown')
         renderShowdown()
         syncControlState()
@@ -4979,12 +5174,40 @@ document.addEventListener('DOMContentLoaded', () => {
       setStatus(err.message || 'Failed to toggle full screen', 'error')
     })
   })
-  themeSelect.addEventListener('change', () => {
+  function applyAppearanceSelection() {
     const isLight = THEME_OPTIONS[currentTheme].colorScheme === 'light'
-    applyTheme(themeSelect.value === 'zen' ? (isLight ? 'zen-day' : 'zen-night') : (isLight ? 'light' : 'dark'))
-  })
+    const family = ['classic', 'zen', 'despair'].includes(themeSelect.value) ? themeSelect.value : 'classic'
+    const style = themeStyleSelect.value === 'zen-layout' ? 'zen-layout' : 'standard'
+    const selectedTheme = style === 'zen-layout'
+      ? family === 'zen'
+        ? (isLight ? 'zen-layout-day' : 'zen-layout-night')
+        : family === 'despair'
+          ? (isLight ? 'despair-layout-light' : 'despair-layout-dark')
+          : (isLight ? 'classic-layout-light' : 'classic-layout-dark')
+      : family === 'zen'
+        ? (isLight ? 'zen-day' : 'zen-night')
+        : family === 'despair'
+          ? (isLight ? 'despair-light' : 'despair-dark')
+          : (isLight ? 'light' : 'dark')
+    applyTheme(selectedTheme)
+  }
+  themeSelect.addEventListener('change', applyAppearanceSelection)
+  themeStyleSelect.addEventListener('change', applyAppearanceSelection)
   navThemeToggle.addEventListener('click', () => {
-    const pairedTheme = { dark: 'light', light: 'dark', 'zen-day': 'zen-night', 'zen-night': 'zen-day' }
+    const pairedTheme = {
+      dark: 'light',
+      light: 'dark',
+      'zen-day': 'zen-night',
+      'zen-night': 'zen-day',
+      'despair-light': 'despair-dark',
+      'despair-dark': 'despair-light',
+      'classic-layout-light': 'classic-layout-dark',
+      'classic-layout-dark': 'classic-layout-light',
+      'despair-layout-light': 'despair-layout-dark',
+      'despair-layout-dark': 'despair-layout-light',
+      'zen-layout-day': 'zen-layout-night',
+      'zen-layout-night': 'zen-layout-day'
+    }
     applyTheme(pairedTheme[currentTheme])
   })
   // Shared composition dependencies; each module consumes only its own responsibilities.
@@ -4992,7 +5215,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const showdownConfig = {
     element: showdownView,
     documentRef: document,
-    elements: { showdownSelectA, showdownSelectB, openShowdownButton, refreshShowdownSurvivorsButton, departShowdownButton, showdownOverButton },
+    elements: { showdownSelectA, showdownSelectB, showdownSelects, showdownSurvivorCount, openShowdownButton, refreshShowdownSurvivorsButton, departShowdownButton, showdownOverButton },
     session: {
       get showdownReadiness() { return showdownReadiness },
       set showdownReadiness(value) { showdownReadiness = value },
@@ -5049,10 +5272,12 @@ document.addEventListener('DOMContentLoaded', () => {
       runBusy,
       runWithButtonFeedback,
       setStatus,
-      syncShowdownTextDraftState
+      syncShowdownTextDraftState,
+      scheduleShowdownRosterSync: () => showdownSession?.scheduleLiveRosterSync()
     },
     helpers: {
       deepClone,
+      SHOWDOWN_SLOTS,
       SHOWDOWN_DEFAULT_PAGE,
       createShowdownArmorSlotState,
       createShowdownModifierSlotState,
@@ -5096,7 +5321,7 @@ document.addEventListener('DOMContentLoaded', () => {
       saveKnowledgeTemplate: (type, template) => window.api.saveKnowledgeTemplate(type, template)
     }
   }
-  const showdownSession = createShowdownSession(showdownConfig)
+  showdownSession = createShowdownSession(showdownConfig)
   const showdownController = createShowdownController(showdownConfig)
   showdownSession.bindEvents()
   showdownController.bindEvents()
@@ -5615,6 +5840,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   insertMarkdownButton.addEventListener('click', insertCurrentMarkdownReference)
   closeMarkdownModal.addEventListener('click', closeModal)
+  showdownRosterButton.addEventListener('click', () => { openShowdownRoster() })
+  showdownPartyPages.addEventListener('click', event => {
+    const button = event.target instanceof HTMLElement ? event.target.closest('[data-showdown-party-page]') : null
+    if (!(button instanceof HTMLButtonElement)) return
+    showdownPartyPage = Math.max(0, Number(button.dataset.showdownPartyPage) || 0)
+    renderShowdown()
+  })
+  showdownSurvivorCount.addEventListener('change', () => {
+    showdownPartyPage = 0
+    showdownSession?.reconcileShowdownMemoryForSelectionChange()
+    syncControlState()
+  })
+  popoutShowdownRosterButton.addEventListener('click', () => {
+    popoutShowdownRoster().catch(err => setStatus(err.message || 'Unable to pop out Showdown roster', 'error'))
+  })
+  closeShowdownRosterModal.addEventListener('click', closeShowdownRoster)
+  dismissShowdownRosterModal.addEventListener('click', closeShowdownRoster)
   closeAddMarkdownModal.addEventListener('click', closeAddPickerModal)
   closeKnowledgeTemplateModal.addEventListener('click', closeKnowledgeTemplatePickerModal)
   knowledgeTemplateUse.addEventListener('click', () => {
@@ -5667,6 +5909,10 @@ document.addEventListener('DOMContentLoaded', () => {
   )
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return
+    if (!showdownRosterModal.classList.contains('hidden')) {
+      closeShowdownRoster()
+      return
+    }
     if (inShowdownMode) {
       runBusy(async () => {
         setPage('settlement')

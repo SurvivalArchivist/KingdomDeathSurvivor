@@ -1,0 +1,525 @@
+/*
+ * Zen Layout
+ *
+ * Structural theme variant inspired by the supplied concept assets. Colour is
+ * intentionally inherited from theme-zen.css; every geometry override is
+ * gated by .theme-zen-layout so the original Zen and Classic layouts remain
+ * unchanged.
+ */
+
+body.theme-zen-layout {
+  --zen-layout-radius-sm: 8px;
+  --zen-layout-radius-md: 12px;
+  --zen-layout-radius-lg: 18px;
+  --zen-layout-control-height: 30px;
+  --zen-layout-icon-size: 1.15rem;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body.theme-zen-layout h1,
+body.theme-zen-layout h2,
+body.theme-zen-layout h3,
+body.theme-zen-layout h4,
+body.theme-zen-layout .showdown-identity-name,
+body.theme-zen-layout .btn {
+  font-family: inherit;
+}
+
+body.theme-zen-layout .app-header {
+  padding: 0.42rem 0.72rem;
+  border-bottom: 1px solid var(--panel-border);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--bg) 18%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+body.theme-zen-layout .top-nav {
+  gap: 0.42rem;
+}
+
+body.theme-zen-layout .top-nav .btn,
+body.theme-zen-layout .nav-lan-status {
+  min-height: 34px;
+  padding: 0.34rem 0.72rem;
+  border-radius: 999px;
+  box-shadow: none;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+body.theme-zen-layout .top-nav .nav-icon-button {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+}
+
+body.theme-zen-layout .top-nav-brand {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+
+body.theme-zen-layout .app-shell {
+  max-width: none;
+}
+
+body.theme-zen-layout .panel,
+body.theme-zen-layout .modal-panel,
+body.theme-zen-layout .settlement-table-wrap {
+  border-radius: var(--zen-layout-radius-lg);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--bg) 12%, transparent);
+}
+
+body.theme-zen-layout input:not([type='checkbox']),
+body.theme-zen-layout select,
+body.theme-zen-layout textarea,
+body.theme-zen-layout .btn {
+  border-radius: var(--zen-layout-radius-sm);
+}
+
+body.theme-zen-layout .showdown-grid {
+  gap: 0.9rem;
+}
+
+body.theme-zen-layout .showdown-card {
+  gap: 0.55rem;
+  padding: 0.8rem 0.85rem 0.95rem;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--zen-layout-radius-lg);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--bg) 13%, transparent);
+}
+
+body.theme-zen-layout .showdown-frozen-header {
+  flex: 0 0 auto;
+  gap: 0.45rem;
+  padding: 0.05rem 0.05rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 68%, transparent);
+}
+
+body.theme-zen-layout .showdown-identity-bar {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr max-content max-content;
+  grid-template-rows: auto;
+  align-items: center;
+  column-gap: 0.55rem;
+  padding: 0.08rem 0.12rem 0.25rem;
+}
+
+body.theme-zen-layout .showdown-identity-name {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 1.18rem;
+  line-height: 1.05;
+  font-weight: 800;
+}
+
+body.theme-zen-layout .showdown-identity-item:not(.showdown-identity-philosophy) {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+body.theme-zen-layout .showdown-identity-philosophy {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+body.theme-zen-layout .showdown-identity-bar > .showdown-bool-toggle:nth-of-type(1) {
+  grid-column: 4;
+  grid-row: 1;
+}
+
+body.theme-zen-layout .showdown-identity-bar > .showdown-bool-toggle:nth-of-type(2) {
+  grid-column: 5;
+  grid-row: 1;
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-stats {
+  gap: 0.42rem;
+}
+
+body.theme-zen-layout .showdown-group-vitals > .showdown-stats-vitals:first-child {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-stats-vitals-bleeding {
+  grid-template-columns: 46px minmax(0, 1.12fr) minmax(0, 1.12fr) minmax(126px, 0.9fr);
+  align-items: stretch;
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-proficiency-trigger {
+  align-self: stretch;
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-proficiency-trigger-button {
+  width: 100%;
+  height: 100%;
+  min-height: 52px;
+  border-color: var(--card-border);
+  border-radius: var(--zen-layout-radius-sm);
+  background: var(--card-bg);
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-proficiency-trigger-button svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+body.theme-zen-layout .showdown-stats.showdown-stats-mind.showdown-stats-header-mind {
+  margin-top: 0.2rem;
+  padding-top: 0.2rem;
+  gap: 0.32rem;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 62%, transparent);
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-stepper-header-mind-card {
+  min-height: 32px;
+  gap: 0.2rem;
+  padding: 0.08rem 0.24rem;
+  border-radius: var(--zen-layout-radius-sm);
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-stepper-header-mind-card .showdown-header-inline-select {
+  height: 24px;
+  min-height: 0;
+  padding: 0.04rem 0.22rem;
+  font-size: 0.7rem;
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-stepper-header-mind-card .showdown-stepper-label {
+  font-size: 0.63rem;
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-stepper-header-mind-card .icon-label img,
+body.theme-zen-layout .showdown-group-vitals .showdown-stepper-header-mind-card .icon-label svg {
+  width: 0.82rem;
+  height: 0.82rem;
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-stepper-simple,
+body.theme-zen-layout .showdown-stat-card,
+body.theme-zen-layout .showdown-armor-stepper {
+  border: 1px solid var(--card-border);
+  border-radius: var(--zen-layout-radius-md);
+  background: var(--card-bg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 32%, transparent);
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-stepper-simple {
+  min-height: 52px;
+  padding: 0.38rem 0.46rem;
+  align-content: center;
+  justify-items: center;
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-stepper-label {
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 750;
+  justify-self: center;
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-stepper-controls {
+  justify-self: center;
+}
+
+body.theme-zen-layout .showdown-group-vitals .showdown-reference-heading {
+  justify-self: center;
+}
+
+body.theme-zen-layout .icon-label:has(.icon-label-layout) .icon-label-default {
+  display: none;
+}
+
+body.theme-zen-layout .icon-label .icon-label-layout {
+  display: block;
+}
+
+body:is(.theme-dark, .theme-zen-night, .theme-despair-dark).theme-zen-layout .icon-label-layout:not([src$='/blood.png']):not([src$='/survival.png']),
+body:is(.theme-dark, .theme-zen-night, .theme-despair-dark).theme-zen-layout .showdown-bucket-icon {
+  filter: grayscale(1) brightness(0) invert(0.9);
+}
+
+body:is(.theme-dark, .theme-zen-night, .theme-despair-dark) .showdown-roster-icon:not([src$='/survival.png']),
+body:is(.theme-dark, .theme-zen-night, .theme-despair-dark) .showdown-roster-button img,
+body:is(.theme-dark, .theme-zen-night, .theme-despair-dark) .showdown-roster-window-header img {
+  filter: grayscale(1) brightness(0) invert(0.9);
+}
+
+body.theme-zen-layout .showdown-bleeding-icon .icon-label-default {
+  display: none;
+}
+
+body.theme-zen-layout .showdown-bleeding-icon .icon-label-layout {
+  display: block;
+}
+
+body.theme-zen-layout .showdown-bucket-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+}
+
+body.theme-zen-layout .showdown-bucket-icon {
+  display: block;
+  width: 0.72rem;
+  height: 0.72rem;
+  object-fit: contain;
+}
+
+body.theme-zen-layout .showdown-armor-heading .icon-label svg,
+body.theme-zen-layout .showdown-armor-heading .icon-label img,
+body.theme-zen-layout .showdown-stat-name .icon-label svg,
+body.theme-zen-layout .showdown-stat-name .icon-label img {
+  width: var(--zen-layout-icon-size);
+  height: var(--zen-layout-icon-size);
+}
+
+body.theme-zen-layout .showdown-stepper-controls button,
+body.theme-zen-layout .showdown-inline-stepper button,
+body.theme-zen-layout .showdown-armor-stepper button {
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+body.theme-zen-layout .showdown-static-value,
+body.theme-zen-layout .showdown-total-value {
+  border-radius: 7px;
+  font-weight: 800;
+}
+
+body.theme-zen-layout .showdown-stepper-survival {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--card-border));
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface-soft));
+}
+
+body.theme-zen-layout .showdown-stepper-survival .icon-label-layout {
+  filter: saturate(0.9);
+}
+
+body.theme-zen-layout .showdown-stepper-insanity {
+  border-color: color-mix(in srgb, var(--danger) 56%, var(--card-border));
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-soft));
+}
+
+body.theme-zen-layout:is(.theme-despair-light, .theme-despair-dark) .showdown-stepper-survival {
+  border-color: color-mix(in srgb, var(--despair-survival) 64%, var(--card-border));
+  background: color-mix(in srgb, var(--despair-survival) 14%, var(--surface-soft));
+}
+
+body.theme-zen-layout:is(.theme-despair-light, .theme-despair-dark) .showdown-stepper-insanity {
+  border-color: color-mix(in srgb, var(--despair-warning) 70%, var(--card-border));
+  background: color-mix(in srgb, var(--despair-warning) 13%, var(--surface-soft));
+}
+
+body.theme-zen-layout .showdown-stepper-bleeding {
+  border-radius: 999px;
+  align-self: center;
+  min-height: 48px;
+}
+
+body.theme-zen-layout .showdown-stepper-bleeding .showdown-bleeding-icon img {
+  width: 1.65rem;
+  height: 1.65rem;
+}
+
+body.theme-zen-layout .showdown-page-nav {
+  flex: 0 0 auto;
+  margin: 0.05rem 0 0.25rem;
+  padding-inline: 0.05rem;
+}
+
+body.theme-zen-layout .showdown-page-panel:not([data-showdown-page-panel='armor']):not([hidden]) {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.15rem;
+}
+
+body.theme-zen-layout .showdown-page-panel[data-showdown-page-panel='armor']:not([hidden]) {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+body.theme-zen-layout .showdown-armor-grid {
+  gap: 0.42rem;
+}
+
+body.theme-zen-layout .showdown-page-panel[data-showdown-page-panel='armor'] {
+  gap: 0.62rem;
+}
+
+body.theme-zen-layout .showdown-page-panel[data-showdown-page-panel='armor'] > .showdown-group {
+  margin: 0;
+  padding-top: 0.15rem;
+}
+
+body.theme-zen-layout .showdown-page-panel[data-showdown-page-panel='armor'] > .showdown-group + .showdown-group {
+  padding-top: 0.62rem;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+}
+
+body.theme-zen-layout .showdown-armor-header {
+  margin-bottom: 0.42rem;
+}
+
+body.theme-zen-layout .showdown-armor-header h4,
+body.theme-zen-layout .showdown-page-panel[data-showdown-page-panel='armor'] > .showdown-group > h4 {
+  margin: 0 0 0.42rem;
+  font-size: 0.92rem;
+}
+
+body.theme-zen-layout .showdown-armor-heading,
+body.theme-zen-layout .showdown-stats-heading {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+body.theme-zen-layout .showdown-stat-card {
+  gap: 0.34rem;
+  padding: 0.48rem 0.52rem;
+}
+
+body.theme-zen-layout .showdown-armor-stepper {
+  min-height: 78px;
+  grid-template-rows: auto auto 14px;
+  row-gap: 0.14rem;
+  padding: 0.3rem 0.3rem 0.24rem;
+}
+
+body.theme-zen-layout .showdown-armor-heading {
+  width: 100%;
+  gap: 0.12rem;
+  justify-content: center;
+}
+
+body.theme-zen-layout .showdown-armor-checks {
+  position: static;
+  display: flex;
+  gap: 0.12rem;
+  flex-wrap: nowrap;
+  margin: 0;
+  justify-content: center;
+  align-items: center;
+}
+
+body.theme-zen-layout .showdown-armor-check {
+  gap: 0.1rem;
+  font-size: 0.56rem;
+  line-height: 1;
+}
+
+body.theme-zen-layout .showdown-armor-check-heavy {
+  padding-block: 0.02rem;
+}
+
+body.theme-zen-layout .showdown-armor-check input {
+  width: 10px;
+  height: 10px;
+}
+
+body.theme-zen-layout .showdown-card .showdown-armor-heading button.showdown-danger-button {
+  flex-basis: 16px;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  font-size: 0.66rem;
+}
+
+body.theme-zen-layout .showdown-stat-name,
+body.theme-zen-layout .showdown-stat-total-value {
+  font-weight: 800;
+}
+
+body.theme-zen-layout .showdown-stat-header {
+  min-height: 1.75rem;
+}
+
+body.theme-zen-layout .showdown-stat-total-value {
+  font-size: 1.35rem;
+}
+
+body.theme-zen-layout .showdown-page-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+@media (max-width: 1180px) {
+  body.theme-zen-layout .showdown-identity-bar {
+    grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+  }
+
+  body.theme-zen-layout .showdown-identity-name {
+    grid-column: 1;
+  }
+
+  body.theme-zen-layout .showdown-identity-philosophy {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  body.theme-zen-layout .showdown-identity-item:not(.showdown-identity-philosophy) {
+    display: none;
+  }
+
+  body.theme-zen-layout .showdown-identity-bar > .showdown-bool-toggle:nth-of-type(1) {
+    grid-column: 3;
+  }
+
+  body.theme-zen-layout .showdown-identity-bar > .showdown-bool-toggle:nth-of-type(2) {
+    grid-column: 4;
+  }
+
+  body.theme-zen-layout .showdown-group-vitals > .showdown-stats-vitals:first-child {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.theme-zen-layout .showdown-group-vitals .showdown-stats-vitals-bleeding {
+    grid-template-columns: 46px repeat(2, minmax(0, 1fr));
+  }
+
+  body.theme-zen-layout .showdown-group-vitals .showdown-stepper-bleeding {
+    grid-column: 1 / -1;
+    width: min(190px, 100%);
+    justify-self: center;
+  }
+}
+
+@media (max-width: 700px) {
+  body.theme-zen-layout .showdown-identity-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.theme-zen-layout .showdown-identity-name {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  body.theme-zen-layout .showdown-identity-philosophy {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  body.theme-zen-layout .showdown-identity-bar > .showdown-bool-toggle:nth-of-type(1) {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  body.theme-zen-layout .showdown-identity-bar > .showdown-bool-toggle:nth-of-type(2) {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  body.theme-zen-layout .showdown-group-vitals .showdown-stats-vitals-bleeding {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  body.theme-zen-layout .showdown-group-vitals .showdown-stepper-insanity,
+  body.theme-zen-layout .showdown-group-vitals .showdown-stepper-bleeding {
+    grid-column: 1 / -1;
+  }
+}

@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="./styles/theme-dark.css" />
   <link rel="stylesheet" href="./styles/theme-light.css" />
   <link rel="stylesheet" href="./styles/theme-zen.css" />
+  <link rel="stylesheet" href="./styles/theme-despair.css" />
+  <link rel="stylesheet" href="./styles/theme-zen-layout.css" />
 </head>
 <body>
   <div class="bg-orb bg-orb-one"></div>
@@ -51,6 +53,9 @@
         <span id="showdownSessionState" class="hidden">Session not departed</span>
         <button id="refreshShowdownSurvivors" type="button" class="btn btn-secondary">Refresh Survivors</button>
         <button id="departShowdown" type="button" class="btn btn-primary">Depart</button>
+        <button id="showdownRoster" type="button" class="btn btn-secondary showdown-roster-button" aria-label="Show departed survivors" title="Show departed survivors">
+          <img src="../assets/zen-layout-icons/armor.png" alt="" aria-hidden="true" />
+        </button>
         <button id="showdownOver" type="button" class="btn btn-danger hidden">End Showdown</button>
       </div>
       <button id="navLanStatus" type="button" class="nav-lan-status" data-lan-state="local" title="Open Settings">Local</button>
@@ -72,10 +77,18 @@
       <p class="muted">Select folders for each category. The app will never create folders automatically.</p>
       <div class="settings-row">
         <label class="settings-control" for="themeSelect">
-          <span>Theme</span>
+          <span>Colour Theme</span>
           <select id="themeSelect">
             <option value="classic">Classic</option>
             <option value="zen">Zen</option>
+            <option value="despair">Despair</option>
+          </select>
+        </label>
+        <label class="settings-control" for="themeStyleSelect">
+          <span>Layout Style</span>
+          <select id="themeStyleSelect">
+            <option value="standard">Standard</option>
+            <option value="zen-layout">Modern</option>
           </select>
         </label>
         <label class="settings-control">
@@ -237,10 +250,22 @@
           <div class="panel-header panel-header-tight">
             <h3>Showdown Setup</h3>
           </div>
-          <label for="showdownSelectA">Survivor A</label>
-          <select id="showdownSelectA" aria-label="Showdown Survivor A"></select>
-          <label for="showdownSelectB">Survivor B</label>
-          <select id="showdownSelectB" aria-label="Showdown Survivor B"></select>
+          <select id="showdownSurvivorCount" class="hidden" aria-hidden="true" tabindex="-1">
+            <option value="1" selected>1</option><option value="2">2</option><option value="3">3</option>
+            <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+          </select>
+          <label for="showdownSelectA">Position 1</label>
+          <select id="showdownSelectA" aria-label="Showdown Position 1"></select>
+          <label for="showdownSelectB">Position 2</label>
+          <select id="showdownSelectB" aria-label="Showdown Position 2"></select>
+          <label for="showdownSelectC" class="showdown-extra-slot hidden">Position 3</label>
+          <select id="showdownSelectC" class="showdown-extra-slot hidden" aria-label="Showdown Position 3"></select>
+          <label for="showdownSelectD" class="showdown-extra-slot hidden">Position 4</label>
+          <select id="showdownSelectD" class="showdown-extra-slot hidden" aria-label="Showdown Position 4"></select>
+          <label for="showdownSelectE" class="showdown-extra-slot hidden">Position 5</label>
+          <select id="showdownSelectE" class="showdown-extra-slot hidden" aria-label="Showdown Position 5"></select>
+          <label for="showdownSelectF" class="showdown-extra-slot hidden">Position 6</label>
+          <select id="showdownSelectF" class="showdown-extra-slot hidden" aria-label="Showdown Position 6"></select>
           <button id="openShowdown" class="btn btn-primary">Open Showdown View</button>
           <p id="showdownHint" class="muted">Pick two different saved survivors.</p>
         </section>
@@ -367,7 +392,7 @@
 
           <div class="ve-list">
             <div class="panel-header panel-header-tight">
-              <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-shield"></use></svg>Armor Tracker (Visual Only)</span></h4>
+              <h4><span class="icon-label"><svg aria-hidden="true"><use href="#icon-shield"></use></svg>Armour Tracker (Visual Only)</span></h4>
             </div>
             <div class="ve-grid ve-numbers">
               <div class="stepper"><span class="icon-label"><svg aria-hidden="true"><use href="#icon-head"></use></svg>Head</span><button type="button" data-armor-target="armorHead" data-armor-delta="-1">-</button><input id="armorHead" type="number" value="0" /><button type="button" data-armor-target="armorHead" data-armor-delta="1">+</button></div>
@@ -429,9 +454,14 @@
     </section>
 
     <section id="showdownView" class="showdown-view hidden">
+      <nav id="showdownPartyPages" class="showdown-party-pages hidden" aria-label="Showdown survivor pages"></nav>
       <div class="showdown-grid">
         <article id="showdownCardA" class="panel showdown-card"></article>
         <article id="showdownCardB" class="panel showdown-card"></article>
+        <article id="showdownCardC" class="panel showdown-card hidden"></article>
+        <article id="showdownCardD" class="panel showdown-card hidden"></article>
+        <article id="showdownCardE" class="panel showdown-card hidden"></article>
+        <article id="showdownCardF" class="panel showdown-card hidden"></article>
       </div>
     </section>
 
@@ -840,6 +870,20 @@
         <button id="insertMarkdown" class="btn btn-primary">Insert into JSON</button>
       </header>
       <div id="markdownModalBody" class="markdown-body"></div>
+    </article>
+  </div>
+
+  <div id="showdownRosterModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="showdownRosterTitle">
+    <div class="modal-backdrop" id="closeShowdownRosterModal"></div>
+    <article class="modal-panel showdown-roster-modal-panel">
+      <header class="modal-header">
+        <h2 id="showdownRosterTitle">Departed Survivors</h2>
+        <div class="button-row showdown-roster-actions">
+          <button id="popoutShowdownRoster" type="button" class="btn btn-secondary">Pop Out</button>
+          <button id="dismissShowdownRosterModal" type="button" class="btn btn-secondary">Close</button>
+        </div>
+      </header>
+      <div id="showdownRosterBody" class="showdown-roster-body"></div>
     </article>
   </div>
 

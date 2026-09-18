@@ -9,6 +9,7 @@ function createShowdownReadiness({ onChange = () => {} } = {}) {
   let settlementType = null
   let members = new Set(['host'])
   let departed = new Set()
+  let departureRosters = new Map()
   let ended = new Set()
   let completed = new Set()
   let revision = 0
@@ -17,7 +18,9 @@ function createShowdownReadiness({ onChange = () => {} } = {}) {
     return {
       sessionId, round, revision, phase, settlementType,
       players: [...members].map(id => ({ id, connected: connected.has(id) })),
-      departed: [...departed], ended: [...ended], completed: [...completed]
+      departed: [...departed], ended: [...ended], completed: [...completed],
+      departedSurvivors: [...departureRosters.entries()].flatMap(([playerId, survivors]) =>
+        survivors.map(survivor => ({ ...survivor, playerId })))
     }
   }
   function publish() { revision += 1; onChange(state()) }
@@ -51,7 +54,11 @@ function createShowdownReadiness({ onChange = () => {} } = {}) {
       }
       if (settlementType && settlementType !== type) throw new Error('Settlement type changed during departure.')
       settlementType = type
+      if (!departed.has(id)) departureRosters.set(id, sanitizeDepartureRoster(input?.survivors))
       departed.add(id)
+    } else if (input.action === 'sync') {
+      if (phase !== 'departed' || !departed.has(id)) throw new Error('Survivors can only sync during a departed showdown.')
+      departureRosters.set(id, sanitizeDepartureRoster(input?.survivors))
     } else if (input.action === 'end') {
       if (phase !== 'departed' && phase !== 'finishing') throw new Error('All players must depart first.')
       ended.add(id)
@@ -71,6 +78,7 @@ function createShowdownReadiness({ onChange = () => {} } = {}) {
           settlementType = null
           members = new Set(connected.keys())
           departed = new Set()
+          departureRosters = new Map()
           ended = new Set()
           completed = new Set()
         }
@@ -81,5 +89,30 @@ function createShowdownReadiness({ onChange = () => {} } = {}) {
     return state()
   }
   return { state, connect, disconnect, vote }
+}
+
+const ARMOR_LOCATIONS = ['head', 'arms', 'body', 'waist', 'legs']
+function safeCount(value) {
+  const number = Math.trunc(Number(value))
+  return Number.isFinite(number) ? Math.max(0, Math.min(number, 999)) : 0
+}
+function sanitizeDepartureRoster(survivors) {
+  if (!Array.isArray(survivors)) return []
+  const slots = ['A', 'B', 'C', 'D', 'E', 'F']
+  return survivors.slice(0, 6).map((entry, index) => {
+    const armor = {}
+    for (const location of ARMOR_LOCATIONS) {
+      armor[location] = safeCount(entry?.armor?.[location])
+      armor[`${location}Light`] = Boolean(entry?.armor?.[`${location}Light`])
+      armor[`${location}Heavy`] = Boolean(entry?.armor?.[`${location}Heavy`])
+    }
+    return {
+      slot: slots.includes(entry?.slot) ? entry.slot : slots[index],
+      name: String(entry?.name || `Survivor ${index + 1}`).trim().slice(0, 120) || `Survivor ${index + 1}`,
+      survival: safeCount(entry?.survival),
+      insanity: safeCount(entry?.insanity),
+      armor
+    }
+  })
 }
 module.exports = { createShowdownReadiness }

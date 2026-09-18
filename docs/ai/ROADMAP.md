@@ -10,8 +10,8 @@ Roadmap entries are directions to investigate or implement deliberately, not aut
 
 ## Current Baseline
 
-- Version 3.5.2 is the current release candidate; 3.5.1 remains the latest tag until publishing completes.
-- The current working tree passes 327 tests, including real-socket LAN reconnect/reconciliation/readiness lifecycle coverage, Host-authoritative reference libraries, permanent severe-injury count/heal regressions, survivor-tag coverage, and Settings compatibility-table coverage.
+- Version 3.6.0 is the current release candidate; 3.5.2 remains the latest tag until publishing completes.
+- The current working tree passes 333 tests, including real-socket LAN reconnect/reconciliation/readiness lifecycle coverage, Host-authoritative reference libraries, permanent severe-injury count/heal regressions, multi-survivor Showdown and live-roster coverage, survivor-tag coverage, and Settings compatibility-table coverage.
 - Production and full npm audits report zero vulnerabilities after updating transitive `fast-uri` to 3.1.7.
 - Windows setup and portable builds passed user acceptance with Electron 41.10.4 and Electron Builder 26.15.7.
 - Production is Host/Client only; Local Development is exposed only through `npm run dev`. New/default and legacy Local configurations are gated at startup until a role is selected.
@@ -22,12 +22,19 @@ Roadmap entries are directions to investigate or implement deliberately, not aut
 
 ## Recommended Order
 
-1. Repeat physical multi-device acceptance for the stream-recovery work now covered over automated real-socket loopback: registration timeout, bounded reconnect backoff, wake/focus recovery, reconciliation, and explicit Host-shutdown signaling.
-2. Continue the selected Host/Client production direction by deciding whether successful Host readiness or Client connection is mandatory before normal workflows.
-3. Consolidate remaining mode/capability checks after the startup role gate has settled.
-4. Confirm the open product decisions in the Knowledge predecessor-link proposal, then implement it on top of the selected capability foundation.
-5. Keep the survivor index deferred until authority rules are proven and profiling or operational experience demonstrates a need.
-6. Split Settlement renderer responsibilities only when meaningful Settlement work makes that boundary useful.
+1. Resolve the open product decisions in the proposed new-theme roadmap, then deliver it in staged, theme-gated slices beginning with production SVG assets and shared tokens.
+2. Repeat physical multi-device acceptance for the stream-recovery work now covered over automated real-socket loopback: registration timeout, bounded reconnect backoff, wake/focus recovery, reconciliation, and explicit Host-shutdown signaling.
+3. Continue the selected Host/Client production direction by deciding whether successful Host readiness or Client connection is mandatory before normal workflows.
+4. Consolidate remaining mode/capability checks after the startup role gate has settled.
+5. Confirm the open product decisions in the Knowledge predecessor-link proposal, then implement it on top of the selected capability foundation.
+6. Keep the survivor index deferred until authority rules are proven and profiling or operational experience demonstrates a need.
+7. Split Settlement renderer responsibilities only when meaningful Settlement work makes that boundary useful.
+
+## Proposed: New Theme From Supplied Visual Assets
+
+Status: **roadmap complete — implementation not started**.
+
+The staged plan is in `docs/ai/PROPOSED_THEME_ROADMAP.md`. It treats the supplied Showdown mockup and icon sheets as layout/icon references, not production-ready assets. The new family will inherit the existing Zen day/night colours while gating its structural changes behind a dedicated layout class. It requires a normalized SVG icon system, layout tokens, whole-app coverage, and regression protection for Classic and the original Zen layout. Open decisions include the final theme name, avatar treatment, and whether the illustrated Disorders shortcut belongs in the product.
 
 ## Selected: Host/Client Production with Development-only Local Mode
 

@@ -636,7 +636,7 @@ function setupRendererHarness(options = {}) {
     },
     async getRuntimeInfo() {
       calls.push({ name: 'getRuntimeInfo', args: [] })
-      return { isDevelopmentMode: true, appVersion: '3.5.2' }
+      return { isDevelopmentMode: true, appVersion: '3.6.0' }
     },
     async saveAppSettings(settings) {
       calls.push({ name: 'saveAppSettings', args: [deepClone(settings)] })
@@ -1022,25 +1022,72 @@ test('fullscreen nav button toggles window state and updates label', async t => 
   assert.ok(harness.calls.some(call => call.name === 'toggleFullScreen'))
 })
 
-test('theme family and brightness controls preserve each other and persist preference', async t => {
+test('colour, layout style, and brightness controls preserve each other and persist preference', async t => {
   const harness = setupRendererHarness()
   t.after(() => harness.cleanup())
   await harness.flush()
   const selector = harness.document.getElementById('themeSelect')
+  const styleSelector = harness.document.getElementById('themeStyleSelect')
   const toggle = harness.document.getElementById('navThemeToggle')
   assert.equal(selector.value, 'classic')
+  assert.equal(styleSelector.value, 'standard')
   assert.equal(harness.document.body.dataset.theme, 'dark')
 
-  for (const [family, expected] of [['zen', 'zen-night'], ['classic', 'dark']]) {
-    selector.value = family
-    selector.dispatchEvent(new FakeEvent('change', { target: selector }))
-    await harness.flush()
-    assert.equal(harness.document.body.dataset.theme, expected)
-  }
+  selector.value = 'zen'
+  selector.dispatchEvent(new FakeEvent('change', { target: selector }))
+  await harness.flush()
+  assert.equal(harness.document.body.dataset.theme, 'zen-night')
+
+  styleSelector.value = 'zen-layout'
+  styleSelector.dispatchEvent(new FakeEvent('change', { target: styleSelector }))
+  await harness.flush()
+  assert.equal(harness.document.body.dataset.theme, 'zen-layout-night')
+  assert.ok(harness.document.body.classList.contains('theme-zen-layout'))
+
+  selector.value = 'classic'
+  selector.dispatchEvent(new FakeEvent('change', { target: selector }))
+  await harness.flush()
+  assert.equal(harness.document.body.dataset.theme, 'classic-layout-dark')
+  assert.ok(harness.document.body.classList.contains('theme-dark'))
+  assert.ok(harness.document.body.classList.contains('theme-zen-layout'))
+
+  styleSelector.value = 'standard'
+  styleSelector.dispatchEvent(new FakeEvent('change', { target: styleSelector }))
+  await harness.flush()
+  assert.equal(harness.document.body.dataset.theme, 'dark')
+
+  selector.value = 'despair'
+  selector.dispatchEvent(new FakeEvent('change', { target: selector }))
+  await harness.flush()
+  assert.equal(harness.document.body.dataset.theme, 'despair-dark')
+  assert.ok(harness.document.body.classList.contains('theme-despair-dark'))
+
+  styleSelector.value = 'zen-layout'
+  styleSelector.dispatchEvent(new FakeEvent('change', { target: styleSelector }))
+  await harness.flush()
+  assert.equal(harness.document.body.dataset.theme, 'despair-layout-dark')
+  assert.ok(harness.document.body.classList.contains('theme-despair-dark'))
+  assert.ok(harness.document.body.classList.contains('theme-zen-layout'))
+
+  toggle.dispatchEvent(new FakeEvent('click', { target: toggle }))
+  await harness.flush()
+  assert.equal(harness.document.body.dataset.theme, 'despair-layout-light')
+  assert.equal(selector.value, 'despair')
+  assert.equal(styleSelector.value, 'zen-layout')
+
+  styleSelector.value = 'standard'
+  styleSelector.dispatchEvent(new FakeEvent('change', { target: styleSelector }))
+  selector.value = 'classic'
+  selector.dispatchEvent(new FakeEvent('change', { target: selector }))
+  await harness.flush()
+  toggle.dispatchEvent(new FakeEvent('click', { target: toggle }))
+  await harness.flush()
+
   for (const expected of ['light', 'dark', 'light']) {
     toggle.dispatchEvent(new FakeEvent('click', { target: toggle }))
     await harness.flush()
     assert.equal(selector.value, 'classic')
+    assert.equal(styleSelector.value, 'standard')
     assert.equal(harness.document.body.dataset.theme, expected)
     assert.equal(global.window.localStorage.getItem('kdm-theme'), expected)
   }
@@ -1052,9 +1099,23 @@ test('theme family and brightness controls preserve each other and persist prefe
     toggle.dispatchEvent(new FakeEvent('click', { target: toggle }))
     await harness.flush()
     assert.equal(selector.value, 'zen')
+    assert.equal(styleSelector.value, 'standard')
     assert.ok(harness.document.body.classList.contains(`theme-${expected}`))
     assert.equal(global.window.localStorage.getItem('kdm-theme'), expected)
   }
+  styleSelector.value = 'zen-layout'
+  styleSelector.dispatchEvent(new FakeEvent('change', { target: styleSelector }))
+  await harness.flush()
+  assert.equal(harness.document.body.dataset.theme, 'zen-layout-day')
+  assert.ok(harness.document.body.classList.contains('theme-zen-day'))
+  assert.ok(harness.document.body.classList.contains('theme-zen-layout'))
+  assert.equal(selector.value, 'zen')
+  assert.equal(styleSelector.value, 'zen-layout')
+  toggle.dispatchEvent(new FakeEvent('click', { target: toggle }))
+  await harness.flush()
+  assert.equal(harness.document.body.dataset.theme, 'zen-layout-night')
+  assert.ok(harness.document.body.classList.contains('theme-zen-night'))
+  assert.ok(harness.document.body.classList.contains('theme-zen-layout'))
 })
 
 test('renderer persists app settings including date format', async t => {
@@ -1091,7 +1152,7 @@ test('Settings displays the running application version', async t => {
   const harness = setupRendererHarness()
   t.after(() => harness.cleanup())
   await harness.flush()
-  assert.equal(harness.document.getElementById('settingsAppVersion').textContent, 'v3.5.2')
+  assert.equal(harness.document.getElementById('settingsAppVersion').textContent, 'v3.6.0')
 })
 
 test('Settings documents LAN protocol and survivor-file compatibility separately', () => {
@@ -1866,6 +1927,93 @@ test('Create/View Survivor heals one unlimited severe injury and saves the rever
   assert.deepEqual(saved.severeInjuries, [{ location: 'arms', name: 'Contracture', count: 1 }])
 })
 
+test('showdown roster uses icons and keeps a popped-out window updated', async t => {
+  const opened = []
+  const updated = []
+  const harness = setupRendererHarness({ customizeApi(api) {
+    api.getAppSettings = async () => ({ survivorDataMode: 'local', userName: 'Player', dateFormat: 'en-GB' })
+    api.openShowdownRosterWindow = async payload => { opened.push(deepClone(payload)); return { open: true } }
+    api.updateShowdownRosterWindow = async payload => { updated.push(deepClone(payload)); return { open: true } }
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush(20)
+  const el = id => harness.document.getElementById(id)
+  el('showdownSelectA').value = 'alice.json'
+  el('showdownSelectB').value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush(20)
+  harness.click('departShowdown')
+  await harness.flush(20)
+  harness.click('showdownRoster')
+  await harness.flush(10)
+  assert.match(el('showdownRosterBody').innerHTML, /zen-layout-icons\/head\.png/)
+  assert.match(el('showdownRosterBody').innerHTML, /zen-layout-icons\/insanity\.png/)
+  harness.click('popoutShowdownRoster')
+  await harness.flush(10)
+  assert.equal(opened.length, 1)
+  assert.match(opened[0].markup, /Alice/)
+  const increaseSurvival = harness.document.createElement('button')
+  Object.assign(increaseSurvival.dataset, { showdownSlot: 'A', showdownField: 'survivalPts', showdownKind: 'base', showdownDelta: '1', showdownMin: '0', showdownMax: '' })
+  el('showdownView').dispatchEvent(new FakeEvent('click', { target: increaseSurvival }))
+  await harness.flush(10)
+  assert.ok(updated.length > 0)
+  assert.match(updated.at(-1).markup, /Survival <strong>1<\/strong>/)
+})
+
+test('showdown supports one to six survivors across two-card pages and saves the full party', async t => {
+  const harness = setupRendererHarness({ customizeApi(api, { db }) {
+    api.getAppSettings = async () => ({ survivorDataMode: 'local', userName: 'Player', dateFormat: 'en-GB' })
+    for (const name of ['Cara', 'Dara', 'Eli', 'Finn']) db[`${name.toLowerCase()}.json`] = makePerson(name)
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush(20)
+  const el = id => harness.document.getElementById(id)
+  el('showdownSurvivorCount').value = '6'
+  harness.dispatch(el('showdownSurvivorCount'), 'change')
+  const files = ['alice.json', 'bob.json', 'cara.json', 'dara.json', 'eli.json', 'finn.json']
+  ;['A', 'B', 'C', 'D', 'E', 'F'].forEach((slot, index) => { el(`showdownSelect${slot}`).value = files[index] })
+  harness.click('openShowdown')
+  await harness.flush(30)
+  assert.match(el('showdownPartyPages').innerHTML, />3<\/button>/)
+  assert.equal(el('showdownCardA').classList.contains('hidden'), false)
+  assert.equal(el('showdownCardC').classList.contains('hidden'), true)
+  const pageTwo = harness.document.createElement('button')
+  pageTwo.dataset.showdownPartyPage = '1'
+  el('showdownPartyPages').dispatchEvent(new FakeEvent('click', { target: pageTwo }))
+  assert.equal(el('showdownCardA').classList.contains('hidden'), true)
+  assert.equal(el('showdownCardC').classList.contains('hidden'), false)
+  assert.match(el('showdownCardC').innerHTML, /Cara/)
+  harness.click('departShowdown')
+  await harness.flush(20)
+  harness.click('showdownRoster')
+  await harness.flush(10)
+  for (const name of ['Alice', 'Bob', 'Cara', 'Dara', 'Eli', 'Finn']) assert.match(el('showdownRosterBody').innerHTML, new RegExp(name))
+  const saveBaseline = harness.calls.filter(call => call.name === 'savePerson').length
+  harness.click('showdownOver')
+  await harness.flush(30)
+  assert.equal(harness.calls.filter(call => call.name === 'savePerson').length - saveBaseline, 6)
+
+})
+
+test('showdown can open with a single survivor card', async t => {
+  const harness = setupRendererHarness({ customizeApi(api) {
+    api.getAppSettings = async () => ({ survivorDataMode: 'local', userName: 'Player', dateFormat: 'en-GB' })
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush(20)
+  const el = id => harness.document.getElementById(id)
+  el('showdownSurvivorCount').value = '1'
+  harness.dispatch(el('showdownSurvivorCount'), 'change')
+  el('showdownSelectA').value = 'alice.json'
+  harness.dispatch(el('showdownSelectA'), 'change')
+  harness.click('openShowdown')
+  await harness.flush(20)
+  assert.equal(el('showdownPartyPages').classList.contains('hidden'), true)
+  assert.equal(el('showdownCardA').classList.contains('hidden'), false)
+  assert.equal(el('showdownCardB').classList.contains('hidden'), true)
+  assert.match(el('showdownCardA').innerHTML, /Alice/)
+})
+
 test('departed showdown keeps locked slot selections when selectors change', async t => {
   const harness = setupRendererHarness()
   t.after(() => harness.cleanup())
@@ -1918,7 +2066,7 @@ test('showdown temp combat modifiers can go negative while tokens clamp at zero'
   await harness.flush()
 
   assert.match(showdownCardA.innerHTML, /showdown-stat-total-value">-1</)
-  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Temp<\/span>[\s\S]*showdown-static-value">-1</)
+  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">[\s\S]*?Temp<\/span>[\s\S]*showdown-static-value">-1</)
 
   const tokenButton = harness.document.createElement('button')
   tokenButton.dataset.showdownSlot = 'A'
@@ -1928,7 +2076,7 @@ test('showdown temp combat modifiers can go negative while tokens clamp at zero'
   showdownView.dispatchEvent(new FakeEvent('click', { target: tokenButton }))
   await harness.flush()
 
-  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Tokens \(\+\)<\/span>[\s\S]*showdown-static-value">0</)
+  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">[\s\S]*?Tokens \(\+\)<\/span>[\s\S]*showdown-static-value">0</)
 })
 
 test('showdown danger controls open built-in severe injury tables', async t => {
@@ -2142,8 +2290,8 @@ test('successful showdown end saves both survivors, clears selections, and reset
 
   assert.equal((showdownCardA.innerHTML.match(/showdown-armor-value">0</g) || []).length, 5)
   assert.match(showdownCardA.innerHTML, /aria-label="Bleeding tokens"[\s\S]*?showdown-static-value">0</)
-  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Temp<\/span>[\s\S]*?showdown-static-value">0</)
-  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">Tokens \(\+\)<\/span>[\s\S]*?showdown-static-value">0</)
+  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">[\s\S]*?Temp<\/span>[\s\S]*?showdown-static-value">0</)
+  assert.match(showdownCardA.innerHTML, /showdown-bucket-label">[\s\S]*?Tokens \(\+\)<\/span>[\s\S]*?showdown-static-value">0</)
 
   const reminderTag = showdownCardA.innerHTML.match(
     /<input\b[^>]*data-showdown-armor-check="proficiencyReminder"[^>]*>/
@@ -2790,14 +2938,67 @@ test('settlement row showdown assignment swaps the other slot when needed', asyn
 
   assert.equal(showdownSelectA.value, 'bob.json')
   assert.equal(showdownSelectB.value, 'alice.json')
-  assert.match(status.innerText, /Assigned bob\.json to Survivor A/)
+  assert.match(status.innerText, /Swapped Positions 2 and 1/)
 
   harness.dispatch(settlementTableBody, 'click', { target: caraSlotTwoButton })
   await harness.flush()
 
   assert.equal(showdownSelectA.value, 'bob.json')
   assert.equal(showdownSelectB.value, 'cara.json')
-  assert.match(status.innerText, /Assigned cara\.json to Survivor B/)
+  assert.match(status.innerText, /Assigned cara\.json to Position 2/)
+})
+
+test('showdown positions reveal progressively and clearing one collapses later positions', async t => {
+  const harness = setupRendererHarness({ customizeApi(_api, { db }) {
+    db['cara.json'] = makePerson('Cara')
+    db['dara.json'] = makePerson('Dara')
+    db['eli.json'] = makePerson('Eli')
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush(20)
+  const el = id => harness.document.getElementById(id)
+  const table = el('settlementTableBody')
+  el('showdownSurvivorCount').value = '1'
+  el('showdownSelectB').value = ''
+  harness.dispatch(el('showdownSelectB'), 'change')
+  const button = (file, position) => {
+    const row = table.children.find(candidate => candidate.dataset.fileName === file)
+    return row.children[row.children.length - 1].children[position - 1]
+  }
+  assert.equal(button('bob.json', 2).textContent, '2')
+  assert.equal(button('bob.json', 3), undefined)
+
+  harness.dispatch(table, 'click', { target: button('bob.json', 2) })
+  await harness.flush()
+  assert.equal(el('showdownSelectB').value, 'bob.json')
+  assert.equal(button('cara.json', 3).textContent, '3')
+  assert.equal(el('showdownSelectC').classList.contains('hidden'), false)
+
+  harness.dispatch(table, 'click', { target: button('cara.json', 3) })
+  await harness.flush()
+  assert.equal(button('dara.json', 4).textContent, '4')
+  harness.dispatch(table, 'click', { target: button('dara.json', 4) })
+  await harness.flush()
+  assert.equal(button('eli.json', 5).textContent, '5')
+  harness.dispatch(table, 'click', { target: button('eli.json', 5) })
+  await harness.flush()
+  harness.dispatch(table, 'click', { target: button('cara.json', 5) })
+  await harness.flush()
+  assert.equal(el('showdownSelectC').value, 'eli.json')
+  assert.equal(el('showdownSelectE').value, 'cara.json')
+
+  harness.dispatch(table, 'click', { target: button('dara.json', 4) })
+  await harness.flush()
+  assert.equal(el('showdownSelectD').value, '')
+  assert.equal(button('eli.json', 5), undefined)
+  harness.dispatch(table, 'click', { target: button('eli.json', 3) })
+  await harness.flush()
+  assert.equal(el('showdownSelectC').value, '')
+  assert.equal(button('dara.json', 4), undefined)
+  harness.dispatch(table, 'click', { target: button('bob.json', 2) })
+  await harness.flush()
+  assert.equal(el('showdownSelectB').value, '')
+  assert.equal(button('cara.json', 3), undefined)
 })
 
 test('nav showdown resumes in-memory session from settlement without reloading survivors', async t => {
@@ -3346,6 +3547,8 @@ for (const settlementType of ['campaign', 'vignette']) {
       assert.match(el('departShowdown').textContent, /0\/2 Departed/)
       harness.click('departShowdown')
       await harness.flush(20)
+      assert.equal(barrier.state().departedSurvivors.length, 2)
+      assert.deepEqual(barrier.state().departedSurvivors.map(survivor => survivor.name), ['Alice', 'Bob'])
       assert.match(el('departShowdown').textContent, /1\/2 Departed/)
       assert.equal(el('showdownSessionState').textContent, 'Session not departed')
       assert.equal(el('showdownSelectA').disabled, true)

@@ -15,6 +15,17 @@
   align-items: start;
 }
 
+.showdown-party-pages {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2rem;
+}
+
+.showdown-party-page { min-width: 2.25rem; }
+.showdown-party-page[aria-current="page"] { background: var(--accent); color: var(--btn-primary-ink); }
+.showdown-grid.is-single-survivor { grid-template-columns: minmax(0, 1fr); max-width: 880px; width: 100%; margin-inline: auto; }
+
 .showdown-card {
   display: flex;
   flex-direction: column;
@@ -35,10 +46,12 @@ body.showdown-mode .app-shell {
 body.showdown-mode .showdown-view {
   height: 100%;
   min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 body.showdown-mode .showdown-grid {
-  height: 100%;
+  height: auto;
+  min-height: 0;
   align-items: stretch;
 }
 
@@ -400,12 +413,16 @@ body.showdown-mode .showdown-group-vitals .showdown-stepper-bleeding {
   color: var(--danger);
 }
 
-.showdown-group-vitals .showdown-bleeding-icon svg {
+.showdown-group-vitals .showdown-bleeding-icon svg,
+.showdown-group-vitals .showdown-bleeding-icon img {
   width: 1.4rem;
   height: 1.4rem;
-  fill: currentColor;
-  stroke: currentColor;
-  stroke-width: 1.4;
+  object-fit: contain;
+}
+
+.showdown-bleeding-icon .icon-label-layout,
+.showdown-bucket-icon {
+  display: none;
 }
 
 .showdown-group-vitals .showdown-stepper-bleeding .showdown-stepper-controls {
@@ -1154,6 +1171,19 @@ body.showdown-mode .showdown-group-vitals .showdown-stepper-bleeding {
   gap: 0.2rem;
   font-size: 0.62rem;
   color: var(--muted);
+}
+
+.showdown-armor-check-heavy {
+  padding: 0.05rem 0.18rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 58%, var(--outline));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.showdown-armor-check-heavy input {
+  accent-color: var(--danger);
 }
 
 .showdown-armor-check input {
