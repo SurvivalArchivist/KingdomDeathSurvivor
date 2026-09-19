@@ -1,5 +1,9 @@
 # Model Handoff Log
 
+## v3.6.4 Release Preparation
+
+- 2026-09-19: Prepared v3.6.4 as a focused Modern Showdown layout patch. One-page parties now allocate the survivor-card grid to a full-height row, while parties with a visible page navigator retain separate navigation and card rows. Both cards can simultaneously browse internally scrolling Knowledge, Fighting Arts, Disorders, and AI pages. Real off-screen Chromium measurement confirmed nonzero full-height content panels for both one-page and paginated states; verification: `npm run verify` passed all 344 tests, including real-loopback LAN coverage. Files: `ui/components/styles/showdown.css`, release metadata, and handoff notes.
+
 ## Configuration Reliability
 
 - 2026-09-18: Made application configuration writes durable and recoverable. Every Settings save now writes flushed temporary files and atomically renames a last-known-good `config.json.bak` followed by `config.json`; failed primary replacement leaves the prior primary intact and cleans its temporary file. Invalid/non-object primary files are copied to timestamped `config.json.corrupt-*` diagnostics, restored automatically from a valid backup when available, or retained while explicit defaults-plus-warning behavior is shown when no backup can be used. Added config-status IPC/preload/UI reporting and focused filesystem/main/renderer regressions. Files: `src/dataService.js`, `src/main.js`, `src/preload.js`, `src/renderer.js`, tests, `AGENTS.md`, and context docs; verification: `npm run verify` passed all 344 tests, including real-loopback LAN coverage.
@@ -32,6 +36,7 @@
 
 ## Showdown Layout
 
+- 2026-09-19: Fixed both Modern survivor cards collapsing their Knowledge, Fighting Arts, Disorders, or AI content when the party has only one page. The hidden party-page navigator previously caused the card grid to auto-place into the view's intrinsic `auto` row, leaving both zero-basis scrolling panels at zero height unless an Armor page established row height. A one-page party now gets one full-height grid row; only a visible multi-page navigator enables the separate auto-sized navigation row. The card grid also retains an explicit full height. Real off-screen Chromium layout measurement confirmed both non-Armor panels receive the available card height. File: `ui/components/styles/showdown.css`.
 - 2026-09-18: Reworked Despair into a predominantly monochromatic slate/clamshell theme. Both variants now use ash-grey surfaces, cold slate controls and neutral ambient texture; green has been removed from general UI, Survival, and success feedback. Orange and blood red remain only as restrained semantic warning/danger cues. File: `ui/components/styles/theme-despair.css`.
 - 2026-09-18: Modern Armour cards use compact `L`/`H` labels beneath the controls after the heading-row experiment proved too crowded at five columns. Cards are 78px tall with comfortable button padding rather than an overly compressed micro-footer; Heavy retains its persistent danger treatment across colour themes. Accessible labels and full Light/Heavy tooltips remain. Files: `src/rendererShowdownView.js`, `ui/components/styles/showdown.css`, `ui/components/styles/theme-zen-layout.css`.
 - 2026-09-18: User-facing `Armor` terminology is now British English `Armour` in Showdown and Create/View Survivor; internal `armor` data keys and selectors remain unchanged for compatibility. Files: `src/rendererShowdownView.js`, `ui/components/index.html`.
