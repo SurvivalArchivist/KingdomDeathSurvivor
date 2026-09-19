@@ -1,22 +1,16 @@
-# KDM Survivors Console 3.6.3
+# KDM Survivors Console 3.6.4
 
-Version 3.6.3 focuses on safer configuration storage, bounded LAN failures, and corrected Twilight Sword progression.
+Version 3.6.4 fixes a Modern Showdown layout regression affecting two-survivor parties.
 
-### Reliability
+### Showdown
 
-- Configuration saves now use durable atomic replacement and retain a last-known-good backup.
-- Corrupt configuration files are preserved for diagnosis, valid backups are restored automatically, and the app reports recovery instead of silently resetting settings.
-- LAN Client reads now time out after 8 seconds and writes after 15 seconds, preventing unavailable Hosts from leaving workflows indefinitely busy.
-- Timed-out writes are reported as uncertain outcomes so players can refresh before retrying and avoid accidental duplicate changes.
-
-### Weapon Proficiencies
-
-- Twilight Sword now displays its distinct rank 2, 4, and 6 abilities before rank 8 Mastery.
-- Other weapon proficiencies continue to unlock Specialization at rank 3 and Mastery at rank 8.
+- Both survivor cards can now display and independently scroll Knowledge, Fighting Arts, Disorders, or AI at the same time in the Modern layout.
+- Switching both cards away from Armour no longer collapses their lower content areas.
+- One-page and paginated parties now allocate the correct height to the survivor-card grid.
 
 ### Compatibility
 
-- Version 3.6.3 keeps survivor schema version `6`, settlement metadata schema version `1`, and LAN protocol version `2`.
+- Version 3.6.4 keeps survivor schema version `6`, settlement metadata schema version `1`, and LAN protocol version `2`.
 - Upgrade the Host and every Client together. Back up the entire Survivors folder before changing versions.
 - Survivor files from before the 3.0.1 campaign reset remain unsupported.
 

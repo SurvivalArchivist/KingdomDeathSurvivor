@@ -7,6 +7,12 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.6.4] - 2026-09-19
+
+### Fixed
+
+- Prevented both Modern Showdown survivor cards from collapsing Knowledge, Fighting Arts, Disorders, and AI content when a one-page party moved both cards away from Armour.
+
 ## [3.6.3] - 2026-09-18
 
 ### Changed
