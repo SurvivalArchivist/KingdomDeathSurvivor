@@ -1096,6 +1096,30 @@ body.showdown-mode .showdown-group-vitals .showdown-stepper-bleeding {
   font-size: 0.78rem;
 }
 
+.severe-injury-picker {
+  display: grid;
+  gap: 1rem;
+}
+
+.severe-injury-picker-hint {
+  margin: 0;
+}
+
+.severe-injury-picker-group h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.severe-injury-picker-row:first-child {
+  border-top: 1px solid var(--panel-divider);
+}
+
+.severe-injury-add {
+  min-width: 5.2rem;
+  padding: 0.28rem 0.48rem;
+  font-size: 0.78rem;
+}
+
 .severe-injury-table th:last-child,
 .severe-injury-action-cell {
   width: 5.5rem;

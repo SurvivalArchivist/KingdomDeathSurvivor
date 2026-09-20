@@ -1,16 +1,18 @@
-# KDM Survivors Console 3.6.4
+# KDM Survivors Console 3.6.5
 
-Version 3.6.4 fixes a Modern Showdown layout regression affecting two-survivor parties.
+Version 3.6.5 adds permanent severe-injury management to Create/View Survivor and dates Campaign injury reminders from the settlement Lantern Year.
 
-### Showdown
+### Severe Injuries
 
-- Both survivor cards can now display and independently scroll Knowledge, Fighting Arts, Disorders, or AI at the same time in the Modern layout.
-- Switching both cards away from Armour no longer collapses their lower content areas.
-- One-page and paginated parties now allocate the correct height to the survivor-card grid.
+- Create/View Survivor now has an Add picker for every built-in permanent severe injury.
+- Adding an injury records one occurrence and applies its deterministic persistent stat or restriction effects without adding Showdown-only bleeding or temporary effects.
+- Canonically capped injuries display their existing pips and become unavailable at the limit; unlimited injuries remain repeatable.
+- Campaign reminders now include their relevant Lantern Year. An injury suffered in LY 5 that skips the next hunt records LY 6, while a retirement triggered in LY 10 records LY 10.
+- Healing removes dated retirement reminders as well as reminder text created by earlier versions.
 
 ### Compatibility
 
-- Version 3.6.4 keeps survivor schema version `6`, settlement metadata schema version `1`, and LAN protocol version `2`.
+- Version 3.6.5 keeps survivor schema version `6`, settlement metadata schema version `1`, and LAN protocol version `2`.
 - Upgrade the Host and every Client together. Back up the entire Survivors folder before changing versions.
 - Survivor files from before the 3.0.1 campaign reset remain unsupported.
 

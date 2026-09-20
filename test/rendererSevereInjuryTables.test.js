@@ -9,6 +9,7 @@ const {
   getSevereInjuryTable,
   healSevereInjury,
   renderRecordedSevereInjuries,
+  renderSevereInjuryPicker,
   renderSevereInjuryTable
 } = require('../src/rendererSevereInjuryTables')
 
@@ -233,6 +234,22 @@ test('records safe permanent portions of results that still require manual resol
   assert.equal(armor.bleedingTokens, 0)
 })
 
+test('records a permanent injury without showdown armor state', () => {
+  const person = { accuracy: 0, impairments: [], severeInjuries: [], notes: [] }
+
+  const recorded = applySevereInjuryAction({
+    location: 'arms',
+    title: 'Contracture',
+    person,
+    mode: 'record'
+  })
+
+  assert.equal(recorded.ok, true)
+  assert.equal(person.accuracy, -1)
+  assert.deepEqual(person.severeInjuries, [{ location: 'arms', name: 'Contracture', count: 1 }])
+  assert.doesNotMatch(recorded.changes.join(' '), /bleeding/i)
+})
+
 test('every permanent result can be recorded through its available action', () => {
   for (const location of ['head', 'arms', 'body', 'waist', 'legs']) {
     for (const [, title, description] of getSevereInjuryTable(location).rows) {
@@ -276,7 +293,7 @@ test('heals one injury occurrence and reverses only its permanent effects', () =
     ],
     notes: [
       'Cannot dash — Dismembered Leg',
-      'Retire at the end of the next showdown or settlement phase — Two Dismembered Legs'
+      'Retire at the end of the next showdown or settlement phase (Lantern Year 10) — Two Dismembered Legs'
     ]
   }
   const armor = { bleedingTokens: 7 }
@@ -321,12 +338,19 @@ test('applies safe temporary tokens and persistent reminders', () => {
   const person = { impairments: [], notes: [] }
   const armor = { bleedingTokens: 0 }
   const modifiers = {}
-  const result = applySevereInjuryAction({ location: 'arms', title: 'Spiral Fracture', person, armor, modifiers })
+  const result = applySevereInjuryAction({
+    location: 'arms',
+    title: 'Spiral Fracture',
+    person,
+    armor,
+    modifiers,
+    lanternYear: 5
+  })
 
   assert.equal(result.ok, true)
   assert.equal(modifiers.strength.tokensNegative, 2)
   assert.equal(armor.bleedingTokens, 1)
-  assert.deepEqual(person.notes, ['Skip the next hunt — Spiral Fracture'])
+  assert.deepEqual(person.notes, ['Skip the next hunt (Lantern Year 6) — Spiral Fracture'])
 })
 
 test('applies death, proficiency, courage, and second-injury effects', () => {
@@ -346,10 +370,12 @@ test('applies death, proficiency, courage, and second-injury effects', () => {
   assert.equal(person.weaponProficiency.level, 0)
   applySevereInjuryAction({ location: 'head', title: 'Destroyed tooth', person, armor, modifiers: {} })
   assert.equal(person.insanityPts, 2)
-  applySevereInjuryAction({ location: 'head', title: 'Blind', person, armor, modifiers: {} })
+  applySevereInjuryAction({ location: 'head', title: 'Blind', person, armor, modifiers: {}, lanternYear: 10 })
   assert.equal(person.accuracy, -5)
   assert.deepEqual(person.severeInjuries, [{ location: 'head', name: 'Blind', count: 2 }])
-  assert.ok(person.notes.some(note => note.startsWith('Retire at the end of the next showdown')))
+  assert.ok(person.notes.includes(
+    'Retire at the end of the next showdown or settlement phase (Lantern Year 10) — Two Blind severe injuries'
+  ))
   applySevereInjuryAction({ location: 'brain', title: 'Mortal Terror', person, armor, modifiers: {} })
   assert.equal(person.isAlive, false)
 })
@@ -369,23 +395,27 @@ test('sets temporary totals and adds retirement reminders when required', () => 
     title: 'Disemboweled',
     person,
     armor,
-    modifiers
+    modifiers,
+    lanternYear: 5
   })
   assert.equal(disemboweled.ok, true)
   assert.equal(person.movement + modifiers.movement.temporary + modifiers.movement.tokensPositive, 1)
-  assert.ok(person.notes.includes('Skip the next hunt — Disemboweled'))
+  assert.ok(person.notes.includes('Skip the next hunt (Lantern Year 6) — Disemboweled'))
 
   const dismembered = applySevereInjuryAction({
     location: 'legs',
     title: 'Dismembered Leg',
     person,
     armor,
-    modifiers
+    modifiers,
+    lanternYear: 10
   })
   assert.equal(dismembered.ok, true)
   assert.equal(person.movement, 3)
   assert.ok(person.notes.includes('Cannot dash — Dismembered Leg'))
-  assert.ok(person.notes.some(note => note.startsWith('Retire at the end of the next showdown')))
+  assert.ok(person.notes.includes(
+    'Retire at the end of the next showdown or settlement phase (Lantern Year 10) — Two Dismembered Legs'
+  ))
 })
 
 test('bleeding-only actions do not apply unsafe effects', () => {
@@ -493,6 +523,22 @@ test('renders all permanent injuries with healing controls outside the table', (
   assert.match(markup, /aria-label="Warped Pelvis: 4 recorded">×4/)
   assert.equal((markup.match(/data-action="healSevereInjury"/g) || []).length, 2)
   assert.match(renderRecordedSevereInjuries({ severeInjuries: [] }), /No severe injuries\./)
+})
+
+test('renders a permanent-injury picker with caps and repeatable injuries', () => {
+  const markup = renderSevereInjuryPicker({
+    severeInjuries: [
+      { location: 'head', name: 'Blind', count: 2 },
+      { location: 'waist', name: 'Warped Pelvis', count: 4 }
+    ]
+  })
+
+  assert.match(markup, /Adding an injury records its persistent effects/)
+  assert.equal((markup.match(/data-action="addCreateSevereInjury"/g) || []).length, 18)
+  assert.match(markup, /data-severe-title="Blind" disabled>Maximum<\/button>/)
+  assert.match(markup, /aria-label="Blind: 2 of 2 recorded"/)
+  assert.match(markup, /aria-label="Warped Pelvis: 4 recorded">×4/)
+  assert.match(markup, /data-severe-title="Warped Pelvis">Add<\/button>/)
 })
 
 test('returns no table or markup for an unknown location', () => {
