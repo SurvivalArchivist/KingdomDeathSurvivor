@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     getSevereInjuryTable,
     healSevereInjury,
     renderRecordedSevereInjuries,
+    renderSevereInjuryPicker,
     renderSevereInjuryTable
   } = severeInjuryTables
   const {
@@ -346,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const createAddKnowledgeButton = document.getElementById('createAddKnowledge')
   const createAddAbilityButton = document.getElementById('createAddAbility')
   const createAddImpairmentButton = document.getElementById('createAddImpairment')
+  const createAddSevereInjuryButton = document.getElementById('createAddSevereInjury')
   const createAddNoteButton = document.getElementById('createAddNote')
   const createAbilities = document.getElementById('createAbilities')
   const createImpairments = document.getElementById('createImpairments')
@@ -557,6 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createAddKnowledgeButton,
     createAddAbilityButton,
     createAddImpairmentButton,
+    createAddSevereInjuryButton,
     createAddNoteButton,
     createAbilities,
     createImpairments,
@@ -969,6 +972,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tags: normalizeTags(createTags),
       abilities: getCreateTextArraySnapshot('abilities'),
       impairments: getCreateTextArraySnapshot('impairments'),
+      severeInjuries: deepClone(createViewBase?.severeInjuries || []),
       notes: getCreateTextArraySnapshot('notes'),
       fightingArts: collectVisualRows(createFightingArts, 'fightingArts'),
       secretFightingArts: collectVisualRows(createSecretFightingArts, 'secretFightingArts'),
@@ -2077,6 +2081,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createAddKnowledgeButton.disabled = busy
     createAddAbilityButton.disabled = busy
     createAddImpairmentButton.disabled = busy
+    createAddSevereInjuryButton.disabled = busy
     createAddNoteButton.disabled = busy
     for (const inputId of Object.keys(createNumericConfig)) {
       const input = document.getElementById(inputId)
@@ -2320,7 +2325,20 @@ document.addEventListener('DOMContentLoaded', () => {
     markdownModal.setAttribute('aria-hidden', 'false')
   }
 
-  function applyShowdownSevereInjury(button) {
+  async function getCurrentSevereInjuryLanternYear() {
+    if (appSettings.survivorDataMode === 'local') return null
+    let currentSettlement = null
+    try {
+      currentSettlement = await window.api.getSettlementRecord()
+    } catch {
+      currentSettlement = settlementRecord
+    }
+    if (!currentSettlement || currentSettlement.settlementType !== 'campaign') return null
+    const lanternYear = Number(currentSettlement.lanternYear)
+    return Number.isSafeInteger(lanternYear) && lanternYear >= 0 ? lanternYear : null
+  }
+
+  async function applyShowdownSevereInjury(button) {
     const slot = button.dataset.severeSlot
     const location = button.dataset.severeLocation
     const title = button.dataset.severeTitle
@@ -2331,13 +2349,17 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
     const person = showdownPeople[slot].person
+    const lanternYear = mode === 'apply' || mode === 'record'
+      ? await getCurrentSevereInjuryLanternYear()
+      : null
     const result = applySevereInjuryAction({
       location,
       title,
       person,
       armor: showdownArmor[slot],
       modifiers: showdownModifiers[slot],
-      mode
+      mode,
+      lanternYear
     })
     if (!result.ok) {
       setStatus(`Unable to apply ${title}`, 'error')
@@ -2349,7 +2371,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function healCreateSevereInjury(button) {
-    const person = buildCreateSurvivorPayload()
+    const person = buildCreateSurvivorPayload({ allowBlankName: true })
     if (!person) return
     const title = button.dataset.severeTitle
     const result = healSevereInjury({
@@ -2367,6 +2389,43 @@ document.addEventListener('DOMContentLoaded', () => {
       if (input) input.value = String(getValueByPath(person, config.field) ?? config.min ?? 0)
     }
     renderCreateArrayRows(person)
+    syncCreateDirtyState()
+    setStatus(`${title}: ${result.changes.join('; ')}`, 'success')
+  }
+
+  function openCreateSevereInjuryPicker() {
+    const person = buildCreateSurvivorPayload({ allowBlankName: true })
+    if (!person) return
+    markdownModalTitle.textContent = 'Add Severe Injury'
+    markdownModalBody.innerHTML = renderSevereInjuryPicker(person)
+    insertMarkdownButton.classList.add('hidden')
+    markdownModal.classList.remove('hidden')
+    markdownModal.setAttribute('aria-hidden', 'false')
+  }
+
+  async function addCreateSevereInjury(button) {
+    const person = buildCreateSurvivorPayload({ allowBlankName: true })
+    if (!person) return
+    const title = button.dataset.severeTitle
+    const lanternYear = await getCurrentSevereInjuryLanternYear()
+    const result = applySevereInjuryAction({
+      location: button.dataset.severeLocation,
+      title,
+      person,
+      mode: 'record',
+      lanternYear
+    })
+    if (!result.ok) {
+      setStatus(`Unable to add ${title}`, 'error')
+      return
+    }
+    createViewBase = deepClone(person)
+    for (const [inputId, config] of Object.entries(createNumericConfig)) {
+      const input = document.getElementById(inputId)
+      if (input) input.value = String(getValueByPath(person, config.field) ?? config.min ?? 0)
+    }
+    renderCreateArrayRows(person)
+    markdownModalBody.innerHTML = renderSevereInjuryPicker(person)
     syncCreateDirtyState()
     setStatus(`${title}: ${result.changes.join('; ')}`, 'success')
   }
@@ -3365,7 +3424,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return window.api.createPersonTemplate('New Survivor')
   }
 
-  function buildCreateSurvivorPayload() {
+  function buildCreateSurvivorPayload(options = {}) {
     const base = createViewBase || createTemplateDefaults
     if (!base) return null
     const next = deepClone(base)
@@ -3379,7 +3438,7 @@ document.addEventListener('DOMContentLoaded', () => {
     next.tags = normalizeTags(createTags)
     applyMatchmakerGroup(next, createSurvivorMatchmaker.value)
     applyTinkerGroup(next, createSurvivorTinker.value)
-    if (!next.name && createViewMode !== 'defaultTemplate') return null
+    if (!next.name && createViewMode !== 'defaultTemplate' && !options.allowBlankName) return null
     const proficiency = ensureWeaponProficiency(next)
     proficiency.type = createWeaponProficiencyType.value.trim()
 
@@ -5673,6 +5732,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createCommitNewTag.click()
   })
   createAddImpairmentButton.addEventListener('click', () => addCreateArrayEntry('impairments'))
+  createAddSevereInjuryButton.addEventListener('click', openCreateSevereInjuryPicker)
   createAddNoteButton.addEventListener('click', () => addCreateArrayEntry('notes'))
   createAddTenetKnowledgeButton.addEventListener('click', () => {
     runBusy(() => openKnowledgeTemplatePicker({ arrayName: 'tenetKnowledge', mode: 'create' })).catch(err => {
@@ -5934,7 +5994,18 @@ document.addEventListener('DOMContentLoaded', () => {
       ? target.closest('button[data-severe-action][data-severe-slot]')
       : null
     if (severeActionButton instanceof HTMLButtonElement) {
-      applyShowdownSevereInjury(severeActionButton)
+      runBusy(() => applyShowdownSevereInjury(severeActionButton)).catch(err => {
+        setStatus(err.message || 'Unable to apply severe injury', 'error')
+      })
+      return
+    }
+    const addCreateSevereInjuryTarget = target instanceof HTMLElement
+      ? target.closest('button[data-action="addCreateSevereInjury"]')
+      : null
+    if (addCreateSevereInjuryTarget instanceof HTMLButtonElement) {
+      runBusy(() => addCreateSevereInjury(addCreateSevereInjuryTarget)).catch(err => {
+        setStatus(err.message || 'Unable to add severe injury', 'error')
+      })
       return
     }
     if (event.target === markdownModal) closeModal()

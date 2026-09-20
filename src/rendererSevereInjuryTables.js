@@ -146,7 +146,7 @@
           { type: 'recordImpairment' },
           { type: 'adjustField', field: 'accuracy', amount: -1 },
           { type: 'adjustField', field: 'accuracy', amount: -4, minimumRecordCount: 2 },
-          { type: 'addNote', text: 'Retire at the end of the next showdown or settlement phase — Two Blind severe injuries', minimumRecordCount: 2 },
+          { type: 'addNote', text: 'Retire at the end of the next showdown or settlement phase — Two Blind severe injuries', lanternYearOffset: 0, minimumRecordCount: 2 },
           { type: 'addBleeding', amount: 1 }
         ]
       },
@@ -206,7 +206,7 @@
         safe: true,
         actions: [
           { type: 'addToken', field: 'strength', kind: 'tokensNegative', amount: 2 },
-          { type: 'addNote', text: 'Skip the next hunt — Spiral Fracture' },
+          { type: 'addNote', text: 'Skip the next hunt — Spiral Fracture', lanternYearOffset: 1 },
           { type: 'addBleeding', amount: 1 }
         ]
       },
@@ -242,7 +242,7 @@
         safe: true,
         actions: [
           { type: 'setTemporaryTotal', field: 'movement', value: 1 },
-          { type: 'addNote', text: 'Skip the next hunt — Disemboweled' },
+          { type: 'addNote', text: 'Skip the next hunt — Disemboweled', lanternYearOffset: 1 },
           { type: 'addNote', text: 'Must be carried back by a survivor who lives through the showdown or be lost and die — Disemboweled' },
           { type: 'addBleeding', amount: 1 }
         ]
@@ -250,7 +250,7 @@
       'Ruptured Spleen': {
         safe: true,
         actions: [
-          { type: 'addNote', text: 'Skip the next hunt — Ruptured Spleen' },
+          { type: 'addNote', text: 'Skip the next hunt — Ruptured Spleen', lanternYearOffset: 1 },
           { type: 'addBleeding', amount: 2 }
         ]
       },
@@ -323,7 +323,7 @@
           { type: 'recordImpairment' },
           { type: 'adjustField', field: 'movement', amount: -2 },
           { type: 'addNote', text: 'Cannot dash — Dismembered Leg' },
-          { type: 'addNote', text: 'Retire at the end of the next showdown or settlement phase — Two Dismembered Legs', minimumRecordCount: 2 },
+          { type: 'addNote', text: 'Retire at the end of the next showdown or settlement phase — Two Dismembered Legs', lanternYearOffset: 0, minimumRecordCount: 2 },
           { type: 'addBleeding', amount: 1 }
         ]
       },
@@ -339,7 +339,7 @@
         safe: true,
         actions: [
           { type: 'addNote', text: 'Until showdown ends: light, heavy, or severe injuries also knock you down — Torn Achilles Tendon' },
-          { type: 'addNote', text: 'Skip the next hunt — Torn Achilles Tendon' },
+          { type: 'addNote', text: 'Skip the next hunt — Torn Achilles Tendon', lanternYearOffset: 1 },
           { type: 'addBleeding', amount: 1 }
         ]
       },
@@ -347,7 +347,7 @@
         safe: true,
         actions: [
           { type: 'addNote', text: 'Until showdown ends: cannot dash — Torn Muscle' },
-          { type: 'addNote', text: 'Skip the next hunt — Torn Muscle' },
+          { type: 'addNote', text: 'Skip the next hunt — Torn Muscle', lanternYearOffset: 1 },
           { type: 'addBleeding', amount: 1 }
         ]
       },
@@ -463,6 +463,18 @@
     if (!notes.some(note => String(note || '').trim().toLowerCase() === text.toLowerCase())) notes.push(text)
   }
 
+  function formatSevereInjuryReminder(action, lanternYear) {
+    const text = String(action?.text || '').trim()
+    if (lanternYear === null || lanternYear === undefined || lanternYear === '') return text
+    const year = Number(lanternYear)
+    if (!Number.isSafeInteger(year) || year < 0 || !Number.isSafeInteger(action?.lanternYearOffset)) return text
+    const separator = ' — '
+    const separatorIndex = text.indexOf(separator)
+    const effect = separatorIndex >= 0 ? text.slice(0, separatorIndex) : text
+    const source = separatorIndex >= 0 ? text.slice(separatorIndex) : ''
+    return `${effect} (Lantern Year ${year + action.lanternYearOffset})${source}`
+  }
+
   function recordPermanentSevereInjury(person, location, title) {
     const normalizedLocation = String(location || '').trim().toLowerCase()
     const injuryTitle = String(title || '').trim()
@@ -486,10 +498,23 @@
     return record.count
   }
 
-  function removeReminder(person, text) {
+  function removeReminder(person, action) {
     if (!Array.isArray(person.notes)) return
-    const normalizedText = String(text || '').trim().toLowerCase()
-    person.notes = person.notes.filter(note => String(note || '').trim().toLowerCase() !== normalizedText)
+    const text = String(action?.text || '').trim()
+    const normalizedText = text.toLowerCase()
+    const separator = ' — '
+    const separatorIndex = text.indexOf(separator)
+    const yearPrefix = `${separatorIndex >= 0 ? text.slice(0, separatorIndex) : text} (Lantern Year `.toLowerCase()
+    const yearSuffix = `${separatorIndex >= 0 ? text.slice(separatorIndex) : ''}`.toLowerCase()
+    person.notes = person.notes.filter(note => {
+      const normalizedNote = String(note || '').trim().toLowerCase()
+      if (normalizedNote === normalizedText) return false
+      return !(
+        Number.isSafeInteger(action?.lanternYearOffset) &&
+        normalizedNote.startsWith(yearPrefix) &&
+        normalizedNote.endsWith(`)${yearSuffix}`)
+      )
+    })
   }
 
   function healSevereInjury({ location, title, person } = {}) {
@@ -534,15 +559,15 @@
         person[action.field] = Number(person[action.field] || 0) + amount
         changes.push(`${action.field} ${amount >= 0 ? '+' : ''}${amount}`)
       } else if (action.type === 'addNote' && remainingCount < minimumRecordCount) {
-        removeReminder(person, action.text)
+        removeReminder(person, action)
         changes.push(`removed reminder: ${action.text}`)
       }
     }
     return { ok: true, outcome: 'healed', remainingCount, changes }
   }
 
-  function applySevereInjuryAction({ location, title, person, armor, modifiers, mode = 'apply' } = {}) {
-    if (!person || !armor) return { ok: false, outcome: 'none', changes: [] }
+  function applySevereInjuryAction({ location, title, person, armor, modifiers, mode = 'apply', lanternYear } = {}) {
+    if (!person || (mode !== 'record' && !armor)) return { ok: false, outcome: 'none', changes: [] }
     const availability = getSevereInjuryActionAvailability(location, title, person)
     if (mode === 'bleeding') {
       if (availability.kind !== 'bleeding' && !(availability.kind === 'record' && availability.bleedingTokens > 0)) {
@@ -621,8 +646,9 @@
           Number(modifier.tokensNegative || 0)
         changes.push(`${action.field} total set to ${Number(action.value || 0)} until showdown ends`)
       } else if (action.type === 'addNote') {
-        addUniqueReminder(person, action.text)
-        changes.push(`reminder: ${action.text}`)
+        const reminder = formatSevereInjuryReminder(action, lanternYear)
+        addUniqueReminder(person, reminder)
+        changes.push(`reminder: ${reminder}`)
       }
     }
     return { ok: true, outcome: 'applied', changes }
@@ -659,6 +685,20 @@
     return rows.length
       ? `<ul class="recorded-severe-injuries">${rows.join('')}</ul>`
       : '<p class="ve-empty">No severe injuries.</p>'
+  }
+
+  function renderSevereInjuryPicker(person) {
+    const groups = Object.entries(RECORDING_LIMITS).map(([location, limits]) => {
+      const rows = Object.keys(limits).map(title => {
+        const evaluation = evaluateSevereInjuryResult(location, title, person)
+        const atMaximum = evaluation.outcome === 'bleeding'
+        const count = renderSevereInjuryCount(location, title, person)
+        return `<li class="recorded-severe-injury severe-injury-picker-row"><span><strong>${escapeHtml(title)}</strong></span><span class="recorded-severe-injury-controls">${count}<button type="button" class="btn btn-secondary severe-injury-add" data-action="addCreateSevereInjury" data-severe-location="${escapeHtml(location)}" data-severe-title="${escapeHtml(title)}"${atMaximum ? ' disabled' : ''}>${atMaximum ? 'Maximum' : 'Add'}</button></span></li>`
+      }).join('')
+      const label = `${location.charAt(0).toUpperCase()}${location.slice(1)}`
+      return `<section class="severe-injury-picker-group"><h3>${escapeHtml(label)}</h3><ul class="recorded-severe-injuries">${rows}</ul></section>`
+    }).join('')
+    return `<div class="severe-injury-picker"><p class="muted severe-injury-picker-hint">Adding an injury records its persistent effects. Bleeding tokens and other temporary Showdown effects are not added here.</p>${groups}</div>`
   }
 
   function renderSevereInjuryTable(location, options = {}) {
@@ -699,6 +739,7 @@
     getSevereInjuryTable,
     healSevereInjury,
     renderRecordedSevereInjuries,
+    renderSevereInjuryPicker,
     renderSevereInjuryTable
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = api

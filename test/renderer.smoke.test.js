@@ -1979,6 +1979,77 @@ test('Create/View Survivor displays persisted severe injuries as pips', async t 
   assert.equal((severeInjuries.match(/class="severe-injury-pip"/g) || []).length, 1)
 })
 
+test('Create/View Survivor adds and saves a permanent severe injury', async t => {
+  const harness = setupRendererHarness()
+  t.after(() => harness.cleanup())
+  await harness.flush(12)
+
+  const settlementTableBody = harness.document.getElementById('settlementTableBody')
+  const aliceRow = settlementTableBody.children.find(child => child.dataset.fileName === 'alice.json')
+  harness.dispatch(settlementTableBody, 'click', { target: aliceRow })
+  await harness.flush(12)
+
+  harness.click('createAddSevereInjury')
+  const modal = harness.document.getElementById('markdownModal')
+  assert.ok(!modal.classList.contains('hidden'))
+  assert.equal(harness.document.getElementById('markdownModalTitle').textContent, 'Add Severe Injury')
+  assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /Contracture/)
+
+  const addButton = harness.document.createElement('button')
+  addButton.dataset.action = 'addCreateSevereInjury'
+  addButton.dataset.severeLocation = 'arms'
+  addButton.dataset.severeTitle = 'Contracture'
+  harness.dispatch(modal, 'click', { target: addButton })
+  await harness.flush()
+
+  assert.equal(harness.document.getElementById('createSurvivorAccuracy').value, '-1')
+  assert.match(harness.document.getElementById('createSevereInjuries').innerHTML, /Contracture: 1 recorded">×1/)
+
+  harness.click('createSurvivorSubmit')
+  await harness.flush(16)
+
+  const saved = findDbPersonByName(harness.db, 'Alice')
+  assert.equal(saved.accuracy, -1)
+  assert.deepEqual(saved.severeInjuries, [{ location: 'arms', name: 'Contracture', count: 1 }])
+  assert.equal(saved.bleedingTokens, undefined)
+})
+
+test('Create/View Survivor dates retirement injuries from the settlement Lantern Year', async t => {
+  const harness = setupRendererHarness({
+    customizeApi(api, { db }) {
+      db['alice.json'].movement = 3
+      db['alice.json'].severeInjuries = [{ location: 'legs', name: 'Dismembered Leg', count: 1 }]
+      api.getAppSettings = async () => ({ survivorDataMode: 'lan-host', lanHostEnabled: true })
+      api.getSettlementRecord = async () => ({ settlementType: 'campaign', lanternYear: 10, knowledges: [] })
+    }
+  })
+  t.after(() => harness.cleanup())
+  await harness.flush(12)
+
+  const settlementTableBody = harness.document.getElementById('settlementTableBody')
+  const aliceRow = settlementTableBody.children.find(child => child.dataset.fileName === 'alice.json')
+  harness.dispatch(settlementTableBody, 'click', { target: aliceRow })
+  await harness.flush(12)
+
+  harness.click('createAddSevereInjury')
+  const addButton = harness.document.createElement('button')
+  addButton.dataset.action = 'addCreateSevereInjury'
+  addButton.dataset.severeLocation = 'legs'
+  addButton.dataset.severeTitle = 'Dismembered Leg'
+  harness.dispatch(harness.document.getElementById('markdownModal'), 'click', { target: addButton })
+  await harness.flush()
+
+  harness.click('createSurvivorSubmit')
+  await harness.flush(16)
+
+  const saved = findDbPersonByName(harness.db, 'Alice')
+  assert.equal(saved.movement, 1)
+  assert.deepEqual(saved.severeInjuries, [{ location: 'legs', name: 'Dismembered Leg', count: 2 }])
+  assert.ok(saved.notes.includes(
+    'Retire at the end of the next showdown or settlement phase (Lantern Year 10) — Two Dismembered Legs'
+  ))
+})
+
 test('Create/View Survivor heals one unlimited severe injury and saves the reversed effect', async t => {
   const harness = setupRendererHarness({
     customizeApi(_api, { db }) {
@@ -2227,6 +2298,7 @@ test('showdown danger controls open built-in severe injury tables', async t => {
     severeSlot: 'A'
   })
   harness.document.getElementById('markdownModal').dispatchEvent(new FakeEvent('click', { target: applyButton }))
+  await harness.flush()
   assert.match(showdownCardA.innerHTML, /showdown-stat-name[\s\S]*?Evasion[\s\S]*?showdown-stat-total-value">-1</)
   assert.match(showdownCardA.innerHTML, /aria-label="Bleeding tokens"[\s\S]*?showdown-static-value">2</)
   assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /aria-label="Deaf: 1 of 1 recorded"/)
@@ -2252,6 +2324,34 @@ test('showdown danger controls open built-in severe injury tables', async t => {
 
   assert.equal(harness.document.getElementById('markdownModalTitle').textContent, 'Brain Trauma')
   assert.match(harness.document.getElementById('markdownModalBody').innerHTML, /Mortal Terror/)
+})
+
+test('Showdown dates next-hunt severe injury reminders from the settlement Lantern Year', async t => {
+  const harness = setupRendererHarness({ customizeApi(api) {
+    api.getSettlementRecord = async () => ({ settlementType: 'campaign', lanternYear: 5, knowledges: [] })
+  } })
+  t.after(() => harness.cleanup())
+  await harness.flush()
+
+  harness.document.getElementById('showdownSelectA').value = 'alice.json'
+  harness.document.getElementById('showdownSelectB').value = 'bob.json'
+  harness.click('openShowdown')
+  await harness.flush()
+
+  const applyButton = harness.document.createElement('button')
+  Object.assign(applyButton.dataset, {
+    severeAction: 'apply',
+    severeLocation: 'arms',
+    severeTitle: 'Spiral Fracture',
+    severeSlot: 'A'
+  })
+  harness.dispatch(harness.document.getElementById('markdownModal'), 'click', { target: applyButton })
+  await harness.flush()
+
+  assert.match(
+    harness.document.getElementById('showdownCardA').innerHTML,
+    /Skip the next hunt \(Lantern Year 6\) — Spiral Fracture/
+  )
 })
 
 test('refresh showdown survivors replaces persisted data only before departure', async t => {

@@ -1,5 +1,14 @@
 # Model Handoff Log
 
+## v3.6.5 Release Preparation
+
+- 2026-09-20: Prepared v3.6.5 for Create/View permanent severe-injury addition and Campaign Lantern Year-aware injury reminders. Package metadata, changelog, release notes, and runtime-version expectations now target 3.6.5. Survivor schema remains 6, settlement metadata schema remains 1, and LAN protocol remains 2. Verification: `npm run preflight` passed all 349 tests, including real-loopback LAN coverage.
+
+## Create/View Severe Injuries
+
+- 2026-09-19: Severe-injury reminder notes now resolve against the authoritative saved Campaign Lantern Year when the action is applied. `Skip the next hunt` records the following year (for example, an injury in LY 5 records LY 6); second Blind/Dismembered Leg retirement records the current year. This works through both Showdown Apply and Create/View Add, while Vignette, Local Development, or unavailable settlement data retains the existing undated reminder. Healing recognizes and removes both dated and legacy undated retirement reminders. Files: `src/rendererSevereInjuryTables.js`, `src/renderer.js`, tests, and canonical context docs. Verification: source syntax checks passed and `npm test` passed all 349 tests, including real-loopback LAN coverage.
+- 2026-09-19: Added a built-in permanent severe-injury picker to Create/View Survivor. Add records one occurrence and applies the same deterministic persistent stat/restriction effects used by Showdown's conservative Record path, without bleeding or other temporary/manual consequences. Capped injuries disable Add at their canonical limit; unlimited injuries remain repeatable; the existing Heal action remains the exact inverse for one occurrence. Files: `src/rendererSevereInjuryTables.js`, `src/renderer.js`, `ui/components/index.html`, `ui/components/styles/showdown.css`, tests, and canonical context docs. Verification: source syntax checks passed and `npm test` passed all 347 tests, including real-loopback LAN coverage.
+
 ## v3.6.4 Release Preparation
 
 - 2026-09-19: Prepared v3.6.4 as a focused Modern Showdown layout patch. One-page parties now allocate the survivor-card grid to a full-height row, while parties with a visible page navigator retain separate navigation and card rows. Both cards can simultaneously browse internally scrolling Knowledge, Fighting Arts, Disorders, and AI pages. Real off-screen Chromium measurement confirmed nonzero full-height content panels for both one-page and paginated states; verification: `npm run verify` passed all 344 tests, including real-loopback LAN coverage. Files: `ui/components/styles/showdown.css`, release metadata, and handoff notes.

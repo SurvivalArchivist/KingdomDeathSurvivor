@@ -7,6 +7,17 @@ and the project generally follows [Semantic Versioning](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [3.6.5] - 2026-09-20
+
+### Added
+
+- Added a built-in permanent severe-injury picker to Create/View Survivor, including canonical once/twice limits, repeatable injury counts, and deterministic persistent stat/restriction effects.
+
+### Changed
+
+- Campaign severe-injury reminders now use the authoritative saved settlement Lantern Year: skip-next-hunt effects target the following year, while retirement effects target the current year.
+- Healing dated retirement injuries now removes both current dated reminders and legacy undated reminder text.
+
 ## [3.6.4] - 2026-09-19
 
 ### Fixed
